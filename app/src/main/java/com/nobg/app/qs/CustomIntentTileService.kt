@@ -36,22 +36,38 @@ class CustomIntentTileService : TileService() {
         val prefs = getSharedPreferences("nobg_prefs", MODE_PRIVATE)
         val action = prefs.getString("qs_intent_action", null)
         val dataUri = prefs.getString("qs_intent_data", null)
+        val pkg = prefs.getString("qs_intent_package", null)
+        val cls = prefs.getString("qs_intent_class", null)
+        val type = prefs.getString("qs_intent_type", "activity") // activity, service, broadcast
 
-        if (action.isNullOrBlank() && dataUri.isNullOrBlank()) return
+        if (action.isNullOrBlank() && dataUri.isNullOrBlank() && cls.isNullOrBlank()) return
 
         val intent = Intent().apply {
             if (!action.isNullOrBlank()) this.action = action.trim()
             if (!dataUri.isNullOrBlank()) this.data = android.net.Uri.parse(dataUri.trim())
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            if (!pkg.isNullOrBlank() && !cls.isNullOrBlank()) {
+                setClassName(pkg, cls)
+            } else if (!pkg.isNullOrBlank()) {
+                setPackage(pkg)
+            }
+            if (type == "activity") {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                startActivityAndCollapse(pi)
-            } else {
-                @Suppress("DEPRECATION")
-                startActivityAndCollapse(intent)
+            when (type) {
+                "service" -> startService(intent)
+                "broadcast" -> sendBroadcast(intent)
+                else -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                        startActivityAndCollapse(pi)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        startActivityAndCollapse(intent)
+                    }
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

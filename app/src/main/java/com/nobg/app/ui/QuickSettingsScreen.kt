@@ -440,6 +440,8 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
     }
 }
 
+data class IntentComponentInfo(val label: String, val className: String, val type: String)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
@@ -459,7 +461,38 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
     
     var customAction by remember { mutableStateOf(prefs.getString("qs_intent_action", "") ?: "") }
     var customData by remember { mutableStateOf(prefs.getString("qs_intent_data", "") ?: "") }
+    var customClass by remember { mutableStateOf(prefs.getString("qs_intent_class", "") ?: "") }
+    var intentType by remember { mutableStateOf(prefs.getString("qs_intent_type", "activity") ?: "activity") }
     var labelText by remember { mutableStateOf(prefs.getString("qs_intent_label", "") ?: "") }
+
+    var appComponents by remember { mutableStateOf<List<IntentComponentInfo>>(emptyList()) }
+
+    fun loadComponents(pkg: String) {
+        try {
+            val flags = android.content.pm.PackageManager.GET_ACTIVITIES or 
+                        android.content.pm.PackageManager.GET_SERVICES or 
+                        android.content.pm.PackageManager.GET_RECEIVERS
+            val info = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(pkg, android.content.pm.PackageManager.PackageInfoFlags.of(flags.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(pkg, flags)
+            }
+            val list = mutableListOf<IntentComponentInfo>()
+            info.activities?.filter { it.exported }?.forEach {
+                list.add(IntentComponentInfo(it.loadLabel(context.packageManager).toString(), it.name, "activity"))
+            }
+            info.services?.filter { it.exported }?.forEach {
+                list.add(IntentComponentInfo(it.loadLabel(context.packageManager).toString(), it.name, "service"))
+            }
+            info.receivers?.filter { it.exported }?.forEach {
+                list.add(IntentComponentInfo(it.loadLabel(context.packageManager).toString(), it.name, "broadcast"))
+            }
+            appComponents = list.sortedBy { it.label }
+        } catch (e: Exception) {
+            appComponents = emptyList()
+        }
+    }
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(
@@ -468,7 +501,11 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = if (step == 0) "Chọn ứng dụng để lấy Icon (Tuỳ chọn)" else "Cấu hình Custom Intent",
+                    text = when (step) {
+                        0 -> "Chọn ứng dụng để lấy Icon (Tuỳ chọn)"
+                        1 -> "Chọn Intent (Component)"
+                        else -> "Cấu hình Custom Intent"
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
@@ -478,7 +515,7 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                 when (step) {
                     0 -> {
                         Button(
-                            onClick = { selectedPackage = null; step = 1 },
+                            onClick = { selectedPackage = null; step = 2 },
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) { Text("Bỏ qua / Intent không gắn với app nào") }
                         
@@ -502,6 +539,7 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                                         selectedPackage = app.packageName
                                         if (labelText.isBlank()) labelText = app.label
                                         searchQuery = ""
+                                        loadComponents(app.packageName)
                                         step = 1
                                     }
                                 )
@@ -510,9 +548,56 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                         }
                     }
                     1 -> {
+                        Button(
+                            onClick = { step = 2 },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) { Text("Bỏ qua / Nhập Action thủ công") }
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Tìm component...") },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            singleLine = true
+                        )
+                        val filtered = appComponents.filter {
+                            it.label.contains(searchQuery, ignoreCase = true) ||
+                            it.className.contains(searchQuery, ignoreCase = true)
+                        }
+                        if (filtered.isEmpty()) {
+                            Text("Không tìm thấy component nào (hoặc app không có intent public).", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.weight(1f, fill = false).heightIn(max = 400.dp)) {
+                                items(filtered, key = { it.className }) { comp ->
+                                    val typeLabel = when(comp.type) {
+                                        "activity" -> "Mở màn hình (Activity)"
+                                        "service" -> "Chạy dịch vụ (Service)"
+                                        "broadcast" -> "Gửi tín hiệu (Broadcast)"
+                                        else -> "Unknown"
+                                    }
+                                    androidx.compose.material3.ListItem(
+                                        headlineContent = { Text(comp.label, fontWeight = FontWeight.Medium) },
+                                        supportingContent = { Text("${comp.className}\n[$typeLabel]", style = MaterialTheme.typography.bodySmall) },
+                                        modifier = Modifier.clickable {
+                                            customClass = comp.className
+                                            intentType = comp.type
+                                            customAction = ""
+                                            customData = ""
+                                            step = 2
+                                        }
+                                    )
+                                    HorizontalDivider()
+                                }
+                            }
+                        }
+                    }
+                    2 -> {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (selectedPackage != null) {
                                 Text("App đã chọn: $selectedPackage", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (customClass.isNotBlank()) {
+                                Text("Component: $customClass\nLoại: $intentType", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                             }
                             Text("Chạy Intent bằng mã (dành cho người dùng nâng cao).", style = MaterialTheme.typography.bodySmall)
                             OutlinedTextField(
@@ -536,6 +621,29 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                            
+                            // Type Selector if manual
+                            if (customClass.isBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Loại Intent: ", style = MaterialTheme.typography.bodySmall)
+                                    Spacer(Modifier.width(8.dp))
+                                    androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                                        var expanded by remember { mutableStateOf(false) }
+                                        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                                            Text(when(intentType) {
+                                                "service" -> "Dịch vụ (Service)"
+                                                "broadcast" -> "Tín hiệu (Broadcast)"
+                                                else -> "Màn hình (Activity)"
+                                            })
+                                        }
+                                        androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                            androidx.compose.material3.DropdownMenuItem(text = { Text("Màn hình (Activity)") }, onClick = { intentType = "activity"; expanded = false })
+                                            androidx.compose.material3.DropdownMenuItem(text = { Text("Dịch vụ (Service)") }, onClick = { intentType = "service"; expanded = false })
+                                            androidx.compose.material3.DropdownMenuItem(text = { Text("Tín hiệu (Broadcast)") }, onClick = { intentType = "broadcast"; expanded = false })
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -545,11 +653,13 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
-                    TextButton(onClick = { if (step == 1) step = 0 else onDismiss() }) { Text(if (step == 1) "Quay lại" else "Hủy") }
-                    if (step == 1) {
+                    TextButton(onClick = { if (step > 0) step-- else onDismiss() }) { Text(if (step > 0) "Quay lại" else "Hủy") }
+                    if (step == 2) {
                         Button(onClick = {
                             prefs.edit()
                                 .putString("qs_intent_package", selectedPackage)
+                                .putString("qs_intent_class", customClass)
+                                .putString("qs_intent_type", intentType)
                                 .putString("qs_intent_action", customAction.trim())
                                 .putString("qs_intent_data", customData.trim())
                                 .putString("qs_intent_label", labelText.trim().ifEmpty { "Intent" })
