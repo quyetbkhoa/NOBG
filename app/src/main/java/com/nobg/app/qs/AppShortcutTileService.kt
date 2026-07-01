@@ -29,31 +29,19 @@ class AppShortcutTileService : TileService() {
     override fun onClick() {
         super.onClick()
         val prefs = getSharedPreferences("nobg_prefs", MODE_PRIVATE)
-        val isCustomIntent = prefs.getBoolean("qs_shortcut_is_custom", false)
+        val pkg = prefs.getString("qs_shortcut_package", null) ?: return
+        val activity = prefs.getString("qs_shortcut_activity", null)
 
-        val intent = if (isCustomIntent) {
-            val action = prefs.getString("qs_shortcut_action", null)
-            val dataUri = prefs.getString("qs_shortcut_data", null)
-            if (action.isNullOrBlank() && dataUri.isNullOrBlank()) return
+        val intent = if (activity != null) {
             Intent().apply {
-                if (!action.isNullOrBlank()) this.action = action.trim()
-                if (!dataUri.isNullOrBlank()) this.data = android.net.Uri.parse(dataUri.trim())
+                setClassName(pkg, activity)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         } else {
-            val pkg = prefs.getString("qs_shortcut_package", null) ?: return
-            val activity = prefs.getString("qs_shortcut_activity", null)
-            if (activity != null) {
-                Intent().apply {
-                    setClassName(pkg, activity)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                }
-            } else {
-                packageManager.getLaunchIntentForPackage(pkg)?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                } ?: return
+            packageManager.getLaunchIntentForPackage(pkg)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
-        }
+        } ?: return
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

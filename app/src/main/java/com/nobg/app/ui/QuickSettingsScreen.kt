@@ -49,6 +49,7 @@ fun QuickSettingsScreen(onBack: () -> Unit) {
 
     var showAdbDialog by remember { mutableStateOf<String?>(null) }
     var showShortcutConfig by remember { mutableStateOf(false) }
+    var showIntentConfig by remember { mutableStateOf(false) }
     var shizukuGranting by remember { mutableStateOf(false) }
     var shizukuGrantMsg by remember { mutableStateOf<String?>(null) }
 
@@ -152,15 +153,7 @@ fun QuickSettingsScreen(onBack: () -> Unit) {
                     onShowAdb = { showAdbDialog = buildAdbGrantSecure(context.packageName) }
                 )
             }
-            item {
-                QsTileCard(
-                    title = "🛠️ Tuỳ chọn nhà phát triển",
-                    description = "Nút bật/tắt Developer Options trong QS.",
-                    requiresSecure = true, hasSecure = hasWriteSecure, shizukuReady = shizukuReady,
-                    onAdd = { addTileToQs(context, DevOptionsTileService::class.java) },
-                    onShowAdb = { showAdbDialog = buildAdbGrantSecure(context.packageName) }
-                )
-            }
+                // Developer Options tile removed as requested
             item {
                 QsTileCard(
                     title = "⏱️ Thời gian sáng màn hình",
@@ -205,6 +198,42 @@ fun QuickSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            item {
+                // Custom Intent tile card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("⚡ Custom Intent", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        val prefs = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
+                        val configuredAction = prefs.getString("qs_intent_action", "")
+                        val configuredData = prefs.getString("qs_intent_data", "")
+                        val configuredLabel = prefs.getString("qs_intent_label", null)
+                        if (!configuredAction.isNullOrEmpty() || !configuredData.isNullOrEmpty()) {
+                            Text(
+                                "Đã cấu hình: ${configuredLabel ?: "Intent"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Text("Chưa cấu hình. Nhập Action/URI để mở nhanh qua QS.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { showIntentConfig = true },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Cấu hình") }
+                            Button(
+                                onClick = { addTileToQs(context, CustomIntentTileService::class.java) },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Thêm vào QS") }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -239,6 +268,10 @@ fun QuickSettingsScreen(onBack: () -> Unit) {
     if (showShortcutConfig) {
         AppPickerSheet(context = context, onDismiss = { showShortcutConfig = false })
     }
+    // Custom Intent config
+    if (showIntentConfig) {
+        IntentPickerSheet(context = context, onDismiss = { showIntentConfig = false })
+    }
 }
 
 // ========== App Picker ==========
@@ -257,11 +290,7 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
             .distinctBy { it.packageName }
     }
 
-    var step by remember { mutableStateOf(0) } // 0=pick mode/app, 1=pick activity, 2=set label, 3=custom intent
-    var isCustomMode by remember { mutableStateOf(false) }
-    var customAction by remember { mutableStateOf(prefs.getString("qs_shortcut_action", "") ?: "") }
-    var customData by remember { mutableStateOf(prefs.getString("qs_shortcut_data", "") ?: "") }
-    
+    var step by remember { mutableStateOf(0) } // 0=pick app, 1=pick activity, 2=set label
     var selectedApp by remember { mutableStateOf<AppInfo?>(null) }
     var selectedActivity by remember { mutableStateOf<ActivityInfo?>(null) }
     var labelText by remember { mutableStateOf(prefs.getString("qs_shortcut_label", "") ?: "") }
@@ -296,10 +325,9 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
                 // Header
                 Text(
                     text = when (step) {
-                        0 -> "Chọn chức năng phím tắt"
+                        0 -> "Chọn ứng dụng"
                         1 -> "Chọn màn hình / Activity"
-                        2 -> "Tên hiển thị trên QS"
-                        else -> "Cấu hình Custom Intent"
+                        else -> "Tên hiển thị trên QS"
                     },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
@@ -308,13 +336,8 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
                 HorizontalDivider()
 
                 when (step) {
-                    // Step 0: Pick App or Custom Intent
+                    // Step 0: Pick App
                     0 -> {
-                        Button(
-                            onClick = { step = 3; isCustomMode = true; labelText = prefs.getString("qs_shortcut_label", "") ?: "Custom Intent" },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) { Text("Chạy Custom Intent (Advanced)") }
-                        Text("Hoặc chọn ứng dụng:", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium)
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
@@ -335,7 +358,6 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
                                         selectedApp = app
                                         labelText = app.label
                                         searchQuery = ""
-                                        isCustomMode = false
                                         loadActivities(app.packageName)
                                         step = 1
                                     }
@@ -388,33 +410,6 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
                             )
                         }
                     }
-                    // Step 3: Custom intent config
-                    3 -> {
-                        Column(modifier = Modifier.padding(16.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Cấu hình chạy Intent bằng mã (dành cho người dùng nâng cao).", style = MaterialTheme.typography.bodySmall)
-                            OutlinedTextField(
-                                value = customAction,
-                                onValueChange = { customAction = it },
-                                label = { Text("Action (vd: android.settings.SETTINGS)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = customData,
-                                onValueChange = { customData = it },
-                                label = { Text("Data URI (vd: https://google.com)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = labelText,
-                                onValueChange = { labelText = it },
-                                label = { Text("Tên hiển thị trên tile QS") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
                 }
 
                 HorizontalDivider()
@@ -424,30 +419,18 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
                     TextButton(onClick = {
-                        if (step == 3) step = 0
-                        else if (step > 0) step-- 
-                        else onDismiss()
+                        if (step > 0) step-- else onDismiss()
                     }) { Text(if (step > 0) "Quay lại" else "Hủy") }
 
-                    if (step == 2 || step == 3) {
+                    if (step == 2) {
                         Button(onClick = {
-                            if (step == 3) {
-                                prefs.edit()
-                                    .putBoolean("qs_shortcut_is_custom", true)
-                                    .putString("qs_shortcut_action", customAction.trim())
-                                    .putString("qs_shortcut_data", customData.trim())
-                                    .putString("qs_shortcut_label", labelText.trim().ifEmpty { "Custom Intent" })
-                                    .apply()
-                            } else {
-                                val pkg = selectedApp?.packageName ?: return@Button
-                                val actClass = selectedActivity?.className?.takeIf { it.isNotEmpty() }
-                                prefs.edit()
-                                    .putBoolean("qs_shortcut_is_custom", false)
-                                    .putString("qs_shortcut_package", pkg)
-                                    .putString("qs_shortcut_activity", actClass)
-                                    .putString("qs_shortcut_label", labelText.trim().ifEmpty { selectedApp?.label ?: "Shortcut" })
-                                    .apply()
-                            }
+                            val pkg = selectedApp?.packageName ?: return@Button
+                            val actClass = selectedActivity?.className?.takeIf { it.isNotEmpty() }
+                            prefs.edit()
+                                .putString("qs_shortcut_package", pkg)
+                                .putString("qs_shortcut_activity", actClass)
+                                .putString("qs_shortcut_label", labelText.trim().ifEmpty { selectedApp?.label ?: "Shortcut" })
+                                .apply()
                             onDismiss()
                         }) { Text("Lưu") }
                     }
@@ -456,6 +439,74 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
+    val prefs = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
+    var customAction by remember { mutableStateOf(prefs.getString("qs_intent_action", "") ?: "") }
+    var customData by remember { mutableStateOf(prefs.getString("qs_intent_data", "") ?: "") }
+    var labelText by remember { mutableStateOf(prefs.getString("qs_intent_label", "") ?: "") }
+
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Cấu hình Custom Intent",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+                HorizontalDivider()
+
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Chạy Intent bằng mã (dành cho người dùng nâng cao).", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = customAction,
+                        onValueChange = { customAction = it },
+                        label = { Text("Action (vd: android.settings.SETTINGS)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customData,
+                        onValueChange = { customData = it },
+                        label = { Text("Data URI (vd: https://google.com)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = labelText,
+                        onValueChange = { labelText = it },
+                        label = { Text("Tên hiển thị trên tile QS") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Hủy") }
+                    Button(onClick = {
+                        prefs.edit()
+                            .putString("qs_intent_action", customAction.trim())
+                            .putString("qs_intent_data", customData.trim())
+                            .putString("qs_intent_label", labelText.trim().ifEmpty { "Intent" })
+                            .apply()
+                        onDismiss()
+                    }) { Text("Lưu") }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun QsTileCard(
