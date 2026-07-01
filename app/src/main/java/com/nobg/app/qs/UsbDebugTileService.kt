@@ -36,7 +36,9 @@ class UsbDebugTileService : TileService() {
         super.onClick()
         try {
             val current = Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0)
-            Settings.Global.putInt(contentResolver, Settings.Global.ADB_ENABLED, if (current == 1) 0 else 1)
+            val newState = if (current == 1) 0 else 1
+            Settings.Global.putInt(contentResolver, Settings.Global.ADB_ENABLED, newState)
+            updateTileState(newState == 1)
         } catch (e: SecurityException) {
             // No WRITE_SECURE_SETTINGS - ignore
         }
@@ -46,7 +48,10 @@ class UsbDebugTileService : TileService() {
         val enabled = try {
             Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
         } catch (e: Exception) { false }
+        updateTileState(enabled)
+    }
 
+    private fun updateTileState(enabled: Boolean) {
         qsTile?.apply {
             state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             label = "USB Debug"

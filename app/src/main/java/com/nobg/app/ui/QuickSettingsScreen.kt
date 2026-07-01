@@ -444,6 +444,19 @@ private fun AppPickerSheet(context: Context, onDismiss: () -> Unit) {
 @Composable
 private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
     val prefs = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
+    var step by remember { mutableStateOf(0) } // 0=pick app (optional), 1=config intent
+    
+    val allApps = remember {
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+        val apps = context.packageManager.queryIntentActivities(intent, 0)
+        apps.sortedBy { it.loadLabel(context.packageManager).toString() }
+            .map { AppInfo(it.loadLabel(context.packageManager).toString(), it.activityInfo.packageName) }
+            .distinctBy { it.packageName }
+    }
+    
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedPackage by remember { mutableStateOf<String?>(prefs.getString("qs_intent_package", null)) }
+    
     var customAction by remember { mutableStateOf(prefs.getString("qs_intent_action", "") ?: "") }
     var customData by remember { mutableStateOf(prefs.getString("qs_intent_data", "") ?: "") }
     var labelText by remember { mutableStateOf(prefs.getString("qs_intent_label", "") ?: "") }
@@ -455,36 +468,76 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Cấu hình Custom Intent",
+                    text = if (step == 0) "Chọn ứng dụng để lấy Icon (Tuỳ chọn)" else "Cấu hình Custom Intent",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
                 HorizontalDivider()
 
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Chạy Intent bằng mã (dành cho người dùng nâng cao).", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(
-                        value = customAction,
-                        onValueChange = { customAction = it },
-                        label = { Text("Action (vd: android.settings.SETTINGS)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = customData,
-                        onValueChange = { customData = it },
-                        label = { Text("Data URI (vd: https://google.com)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = labelText,
-                        onValueChange = { labelText = it },
-                        label = { Text("Tên hiển thị trên tile QS") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                when (step) {
+                    0 -> {
+                        Button(
+                            onClick = { selectedPackage = null; step = 1 },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) { Text("Bỏ qua / Intent không gắn với app nào") }
+                        
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Tìm app...") },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            singleLine = true
+                        )
+                        val filtered = allApps.filter {
+                            it.label.contains(searchQuery, ignoreCase = true) ||
+                            it.packageName.contains(searchQuery, ignoreCase = true)
+                        }
+                        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.weight(1f, fill = false).heightIn(max = 400.dp)) {
+                            items(filtered, key = { it.packageName }) { app ->
+                                androidx.compose.material3.ListItem(
+                                    headlineContent = { Text(app.label, fontWeight = FontWeight.Medium) },
+                                    supportingContent = { Text(app.packageName, style = MaterialTheme.typography.bodySmall) },
+                                    modifier = Modifier.clickable {
+                                        selectedPackage = app.packageName
+                                        if (labelText.isBlank()) labelText = app.label
+                                        searchQuery = ""
+                                        step = 1
+                                    }
+                                )
+                                HorizontalDivider()
+                            }
+                        }
+                    }
+                    1 -> {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (selectedPackage != null) {
+                                Text("App đã chọn: $selectedPackage", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text("Chạy Intent bằng mã (dành cho người dùng nâng cao).", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = customAction,
+                                onValueChange = { customAction = it },
+                                label = { Text("Action (vd: android.settings.SETTINGS)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = customData,
+                                onValueChange = { customData = it },
+                                label = { Text("Data URI (vd: https://google.com)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = labelText,
+                                onValueChange = { labelText = it },
+                                label = { Text("Tên hiển thị trên tile QS") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                 }
 
                 HorizontalDivider()
@@ -492,15 +545,18 @@ private fun IntentPickerSheet(context: Context, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Hủy") }
-                    Button(onClick = {
-                        prefs.edit()
-                            .putString("qs_intent_action", customAction.trim())
-                            .putString("qs_intent_data", customData.trim())
-                            .putString("qs_intent_label", labelText.trim().ifEmpty { "Intent" })
-                            .apply()
-                        onDismiss()
-                    }) { Text("Lưu") }
+                    TextButton(onClick = { if (step == 1) step = 0 else onDismiss() }) { Text(if (step == 1) "Quay lại" else "Hủy") }
+                    if (step == 1) {
+                        Button(onClick = {
+                            prefs.edit()
+                                .putString("qs_intent_package", selectedPackage)
+                                .putString("qs_intent_action", customAction.trim())
+                                .putString("qs_intent_data", customData.trim())
+                                .putString("qs_intent_label", labelText.trim().ifEmpty { "Intent" })
+                                .apply()
+                            onDismiss()
+                        }) { Text("Lưu") }
+                    }
                 }
             }
         }

@@ -1,7 +1,11 @@
 package com.nobg.app.qs
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
@@ -12,12 +16,16 @@ class CustomIntentTileService : TileService() {
         val prefs = getSharedPreferences("nobg_prefs", MODE_PRIVATE)
         val action = prefs.getString("qs_intent_action", null)
         val dataUri = prefs.getString("qs_intent_data", null)
+        val pkg = prefs.getString("qs_intent_package", null)
         
         qsTile?.apply {
             state = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank()) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
             label = prefs.getString("qs_intent_label", "Intent") ?: "Intent"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 subtitle = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank()) "Nhấn để chạy" else "Chưa cấu hình"
+            }
+            if (pkg != null) {
+                getAppIconAsQsIcon(this@CustomIntentTileService, pkg)?.let { icon = it }
             }
             updateTile()
         }
@@ -47,6 +55,21 @@ class CustomIntentTileService : TileService() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun getAppIconAsQsIcon(context: Context, packageName: String): Icon? {
+        return try {
+            val pm = context.packageManager
+            val drawable = pm.getApplicationIcon(packageName)
+            val size = 144
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            Icon.createWithBitmap(bitmap)
+        } catch (e: Exception) {
+            null
         }
     }
 }

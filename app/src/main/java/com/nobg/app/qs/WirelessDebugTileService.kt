@@ -36,7 +36,9 @@ class WirelessDebugTileService : TileService() {
         super.onClick()
         try {
             val current = Settings.Global.getInt(contentResolver, "adb_wifi_enabled", 0)
-            Settings.Global.putInt(contentResolver, "adb_wifi_enabled", if (current == 1) 0 else 1)
+            val newState = if (current == 1) 0 else 1
+            Settings.Global.putInt(contentResolver, "adb_wifi_enabled", newState)
+            updateTileState(newState == 1)
         } catch (e: SecurityException) { /* No WRITE_SECURE_SETTINGS */ }
     }
 
@@ -44,7 +46,10 @@ class WirelessDebugTileService : TileService() {
         val enabled = try {
             Settings.Global.getInt(contentResolver, "adb_wifi_enabled", 0) == 1
         } catch (e: Exception) { false }
+        updateTileState(enabled)
+    }
 
+    private fun updateTileState(enabled: Boolean) {
         qsTile?.apply {
             state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             label = "ADB K.Dây"

@@ -1,15 +1,15 @@
 package com.nobg.app.qs
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/**
- * A QS tile that launches a configurable app activity (shortcut).
- * Target is stored in SharedPreferences: nobg_prefs / qs_shortcut_package & qs_shortcut_activity
- */
 class AppShortcutTileService : TileService() {
 
     override fun onStartListening() {
@@ -21,6 +21,9 @@ class AppShortcutTileService : TileService() {
             label = if (pkg != null) prefs.getString("qs_shortcut_label", "Shortcut") ?: "Shortcut" else "Shortcut (chưa cấu hình)"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 subtitle = if (pkg != null) "Nhấn để mở" else "Vào NOBG để cấu hình"
+            }
+            if (pkg != null) {
+                getAppIconAsQsIcon(this@AppShortcutTileService, pkg)?.let { icon = it }
             }
             updateTile()
         }
@@ -53,6 +56,21 @@ class AppShortcutTileService : TileService() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun getAppIconAsQsIcon(context: Context, packageName: String): Icon? {
+        return try {
+            val pm = context.packageManager
+            val drawable = pm.getApplicationIcon(packageName)
+            val size = 144
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            Icon.createWithBitmap(bitmap)
+        } catch (e: Exception) {
+            null
         }
     }
 }
