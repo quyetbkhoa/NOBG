@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.nobg.app.shizuku.ShizukuManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,6 +22,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     BackHandler(onBack = onBack)
 
@@ -35,7 +38,13 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             
             // Chế độ hoạt động
             Card(
@@ -100,6 +109,23 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
+            // Thông tin ứng dụng
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Thông tin ứng dụng", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Phiên bản: V1.0.3", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Tác giả: quyetbkhoa", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Mã nguồn mở (Github):", style = MaterialTheme.typography.bodySmall)
+                    Text("https://github.com/quyetbkhoa/NOBG", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
             // Khôi phục tất cả
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,6 +159,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.resetAll()
+                    android.widget.Toast.makeText(context, "Đã khôi phục tất cả!", android.widget.Toast.LENGTH_SHORT).show()
                     showConfirm = false
                 }) { Text("Đồng ý") }
             },

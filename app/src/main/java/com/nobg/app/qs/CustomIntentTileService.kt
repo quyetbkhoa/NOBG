@@ -17,12 +17,13 @@ class CustomIntentTileService : TileService() {
         val action = prefs.getString("qs_intent_action", null)
         val dataUri = prefs.getString("qs_intent_data", null)
         val pkg = prefs.getString("qs_intent_package", null)
+        val cls = prefs.getString("qs_intent_class", null)
         
         qsTile?.apply {
-            state = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank()) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
+            state = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank() || !cls.isNullOrBlank()) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
             label = prefs.getString("qs_intent_label", "Intent") ?: "Intent"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                subtitle = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank()) "Nhấn để chạy" else "Chưa cấu hình"
+                subtitle = if (!action.isNullOrBlank() || !dataUri.isNullOrBlank() || !cls.isNullOrBlank()) "Nhấn để chạy" else "Chưa cấu hình"
             }
             if (pkg != null) {
                 getAppIconAsQsIcon(this@CustomIntentTileService, pkg)?.let { icon = it }

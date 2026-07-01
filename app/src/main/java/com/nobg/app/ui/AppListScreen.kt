@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -139,6 +140,11 @@ private fun AppRow(app: AppUiModel, viewModel: MainViewModel) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable {
+                    if (config?.mode == NobgMode.DISABLE_ENABLE && enabled) {
+                        viewModel.launchDisabledApp(app.packageName)
+                    }
+                }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -157,12 +163,6 @@ private fun AppRow(app: AppUiModel, viewModel: MainViewModel) {
                         "Đã chặn ${config.blockedCount} lần",
                         style = MaterialTheme.typography.labelSmall
                     )
-                }
-            }
-
-            if (config?.mode == NobgMode.DISABLE_ENABLE) {
-                IconButton(onClick = { viewModel.launchDisabledApp(app.packageName) }) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "Mở app")
                 }
             }
 
