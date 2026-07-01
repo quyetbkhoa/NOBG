@@ -3,8 +3,11 @@ package com.nobg.app.service
 import android.app.*
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -27,6 +30,39 @@ class MonitorService : Service() {
 
     private var reconcileTickCounter = 0
 
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_BATTERY_CHANGED,
+                Intent.ACTION_POWER_CONNECTED,
+                Intent.ACTION_POWER_DISCONNECTED,
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_SCREEN_OFF -> {
+                    logBatteryState(context)
+                }
+            }
+        }
+    }
+
+    private fun logBatteryState(context: Context) {
+        scope.launch {
+            val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val batteryPct = if (level != -1 && scale != -1) (level * 100 / scale) else -1
+            
+            val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            
+            val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+            val isScreenOn = displayManager.displays.any { it.state == android.view.Display.STATE_ON }
+
+            if (batteryPct >= 0) {
+                repo.insertBatteryLog(batteryPct, isCharging, isScreenOn)
+            }
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
@@ -38,6 +74,16 @@ class MonitorService : Service() {
         super.onCreate()
         repo = NobgRepository(applicationContext)
         usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_BATTERY_CHANGED)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(batteryReceiver, filter)
+
         startForeground(NOTIF_ID, buildNotification())
         loop()
     }
@@ -47,6 +93,7 @@ class MonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        unregisterReceiver(batteryReceiver)
         scope.cancel()
         super.onDestroy()
     }
