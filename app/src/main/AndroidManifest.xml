@@ -14,7 +14,8 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@android:drawable/sym_def_app_icon"
+        android:icon="@drawable/ic_launcher_nobg"
+        android:roundIcon="@drawable/ic_launcher_nobg"
         android:label="NOBG"
         android:theme="@style/Theme.NOBG"
         android:supportsRtl="true">

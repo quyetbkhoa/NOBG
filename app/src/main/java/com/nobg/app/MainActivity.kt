@@ -17,6 +17,8 @@ import com.nobg.app.ui.AppListScreen
 import com.nobg.app.ui.ConnectScreen
 import com.nobg.app.ui.MainViewModel
 import com.nobg.app.ui.SettingsScreen
+import com.nobg.app.ui.StatsScreen
+import com.nobg.app.ui.StatsViewModel
 import com.nobg.app.ui.theme.NobgTheme
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -24,6 +26,7 @@ import rikka.shizuku.Shizuku
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private val statsViewModel: StatsViewModel by viewModels()
 
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         if (grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -44,7 +47,7 @@ class MainActivity : ComponentActivity() {
             NobgTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var connected by remember { mutableStateOf(false) }
-                    var showSettings by remember { mutableStateOf(false) }
+                    var currentScreen by remember { mutableStateOf("LIST") }
 
                     if (!connected) {
                         ConnectScreen(
@@ -57,10 +60,16 @@ class MainActivity : ComponentActivity() {
                             },
                             requestPermission = { ShizukuManager.requestPermission(1001) }
                         )
-                    } else if (showSettings) {
-                        SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
+                    } else if (currentScreen == "SETTINGS") {
+                        SettingsScreen(viewModel = viewModel, onBack = { currentScreen = "LIST" })
+                    } else if (currentScreen == "STATS") {
+                        StatsScreen(viewModel = statsViewModel, onBack = { currentScreen = "LIST" })
                     } else {
-                        AppListScreen(viewModel = viewModel, onOpenSettings = { showSettings = true })
+                        AppListScreen(
+                            viewModel = viewModel,
+                            onOpenSettings = { currentScreen = "SETTINGS" },
+                            onOpenStats = { currentScreen = "STATS" }
+                        )
                     }
                 }
             }

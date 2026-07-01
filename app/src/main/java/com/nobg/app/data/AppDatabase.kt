@@ -19,11 +19,12 @@ class Converters {
     }
 }
 
-@Database(entities = [AppEntity::class, BackupEntity::class], version = 1, exportSchema = false)
+@Database(entities = [AppEntity::class, BackupEntity::class, BatteryLogEntity::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
     abstract fun backupDao(): BackupDao
+    abstract fun batteryLogDao(): BatteryLogDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -34,7 +35,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "nobg.db"
-                ).build().also { INSTANCE = it }
+                )
+                .fallbackToDestructiveMigration()
+                .build().also { INSTANCE = it }
             }
     }
 }

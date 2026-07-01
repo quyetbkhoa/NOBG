@@ -38,3 +38,18 @@ interface BackupDao {
     @Query("DELETE FROM app_backup_state WHERE packageName = :pkg")
     suspend fun delete(pkg: String)
 }
+
+@Dao
+interface BatteryLogDao {
+    @Insert
+    suspend fun insert(log: BatteryLogEntity)
+
+    @Query("SELECT * FROM battery_log WHERE timestamp >= :since ORDER BY timestamp ASC")
+    suspend fun getLogsSince(since: Long): List<BatteryLogEntity>
+
+    @Query("SELECT * FROM battery_log ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastLog(): BatteryLogEntity?
+
+    @Query("DELETE FROM battery_log")
+    suspend fun deleteAll()
+}

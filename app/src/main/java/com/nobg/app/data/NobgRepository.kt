@@ -11,6 +11,7 @@ class NobgRepository(context: Context) {
     private val db = AppDatabase.get(context)
     private val appDao = db.appDao()
     private val backupDao = db.backupDao()
+    private val batteryLogDao = db.batteryLogDao()
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
 
@@ -118,4 +119,23 @@ class NobgRepository(context: Context) {
             resetApp(b.packageName)
         }
     }
+
+    suspend fun insertBatteryLog(level: Int, isCharging: Boolean, isScreenOn: Boolean) {
+        val last = batteryLogDao.getLastLog()
+        // Only insert if state changed to prevent db spam
+        if (last == null || last.batteryLevel != level || last.isCharging != isCharging || last.isScreenOn != isScreenOn) {
+            batteryLogDao.insert(
+                BatteryLogEntity(
+                    timestamp = System.currentTimeMillis(),
+                    batteryLevel = level,
+                    isCharging = isCharging,
+                    isScreenOn = isScreenOn
+                )
+            )
+        }
+    }
+
+    suspend fun getBatteryLogsSince(time: Long) = batteryLogDao.getLogsSince(time)
+    
+    suspend fun clearBatteryLogs() = batteryLogDao.deleteAll()
 }
