@@ -88,7 +88,7 @@ class ScreenTimeoutTileService : TileService() {
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 40f
+            textSize = 65f
             textAlign = Paint.Align.CENTER
             isFakeBoldText = true
         }
