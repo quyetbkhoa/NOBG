@@ -10,8 +10,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,8 +30,7 @@ import com.nobg.app.data.NobgMode
 fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
-    onOpenStats: () -> Unit,
-    onOpenGlobalStats: () -> Unit
+    onOpenBatteryStats: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
@@ -44,11 +42,8 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("NOBG - Quản lý app") },
                 actions = {
-                    IconButton(onClick = onOpenGlobalStats) {
-                        Icon(Icons.Filled.Info, contentDescription = "Tổng quan Pin")
-                    }
-                    IconButton(onClick = onOpenStats) {
-                        Icon(Icons.Filled.DateRange, contentDescription = "Thống kê app")
+                    IconButton(onClick = onOpenBatteryStats) {
+                        Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Cài đặt")

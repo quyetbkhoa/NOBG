@@ -47,9 +47,16 @@ interface BatteryLogDao {
     @Query("SELECT * FROM battery_log WHERE timestamp >= :since ORDER BY timestamp ASC")
     suspend fun getLogsSince(since: Long): List<BatteryLogEntity>
 
+    @Query("SELECT * FROM battery_log WHERE isCharging = 1 AND timestamp >= :since ORDER BY timestamp ASC")
+    suspend fun getChargingLogsSince(since: Long): List<BatteryLogEntity>
+
     @Query("SELECT * FROM battery_log ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastLog(): BatteryLogEntity?
+
+    @Query("SELECT * FROM battery_log WHERE isCharging = 1 ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastChargingLog(): BatteryLogEntity?
 
     @Query("DELETE FROM battery_log")
     suspend fun deleteAll()
 }
+

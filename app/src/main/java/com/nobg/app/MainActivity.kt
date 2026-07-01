@@ -14,12 +14,10 @@ import androidx.lifecycle.lifecycleScope
 import com.nobg.app.service.MonitorService
 import com.nobg.app.shizuku.ShizukuManager
 import com.nobg.app.ui.AppListScreen
-import com.nobg.app.ui.SettingsScreen
+import com.nobg.app.ui.BatteryStatsScreen
+import com.nobg.app.ui.BatteryStatsViewModel
 import com.nobg.app.ui.MainViewModel
-import com.nobg.app.ui.StatsScreen
-import com.nobg.app.ui.StatsViewModel
-import com.nobg.app.ui.GlobalStatsScreen
-import com.nobg.app.ui.GlobalStatsViewModel
+import com.nobg.app.ui.SettingsScreen
 import com.nobg.app.ui.theme.NobgTheme
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -27,8 +25,7 @@ import rikka.shizuku.Shizuku
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
-    private val statsViewModel: StatsViewModel by viewModels()
-    private val globalStatsViewModel: GlobalStatsViewModel by viewModels()
+    private val batteryStatsViewModel: BatteryStatsViewModel by viewModels()
 
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         if (grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -45,9 +42,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Shizuku.addRequestPermissionResultListener(permissionListener)
 
-        // Always try to start service on launch
+        // Always start service on launch
         lifecycleScope.launch {
             if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission()) {
+                ShizukuManager.bindUserService()
                 ShizukuManager.grantUsageStatsAccessToSelf(this@MainActivity)
             }
             startMonitorService()
@@ -58,18 +56,19 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var currentScreen by remember { mutableStateOf("LIST") }
 
-                    if (currentScreen == "SETTINGS") {
-                        SettingsScreen(viewModel = viewModel, onBack = { currentScreen = "LIST" })
-                    } else if (currentScreen == "STATS") {
-                        StatsScreen(viewModel = statsViewModel, onBack = { currentScreen = "LIST" })
-                    } else if (currentScreen == "GLOBAL_STATS") {
-                        GlobalStatsScreen(viewModel = globalStatsViewModel, onBack = { currentScreen = "LIST" })
-                    } else {
-                        AppListScreen(
+                    when (currentScreen) {
+                        "SETTINGS" -> SettingsScreen(
+                            viewModel = viewModel,
+                            onBack = { currentScreen = "LIST" }
+                        )
+                        "BATTERY_STATS" -> BatteryStatsScreen(
+                            viewModel = batteryStatsViewModel,
+                            onBack = { currentScreen = "LIST" }
+                        )
+                        else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
-                            onOpenStats = { currentScreen = "STATS" },
-                            onOpenGlobalStats = { currentScreen = "GLOBAL_STATS" }
+                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" }
                         )
                     }
                 }
@@ -85,7 +84,6 @@ class MainActivity : ComponentActivity() {
             startService(intent)
         }
     }
-
 
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(permissionListener)

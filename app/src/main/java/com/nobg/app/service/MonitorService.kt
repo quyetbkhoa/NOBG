@@ -24,11 +24,16 @@ class MonitorService : Service() {
 
     private var lastForegroundPkg: String? = null
     private var lastEventTime: Long = System.currentTimeMillis() - 2000
-
-    // package -> pending kill job (Aggressive delay)
     private val pendingKills = mutableMapOf<String, Job>()
-
     private var reconcileTickCounter = 0
+
+    // Charging prediction state
+    private var chargingStartLevel: Int = -1
+    private var chargingStartTime: Long = -1L
+    private var wasCharging: Boolean = false
+    private var timeToFullNotifSent: Boolean = false
+    private val NOTIF_CHARGE_ID = 1002
+    private val CHANNEL_CHARGE_ID = "nobg_charge"
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -50,17 +55,77 @@ class MonitorService : Service() {
             val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
             val batteryPct = if (level != -1 && scale != -1) (level * 100 / scale) else -1
-            
+
             val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
             val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-            
+
             val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
             val isScreenOn = displayManager.displays.any { it.state == android.view.Display.STATE_ON }
 
             if (batteryPct >= 0) {
                 repo.insertBatteryLog(batteryPct, isCharging, isScreenOn)
+                checkChargingPrediction(context, batteryPct, isCharging)
             }
         }
+    }
+
+    private suspend fun checkChargingPrediction(context: Context, currentLevel: Int, isCharging: Boolean) {
+        if (isCharging && !wasCharging) {
+            // Just plugged in
+            chargingStartLevel = currentLevel
+            chargingStartTime = System.currentTimeMillis()
+            timeToFullNotifSent = false
+        }
+        wasCharging = isCharging
+
+        if (!isCharging) {
+            chargingStartLevel = -1
+            chargingStartTime = -1L
+            return
+        }
+
+        // Need at least 5% gain and 5 min to make a prediction
+        val elapsedMs = System.currentTimeMillis() - chargingStartTime
+        val pctGained = currentLevel - chargingStartLevel
+        if (chargingStartLevel < 0 || elapsedMs < 300_000 || pctGained < 5 || timeToFullNotifSent) return
+
+        val chargeRatePctPerMs = pctGained.toDouble() / elapsedMs
+        val pctNeeded = 100 - currentLevel
+        if (pctNeeded <= 0) return
+
+        val msToFull = (pctNeeded / chargeRatePctPerMs).toLong()
+        val minutesToFull = (msToFull / 60_000).toInt()
+        if (minutesToFull < 5) return  // too short, skip
+
+        sendTimeToFullNotification(context, currentLevel, minutesToFull)
+        timeToFullNotifSent = true
+    }
+
+    private fun sendTimeToFullNotification(context: Context, currentLevel: Int, minutesToFull: Int) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_CHARGE_ID,
+                "Dự đoán sạc pin",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = "Thông báo thời gian sạc đầy pin" }
+            nm.createNotificationChannel(channel)
+        }
+
+        val h = minutesToFull / 60
+        val m = minutesToFull % 60
+        val timeStr = if (h > 0) "$h giờ $m phút" else "$m phút"
+
+        val notif = NotificationCompat.Builder(context, CHANNEL_CHARGE_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setContentTitle("⚡ NOBG — Dự đoán sạc pin")
+            .setContentText("Pin ${currentLevel}% → Dự kiến đầy sau ~$timeStr")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        nm.notify(NOTIF_CHARGE_ID, notif)
     }
 
     companion object {
