@@ -76,9 +76,14 @@ object ShizukuManager {
 
     /** Binds the shell-privileged remote service. Call after permission granted. */
     fun bindUserService() {
-        if (userService != null || binding) return
+        if (userService != null || binding || !Shizuku.pingBinder()) return
         binding = true
-        Shizuku.bindUserService(serviceArgs, connection)
+        try {
+            Shizuku.bindUserService(serviceArgs, connection)
+        } catch (e: Throwable) {
+            binding = false
+            e.printStackTrace()
+        }
     }
 
     fun unbindUserService() {
