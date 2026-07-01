@@ -13,6 +13,7 @@ call gradlew.bat installDebug
 :: Kiem tra xem build co thanh cong khong
 if %ERRORLEVEL% equ 0 (
     echo.
+    
     echo ===================================================
     echo   BUILD THANH CONG! DANG MO APP TREN DIEN THOAI...
     echo ===================================================

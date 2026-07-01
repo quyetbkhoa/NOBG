@@ -48,6 +48,15 @@ class MainActivity : ComponentActivity() {
             if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission()) {
                 ShizukuManager.bindUserService()
                 ShizukuManager.grantUsageStatsAccessToSelf(this@MainActivity)
+                
+                // Wait for the remote service to bind so we can update the UI correctly
+                for (i in 1..10) {
+                    kotlinx.coroutines.delay(100)
+                    if (ShizukuManager.isServiceBound()) {
+                        viewModel.refreshShizukuStatus()
+                        break
+                    }
+                }
             }
             startMonitorService()
         }
