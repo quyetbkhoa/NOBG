@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,6 +21,8 @@ fun GlobalStatsScreen(
 ) {
     val stats by viewModel.stats.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
+
+    BackHandler(onBack = onBack)
 
     LaunchedEffect(Unit) {
         viewModel.loadStats()

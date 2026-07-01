@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import com.nobg.app.shizuku.ShizukuManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -19,6 +20,8 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
+
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {

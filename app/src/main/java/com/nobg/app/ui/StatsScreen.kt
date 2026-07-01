@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.activity.compose.BackHandler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +33,8 @@ fun StatsScreen(
 ) {
     val items by viewModel.usageStats.collectAsState()
     val currentInterval by viewModel.currentInterval.collectAsState()
+
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
