@@ -22,7 +22,8 @@
         android:roundIcon="@drawable/ic_launcher_nobg"
         android:label="NOBG"
         android:theme="@style/Theme.NOBG"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".MainActivity"
