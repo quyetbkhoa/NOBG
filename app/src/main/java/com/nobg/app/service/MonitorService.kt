@@ -30,7 +30,7 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 1500L
+        const val POLL_INTERVAL_MS = 10000L
         const val RECONCILE_EVERY_TICKS = (120_000L / POLL_INTERVAL_MS).toInt() // ~2 minutes
     }
 

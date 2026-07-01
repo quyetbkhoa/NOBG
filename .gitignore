@@ -1,5 +1,44 @@
-# Project exclude paths
-/.gradle/
-/app/build/
-/app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/
-/build/
+# Gradle files
+.gradle/
+build/
+*/build/
+
+# IntelliJ IDEA / Android Studio
+*.iml
+.idea/
+!.idea/codeStyles/
+!.idea/runConfigurations/
+!.idea/dictionary/
+
+# Visual Studio Code
+.vscode/
+
+# Local configuration files
+local.properties
+
+# MacOS
+.DS_Store
+
+# Signing files
+*.jks
+*.keystore
+keystore.properties
+
+# Build outputs
+*.apk
+*.aab
+*.apks
+*.apm
+
+# Native build
+.cxx/
+.externalNativeBuild/
+
+# KSP/Room generated (covered by build/ but good to be explicit if they leak)
+/app/build/generated/ksp/
+
+# Logs
+*.log
+
+# Captures
+/captures/

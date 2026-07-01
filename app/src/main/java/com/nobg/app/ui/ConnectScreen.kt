@@ -10,6 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.launch
@@ -88,6 +92,40 @@ fun ConnectScreen(
 
         Spacer(Modifier.height(16.dp))
         OutlinedButton(onClick = { refresh() }) { Text("Kiểm tra lại") }
+
+        Spacer(Modifier.height(24.dp))
+        
+        val context = LocalContext.current
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Quan trọng: Tránh bị ngắt kết nối", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Hãy bật Tự khởi chạy (Auto Start) và Không hạn chế pin (No Restrictions) để NOBG luôn chạy ngầm và không bị hệ thống kill.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Mở Cài đặt Ứng dụng")
+                }
+            }
+        }
     }
 }
 
