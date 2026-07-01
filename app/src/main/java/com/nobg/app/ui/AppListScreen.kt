@@ -38,6 +38,27 @@ fun AppListScreen(
     val query by viewModel.searchQuery.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val showSystem by viewModel.showSystemApps.collectAsState()
+    val shizukuReady by viewModel.shizukuReady.collectAsState()
+
+    var showShizukuWarning by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(500) // Đợi chút để Shizuku có thể connect
+        if (!com.nobg.app.shizuku.ShizukuManager.isShizukuRunning() || !com.nobg.app.shizuku.ShizukuManager.hasPermission()) {
+            showShizukuWarning = true
+        }
+    }
+
+    if (showShizukuWarning && !shizukuReady) {
+        AlertDialog(
+            onDismissRequest = { showShizukuWarning = false },
+            title = { Text("Thiếu quyền Shizuku") },
+            text = { Text("Ứng dụng chưa được cấp quyền Shizuku hoặc Shizuku chưa chạy.\n\nBạn sẽ chỉ có thể dùng các tính năng cơ bản (theo dõi pin). Vui lòng mở Shizuku để cấp quyền cho app hoạt động đầy đủ chức năng.") },
+            confirmButton = {
+                TextButton(onClick = { showShizukuWarning = false }) { Text("Đóng") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {

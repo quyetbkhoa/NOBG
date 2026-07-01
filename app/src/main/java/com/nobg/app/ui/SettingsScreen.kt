@@ -52,11 +52,20 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = shizukuReady, onClick = { 
-                            if (!shizukuReady) ShizukuManager.requestPermission(1001)
+                            if (!shizukuReady) {
+                                if (ShizukuManager.isShizukuRunning()) {
+                                    ShizukuManager.requestPermission(1001)
+                                    android.widget.Toast.makeText(context, "Đã gửi yêu cầu quyền Shizuku", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Thất bại: Shizuku chưa chạy trên thiết bị!", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         })
                         Text("Chế độ Nâng cao (Shizuku)")
                     }
-                    if (!shizukuReady) {
+                    if (shizukuReady) {
+                        Text("Shizuku đang hoạt động tốt!", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 48.dp))
+                    } else {
                         Text(
                             "Yêu cầu cấp quyền Shizuku để bật tính năng Ép dừng & Vô hiệu hóa ứng dụng ngầm.",
                             style = MaterialTheme.typography.bodySmall,
