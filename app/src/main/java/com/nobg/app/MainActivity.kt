@@ -17,6 +17,7 @@ import com.nobg.app.ui.AppListScreen
 import com.nobg.app.ui.BatteryStatsScreen
 import com.nobg.app.ui.BatteryStatsViewModel
 import com.nobg.app.ui.MainViewModel
+import com.nobg.app.ui.QuickSettingsScreen
 import com.nobg.app.ui.SettingsScreen
 import com.nobg.app.ui.theme.NobgTheme
 import kotlinx.coroutines.launch
@@ -65,10 +66,14 @@ class MainActivity : ComponentActivity() {
                             viewModel = batteryStatsViewModel,
                             onBack = { currentScreen = "LIST" }
                         )
+                        "QUICK_SETTINGS" -> QuickSettingsScreen(
+                            onBack = { currentScreen = "LIST" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
-                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" }
+                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
+                            onOpenQuickSettings = { currentScreen = "QUICK_SETTINGS" }
                         )
                     }
                 }

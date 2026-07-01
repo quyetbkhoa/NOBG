@@ -17,6 +17,7 @@ class NobgRepository(context: Context) {
 
     companion object {
         private const val KEY_BATTERY_RESET_TIME = "battery_reset_time"
+        private const val KEY_USAGE_RESET_TIME = "usage_reset_time"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -152,8 +153,15 @@ class NobgRepository(context: Context) {
 
     fun getBatteryResetTime(): Long = prefs.getLong(KEY_BATTERY_RESET_TIME, 0L)
 
+    fun saveUsageResetTime() {
+        prefs.edit().putLong(KEY_USAGE_RESET_TIME, System.currentTimeMillis()).apply()
+    }
+
+    fun getUsageResetTime(): Long = prefs.getLong(KEY_USAGE_RESET_TIME, 0L)
+
     suspend fun clearBatteryLogs() {
         batteryLogDao.deleteAll()
         saveBatteryResetTime()
+        saveUsageResetTime()
     }
 }

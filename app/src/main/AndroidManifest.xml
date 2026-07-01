@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions"
-        xmlns:tools="http://schemas.android.com/tools" />
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission"
-        xmlns:tools="http://schemas.android.com/tools" />
+        tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="rikka.shizuku.permission.API_V23" />
+    <!-- Granted via ADB: adb shell pm grant com.nobg.app android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Granted via: adb shell appops set com.nobg.app android:write_settings allow -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application
         android:allowBackup="false"
@@ -31,7 +35,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Shizuku provider: lets Shizuku manager app talk to us -->
+        <!-- Shizuku provider -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
@@ -47,6 +51,61 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Giam sat app theo yeu cau NOBG" />
+        </service>
+
+        <!-- Quick Settings Tiles -->
+        <service
+            android:name=".qs.UsbDebugTileService"
+            android:exported="true"
+            android:label="USB Debug"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
+        </service>
+
+        <service
+            android:name=".qs.WirelessDebugTileService"
+            android:exported="true"
+            android:label="ADB Không dây"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
+        </service>
+
+        <service
+            android:name=".qs.DevOptionsTileService"
+            android:exported="true"
+            android:label="Nhà phát triển"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
+        </service>
+
+        <service
+            android:name=".qs.AppShortcutTileService"
+            android:exported="true"
+            android:label="Shortcut App"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".qs.ScreenTimeoutTileService"
+            android:exported="true"
+            android:label="Thời gian sáng"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
         </service>
 
     </application>

@@ -79,7 +79,10 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                 StatsInterval.DAILY -> cal.add(Calendar.DAY_OF_YEAR, -1)
                 StatsInterval.WEEKLY -> cal.add(Calendar.DAY_OF_YEAR, -7)
             }
-            val startTime = cal.timeInMillis
+            // Use reset anchor as the lower bound if it's more recent than the interval
+            val intervalStart = cal.timeInMillis
+            val resetTime = repo.getUsageResetTime()
+            val startTime = maxOf(intervalStart, resetTime)
 
             val statsMap = usm.queryAndAggregateUsageStats(startTime, endTime)
             val batteryUsageMap = BatteryDumpsysParser.getAppBatteryUsage()
