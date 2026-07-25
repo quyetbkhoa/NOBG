@@ -61,8 +61,10 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_container, openShelfPendingIntent)
-            views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_header, openShelfPendingIntent)
+            views.setOnClickPendingIntent(R.id.tv_widget_title, openShelfPendingIntent)
+            views.setOnClickPendingIntent(R.id.tv_widget_count, openShelfPendingIntent)
+            views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
 
             // Individual app item click pending intent template
             val serviceIntent = Intent(context, FreezerWidgetService::class.java).apply {

@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val screenFlow = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Shizuku.addRequestPermissionResultListener(permissionListener)
@@ -94,15 +96,15 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var currentScreen by remember { mutableStateOf(initialScreen) }
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
+                    val newScreenRequested by screenFlow.collectAsState()
 
                     LaunchedEffect(currentScreen) {
                         repo.setLastActiveScreen(currentScreen)
                     }
 
-                    LaunchedEffect(intent) {
-                        val screenExtra = intent?.getStringExtra("open_screen")
-                        if (!screenExtra.isNullOrBlank()) {
-                            currentScreen = screenExtra
+                    LaunchedEffect(newScreenRequested) {
+                        if (!newScreenRequested.isNullOrBlank()) {
+                            currentScreen = newScreenRequested!!
                         }
                     }
 
@@ -154,6 +156,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        val screenExtra = intent.getStringExtra("open_screen")
+        if (!screenExtra.isNullOrBlank()) {
+            screenFlow.value = screenExtra
+        }
     }
 
     override fun onResume() {
