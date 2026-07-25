@@ -59,25 +59,23 @@ jobs:
             echo "Sending APK to Telegram..."
             APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
             if [ -z "$APK_FILE" ]; then
-              echo "Không tìm thấy file APK trong app/build/outputs/apk/release/"
+              echo "Khong tim thay file APK trong app/build/outputs/apk/release/"
               exit 1
             fi
-            echo "File APK tìm thấy: $APK_FILE"
+            echo "File APK tim thay: $APK_FILE"
             SHORT_SHA="${COMMIT_SHA:0:7}"
-            CLEAN_MSG=$(echo "$COMMIT_MSG" | head -n 1 | tr -d '"'\''`')
-            CAPTION="🚀 NOBG Release APK mới nhất!
-📌 Commit: ${SHORT_SHA}
-📝 Nội dung: ${CLEAN_MSG}"
-            
+            CLEAN_MSG=$(echo "$COMMIT_MSG" | head -n 1 | tr -d '"'\''`<>')
+            CAPTION="NOBG Release APK moi nhat! Commit: ${SHORT_SHA} - ${CLEAN_MSG}"
             RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
                  -F chat_id="$TELEGRAM_CHAT_ID" \
                  -F document=@"$APK_FILE" \
                  -F caption="$CAPTION" \
-                 https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument)
-            echo "Kết quả gửi Telegram: $RESPONSE"
+                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument")
+            echo "Ket qua gui Telegram: $RESPONSE"
           else
-            echo "Chưa cấu hình TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID trong Secrets. Bỏ qua gửi Telegram."
+            echo "Chua cau hinh TELEGRAM_BOT_TOKEN hoac TELEGRAM_CHAT_ID. Bo qua gui Telegram."
           fi
+
 
 
 
