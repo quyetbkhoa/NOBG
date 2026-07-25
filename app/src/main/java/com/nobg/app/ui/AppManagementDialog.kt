@@ -553,7 +553,47 @@ fun AppManagementDialog(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // 1. Hide App row
+                        // 1. Freezer Shelf Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "🧊 Thêm vào Kệ Đóng Băng",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "Tự động vô hiệu hóa hoàn toàn mỗi khi thoát app",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = appModel.isFrozenShelf,
+                                onCheckedChange = { addToShelf ->
+                                    viewModel.toggleFrozenShelf(appModel.packageName, addToShelf)
+                                }
+                            )
+                        }
+
+                        if (appModel.isFrozenShelf || !appModel.isDisabled) {
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.freezeAppImmediately(appModel.packageName)
+                                    onDismiss()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("🧊 Ép dừng & Đóng băng ngay lập tức", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // 2. Hide App row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically

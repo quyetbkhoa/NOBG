@@ -346,6 +346,9 @@ private fun AppRow(
                     mode = config?.mode ?: NobgMode.STANDARD,
                     delaySeconds = config?.delaySeconds ?: 30
                 )
+                if (app.isFrozenShelf) {
+                    FrozenShelfBadge()
+                }
                 if (app.isDisabled) {
                     DisabledBadge()
                 }
@@ -359,6 +362,21 @@ private fun AppRow(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FrozenShelfBadge() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Text(
+            text = "🧊 Kệ Đóng Bằng",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 

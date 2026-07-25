@@ -50,7 +50,9 @@ fun BatteryStatsScreen(
 ) {
     val tabs = listOf("App tiêu thụ pin", "Chỉ số Pin chung", "⚡ Tốc độ sạc")
     var selectedTab by remember { mutableStateOf(0) }
-    var showResetDialog by remember { mutableStateOf(false) }
+    var showResetAppUsageDialog by remember { mutableStateOf(false) }
+    var showResetOverviewDialog by remember { mutableStateOf(false) }
+    var showResetChargingDialog by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onBack)
 
@@ -64,10 +66,16 @@ fun BatteryStatsScreen(
                     }
                 },
                 actions = {
-                    if (selectedTab == 1) {
-                        IconButton(onClick = { showResetDialog = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Reset")
+                    IconButton(
+                        onClick = {
+                            when (selectedTab) {
+                                0 -> showResetAppUsageDialog = true
+                                1 -> showResetOverviewDialog = true
+                                2 -> showResetChargingDialog = true
+                            }
                         }
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Reset tab hiện tại", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             )
@@ -91,19 +99,53 @@ fun BatteryStatsScreen(
         }
     }
 
-    if (showResetDialog) {
+    if (showResetAppUsageDialog) {
         AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text("Xác nhận Reset") },
-            text = { Text("Bạn có chắc muốn xóa toàn bộ lịch sử pin và bắt đầu thống kê lại từ đầu không?") },
+            onDismissRequest = { showResetAppUsageDialog = false },
+            title = { Text("Reset Thống kê App") },
+            text = { Text("Bạn có muốn đặt lại mốc thời gian và tính lại dữ liệu thời gian/pin sử dụng của tất cả App không?") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.resetData()
-                    showResetDialog = false
-                }) { Text("Xóa", color = MaterialTheme.colorScheme.error) }
+                    viewModel.resetAppUsageStats()
+                    showResetAppUsageDialog = false
+                }) { Text("Đặt lại", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Hủy") }
+                TextButton(onClick = { showResetAppUsageDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
+
+    if (showResetOverviewDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetOverviewDialog = false },
+            title = { Text("Reset Chỉ số Pin chung") },
+            text = { Text("Bạn có muốn xóa toàn bộ lịch sử đo pin ngầm và đo lại các chỉ số trung bình từ đầu không?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetOverviewBatteryLogs()
+                    showResetOverviewDialog = false
+                }) { Text("Xóa dữ liệu", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetOverviewDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
+
+    if (showResetChargingDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetChargingDialog = false },
+            title = { Text("Reset Lịch sử Tốc độ Sạc") },
+            text = { Text("Bạn có muốn xóa tất cả lịch sử các phiên sạc đã lưu không?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearAllChargingSessions()
+                    showResetChargingDialog = false
+                }) { Text("Xóa lịch sử", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetChargingDialog = false }) { Text("Hủy") }
             }
         )
     }

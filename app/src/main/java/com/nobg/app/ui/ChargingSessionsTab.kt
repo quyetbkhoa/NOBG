@@ -333,8 +333,29 @@ fun ChargingSessionDetailDialog(
                     Text("Thời gian: ${formatDurationShort(session.totalDurationSeconds * 1000L)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
 
+                val pctDiff = (session.endLevel - session.startLevel).coerceAtLeast(0)
+                val durHours = session.totalDurationSeconds / 3600f
+                val speedPctPerHour = if (durHours > 0) String.format(Locale.getDefault(), "%.1f%%/h", pctDiff / durHours) else "N/A"
+                val avgMinPerPct = if (pctDiff > 0) String.format(Locale.getDefault(), "%.1f phút/1%%", (session.totalDurationSeconds / 60f) / pctDiff) else "N/A"
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("⚡ Tốc độ sạc thực tế:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        Text("$speedPctPerHour ($avgMinPerPct)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
                 Text(
-                    "Trục Ox: Thời gian sạc (phút)  |  Trục Oy: % Pin",
+                    "Trục Ox: Thời gian sạc (phút)  |  Trục Oy: % Pin (0% - 100%)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -570,9 +591,6 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         val startTs = points.first().timestampMs
         val totalSec = ((points.last().timestampMs - startTs) / 1000f).coerceAtLeast(1f)
         val totalMin = totalSec / 60f
-        val minPct = points.minOf { it.batteryPct }
-        val maxPct = points.maxOf { it.batteryPct }
-        val pctDiff = (maxPct - minPct).coerceAtLeast(1)
 
         val padLeft = 55.dp.toPx()
         val padBottom = 28.dp.toPx()
@@ -586,11 +604,10 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop), Offset(padLeft, padTop + chartH), strokeWidth = 2.dp.toPx())
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop + chartH), Offset(padLeft + chartW, padTop + chartH), strokeWidth = 2.dp.toPx())
 
-        // Grid lines & Oy Axis (% Pin) Labels
-        val stepPct = pctDiff / 4.coerceAtLeast(1)
-        for (i in 0..4) {
-            val pctVal = minPct + (stepPct * i).coerceAtMost(maxPct - minPct)
-            val y = padTop + chartH * (1f - (pctVal - minPct).toFloat() / pctDiff)
+        // Grid lines & Oy Axis (% Pin: 0%, 25%, 50%, 75%, 100%) Labels
+        val stepPct = listOf(0, 25, 50, 75, 100)
+        for (pctVal in stepPct) {
+            val y = padTop + chartH * (1f - (pctVal / 100f))
             drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
             drawContext.canvas.nativeCanvas.drawText("$pctVal%", 8f, y + 6f, labelPaint)
         }
@@ -608,7 +625,7 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         val linePath = Path()
 
         points.forEachIndexed { idx, pt ->
-            val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
+            val relPct = pt.batteryPct / 100f
             val elapsedMin = (pt.timestampMs - startTs) / 60000f
 
             val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW
@@ -642,7 +659,7 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         )
 
         points.forEach { pt ->
-            val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
+            val relPct = pt.batteryPct / 100f
             val elapsedMin = (pt.timestampMs - startTs) / 60000f
 
             val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW
@@ -654,7 +671,7 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         selectedIndex?.let { idx ->
             if (idx in points.indices) {
                 val pt = points[idx]
-                val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
+                val relPct = pt.batteryPct / 100f
                 val elapsedMin = (pt.timestampMs - startTs) / 60000f
 
                 val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW

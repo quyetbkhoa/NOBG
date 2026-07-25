@@ -33,6 +33,7 @@ data class AppUiModel(
     val powerState: BackgroundPowerState = BackgroundPowerState.UNKNOWN,
     val isHidden: Boolean = false,
     val isDisabled: Boolean = false,
+    val isFrozenShelf: Boolean = false,
     val installTimeMs: Long = 0L,
     val appSizeBytes: Long = 0L
 )
@@ -56,6 +57,11 @@ enum class PowerStateFilterOption(val label: String) {
 enum class NobgStateFilterOption(val label: String) {
     ENABLED_ONLY("Chỉ Đang bật NOBG"),
     DISABLED_ONLY("Chỉ Tắt NOBG")
+}
+
+enum class FrozenShelfFilterOption(val label: String) {
+    FROZEN_SHELF_ONLY("🧊 Chỉ Kệ Đóng Bằng"),
+    NOT_FROZEN_SHELF("Chỉ Chưa thêm Kệ")
 }
 
 enum class AppSortOption(val label: String) {
@@ -87,6 +93,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val disabledFilters = MutableStateFlow<Set<DisabledFilterOption>>(emptySet())
     val powerStateFilters = MutableStateFlow<Set<PowerStateFilterOption>>(emptySet())
     val nobgStateFilters = MutableStateFlow<Set<NobgStateFilterOption>>(emptySet())
+    val frozenShelfFilters = MutableStateFlow<Set<FrozenShelfFilterOption>>(emptySet())
     val hiddenFilter = MutableStateFlow(HiddenFilterOption.EXCLUDE_HIDDEN)
     val sortOption = MutableStateFlow(AppSortOption.NAME_ASC)
 
@@ -116,11 +123,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val pState = powerStates[model.packageName] ?: BackgroundPowerState.OPTIMIZED
             val isHidden = model.packageName in hiddenSet
             val isDisabled = model.packageName in disabledSet
+            val isFrozen = configMap[model.packageName]?.isFrozenShelf == true
             model.copy(
                 config = configMap[model.packageName],
                 powerState = pState,
                 isHidden = isHidden,
-                isDisabled = isDisabled
+                isDisabled = isDisabled,
+                isFrozenShelf = isFrozen
             )
         }
     }
@@ -148,8 +157,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val appList: StateFlow<List<AppUiModel>> = combine(
-        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, hiddenFilter, sortOption
-    ) { apps, powerF, nobgF, hiddenF, sortOpt ->
+        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, frozenShelfFilters, hiddenFilter, sortOption
+    ) { apps, powerF, nobgF, shelfF, hiddenF, sortOpt ->
         apps
             .filter { model ->
                 val matchesHidden = when (hiddenF) {
@@ -169,7 +178,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     (NobgStateFilterOption.DISABLED_ONLY in nobgF && model.config?.enabled != true)
                 }
 
-                matchesHidden && matchesPower && matchesNobg
+                val matchesShelf = if (shelfF.isEmpty()) true else {
+                    (FrozenShelfFilterOption.FROZEN_SHELF_ONLY in shelfF && model.isFrozenShelf) ||
+                    (FrozenShelfFilterOption.NOT_FROZEN_SHELF in shelfF && !model.isFrozenShelf)
+                }
+
+                matchesHidden && matchesPower && matchesNobg && matchesShelf
             }
             .sortedWith { a, b ->
                 when (sortOpt) {
@@ -183,9 +197,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeFilterCount: StateFlow<Int> = combine(
-        userSystemFilters, disabledFilters, powerStateFilters, nobgStateFilters, hiddenFilter
-    ) { typeF, disabledF, powerF, nobgF, hiddenF ->
-        var count = typeF.size + disabledF.size + powerF.size + nobgF.size
+        userSystemFilters, disabledFilters, powerStateFilters, nobgStateFilters, frozenShelfFilters, hiddenFilter
+    ) { typeF, disabledF, powerF, nobgF, shelfF, hiddenF ->
+        var count = typeF.size + disabledF.size + powerF.size + nobgF.size + shelfF.size
         if (hiddenF != HiddenFilterOption.EXCLUDE_HIDDEN) count++
         count
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -410,6 +424,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         shellReady.value = PrivilegedShell.isReady()
         activeBackend.value = PrivilegedShell.activeBackend.value
         refreshPowerStates()
+    }
+
+    fun clearAllFilters() {
+        userSystemFilters.value = emptySet()
+        disabledFilters.value = emptySet()
+        powerStateFilters.value = emptySet()
+        nobgStateFilters.value = emptySet()
+        frozenShelfFilters.value = emptySet()
+        hiddenFilter.value = HiddenFilterOption.EXCLUDE_HIDDEN
+        searchQuery.value = ""
+    }
+
+    fun toggleFrozenShelf(packageName: String, addToShelf: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.toggleAppFrozenShelf(packageName, addToShelf)
+            refreshDisabledPackages()
+        }
+    }
+
+    fun freezeAppImmediately(packageName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.toggleAppFrozenShelf(packageName, true)
+            ShizukuManager.forceStop(packageName)
+            ShizukuManager.disablePackage(packageName)
+            refreshDisabledPackages()
+        }
     }
 
     fun connectAdbDaemon() {

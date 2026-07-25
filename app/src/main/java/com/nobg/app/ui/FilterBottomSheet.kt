@@ -24,6 +24,7 @@ fun FilterBottomSheet(
     val disabledFilters by viewModel.disabledFilters.collectAsState()
     val powerStateFilters by viewModel.powerStateFilters.collectAsState()
     val nobgStateFilters by viewModel.nobgStateFilters.collectAsState()
+    val frozenShelfFilters by viewModel.frozenShelfFilters.collectAsState()
     val hiddenFilter by viewModel.hiddenFilter.collectAsState()
 
     ModalBottomSheet(
@@ -101,8 +102,20 @@ fun FilterBottomSheet(
                 getLabel = { it.label }
             )
 
-            // SECTION 5: APP ĐÃ ẨN (3-CHOICE)
-            FilterSectionTitle("5. ỨNG DỤNG ẨN")
+            // SECTION 5: KỆ ĐÓNG BẰNG (MULTI-CHOICE)
+            FilterSectionTitle("5. KỆ ĐÓNG BẰNG")
+            MultiChoiceSegmentedRow(
+                options = FrozenShelfFilterOption.values().toList(),
+                selectedSet = frozenShelfFilters,
+                onToggle = { opt ->
+                    val current = viewModel.frozenShelfFilters.value
+                    viewModel.frozenShelfFilters.value = if (opt in current) current - opt else current + opt
+                },
+                getLabel = { it.label }
+            )
+
+            // SECTION 6: APP ĐÃ ẨN (3-CHOICE)
+            FilterSectionTitle("6. ỨNG DỤNG ẨN")
             SingleChoiceRow(
                 options = HiddenFilterOption.values().toList(),
                 selected = hiddenFilter,

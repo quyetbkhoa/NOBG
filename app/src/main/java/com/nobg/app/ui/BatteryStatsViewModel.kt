@@ -369,10 +369,21 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
         _chargingCurve.value = curve
     }
 
-    fun resetData() {
+    fun resetAppUsageStats() {
+        viewModelScope.launch {
+            repo.setUsageResetTime(System.currentTimeMillis())
+            loadUsageStats(_currentInterval.value)
+        }
+    }
+
+    fun resetOverviewBatteryLogs() {
         viewModelScope.launch {
             repo.clearBatteryLogs()
             loadOverview()
         }
+    }
+
+    fun resetData() {
+        resetOverviewBatteryLogs()
     }
 }
