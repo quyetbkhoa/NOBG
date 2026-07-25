@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,7 +40,8 @@ fun AppListScreen(
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
     onOpenCpuUnderclock: () -> Unit,
-    onOpenBrightnessTweak: () -> Unit
+    onOpenBrightnessTweak: () -> Unit,
+    onOpenAdvancedTweaks: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
@@ -56,15 +58,27 @@ fun AppListScreen(
     var showShizukuWarning by remember { mutableStateOf(false) }
     var selectedAppForDialog by remember { mutableStateOf<AppUiModel?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var autoUpdateInfo by remember { mutableStateOf<com.nobg.app.update.UpdateInfo?>(null) }
+
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(500)
-        if (!com.nobg.app.shizuku.ShizukuManager.isShizukuRunning() || !com.nobg.app.shizuku.ShizukuManager.hasPermission()) {
-            showShizukuWarning = true
+        viewModel.refreshShizukuStatus()
+        val result = com.nobg.app.update.GitHubUpdater.checkForUpdates(context)
+        if (result is com.nobg.app.update.UpdateResult.UpdateAvailable) {
+            autoUpdateInfo = result.info
         }
     }
 
-    if (showShizukuWarning && !shizukuReady) {
+    if (autoUpdateInfo != null) {
+        com.nobg.app.update.AutoUpdateDialog(
+            updateInfo = autoUpdateInfo!!,
+            context = context,
+            onDismiss = { autoUpdateInfo = null }
+        )
+    }
+
+    if (showShizukuWarning) {
         AlertDialog(
             onDismissRequest = { showShizukuWarning = false },
             title = { Text("Thiếu quyền Shizuku") },
@@ -96,6 +110,9 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("NOBG - Quản lý app") },
                 actions = {
+                    IconButton(onClick = onOpenAdvancedTweaks) {
+                        Text("🛠️", fontSize = 18.sp)
+                    }
                     IconButton(onClick = onOpenBrightnessTweak) {
                         Text("💡", fontSize = 18.sp)
                     }

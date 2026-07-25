@@ -118,12 +118,17 @@ class MainActivity : ComponentActivity() {
                         "BRIGHTNESS_TWEAK" -> com.nobg.app.ui.BrightnessTweakScreen(
                             onBack = { currentScreen = "LIST" }
                         )
+                        "ADVANCED_TWEAKS" -> com.nobg.app.ui.AdvancedTweaksScreen(
+                            repo = com.nobg.app.data.NobgRepository(applicationContext),
+                            onBack = { currentScreen = "LIST" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
                             onOpenCpuUnderclock = { currentScreen = "CPU_UNDERCLOCK" },
-                            onOpenBrightnessTweak = { currentScreen = "BRIGHTNESS_TWEAK" }
+                            onOpenBrightnessTweak = { currentScreen = "BRIGHTNESS_TWEAK" },
+                            onOpenAdvancedTweaks = { currentScreen = "ADVANCED_TWEAKS" }
                         )
                     }
                 }

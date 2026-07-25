@@ -354,6 +354,59 @@ class NobgRepository(context: Context) {
         ShizukuManager.exec("settings put secure reduce_bright_colors_activated $activeStr")
         ShizukuManager.exec("settings put secure reduce_bright_colors_level $level")
     }
+
+    // --- ADVANCED HIDDEN TWEAKS ---
+    fun isForcedRefreshRateEnabled(): Boolean = prefs.getBoolean("forced_refresh_rate_enabled", false)
+    fun getForcedRefreshRateValue(): Float = prefs.getFloat("forced_refresh_rate_value", 120.0f)
+
+    suspend fun setForcedRefreshRate(enabled: Boolean, hz: Float) {
+        prefs.edit().putBoolean("forced_refresh_rate_enabled", enabled).putFloat("forced_refresh_rate_value", hz).apply()
+        if (enabled) {
+            val hzStr = String.format(java.util.Locale.US, "%.1f", hz)
+            val hzInt = hz.toInt()
+            ShizukuManager.exec("settings put global min_refresh_rate $hzStr")
+            ShizukuManager.exec("settings put global peak_refresh_rate $hzStr")
+            ShizukuManager.exec("settings put global user_refresh_rate $hzInt")
+        } else {
+            ShizukuManager.exec("settings put global min_refresh_rate 0.0")
+            ShizukuManager.exec("settings put global peak_refresh_rate 0.0")
+            ShizukuManager.exec("settings put global user_refresh_rate 0")
+        }
+    }
+
+    fun isForceFreeformEnabled(): Boolean = prefs.getBoolean("force_freeform_enabled", false)
+
+    suspend fun setForceResizableAndFreeform(enabled: Boolean) {
+        prefs.edit().putBoolean("force_freeform_enabled", enabled).apply()
+        val valStr = if (enabled) "1" else "0"
+
+        // Standard Android & Foldable Freeform Keys
+        ShizukuManager.exec("settings put global force_resizable_activities $valStr")
+        ShizukuManager.exec("settings put global enable_freeform_support $valStr")
+        ShizukuManager.exec("settings put global force_allow_on_external $valStr")
+
+        // Oppo Find N3 / ColorOS / OxygenOS Custom Keys
+        ShizukuManager.exec("settings put global oppo_force_resizable $valStr")
+        ShizukuManager.exec("settings put secure oppo_force_resizable $valStr")
+        ShizukuManager.exec("settings put system oppo_force_resizable $valStr")
+        ShizukuManager.exec("settings put global coloros_force_freeform $valStr")
+    }
+
+    fun isDisableSafeVolumeEnabled(): Boolean = prefs.getBoolean("disable_safe_volume_enabled", false)
+
+    suspend fun setDisableSafeVolume(enabled: Boolean) {
+        prefs.edit().putBoolean("disable_safe_volume_enabled", enabled).apply()
+        val valStr = if (enabled) "0" else "1"
+        ShizukuManager.exec("settings put global safe_media_volume_option $valStr")
+    }
+
+    fun isDisableCellularAlwaysOnEnabled(): Boolean = prefs.getBoolean("disable_cellular_always_on_enabled", false)
+
+    suspend fun setDisableCellularAlwaysOn(enabled: Boolean) {
+        prefs.edit().putBoolean("disable_cellular_always_on_enabled", enabled).apply()
+        val valStr = if (enabled) "0" else "1"
+        ShizukuManager.exec("settings put global mobile_data_always_on $valStr")
+    }
 }
 
 
