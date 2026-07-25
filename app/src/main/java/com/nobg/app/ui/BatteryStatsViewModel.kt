@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.nobg.app.data.AppDetailStats
+import com.nobg.app.data.AppDetailStatsHelper
 import com.nobg.app.data.BatteryLogEntity
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.shizuku.BatteryDumpsysParser
@@ -72,9 +74,38 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
     private val _chargingCurve = MutableStateFlow<List<ChargingCurvePoint>>(emptyList())
     val chargingCurve: StateFlow<List<ChargingCurvePoint>> = _chargingCurve
 
+    private val _selectedAppDetail = MutableStateFlow<AppDetailStats?>(null)
+    val selectedAppDetail: StateFlow<AppDetailStats?> = _selectedAppDetail
+
+    private val _isLoadingDetail = MutableStateFlow(false)
+    val isLoadingDetail: StateFlow<Boolean> = _isLoadingDetail
+
+    private var lastTotalCalculatedMah: Double = 1.0
+
     init {
         loadUsageStats(StatsInterval.SINCE_CHARGED)
         loadOverview()
+    }
+
+    fun selectAppDetail(packageName: String) {
+        _isLoadingDetail.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val endTime = System.currentTimeMillis()
+            val startTime = _anchorTimeMs.value.let { if (it > 0) it else (endTime - 86400000L) }
+            val detail = AppDetailStatsHelper.getAppDetailStats(
+                context = getApplication(),
+                packageName = packageName,
+                startTimeMs = startTime,
+                endTimeMs = endTime,
+                totalCalculatedMah = lastTotalCalculatedMah
+            )
+            _selectedAppDetail.value = detail
+            _isLoadingDetail.value = false
+        }
+    }
+
+    fun clearSelectedAppDetail() {
+        _selectedAppDetail.value = null
     }
 
     // ---- App usage tab ----
@@ -163,6 +194,7 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
             val finalTotalMah = totalCalculatedMah.coerceAtLeast(1.0)
+            lastTotalCalculatedMah = finalTotalMah
             val items = tempItems
                 .map { item ->
                     val pct = (item.batteryMah / finalTotalMah) * 100.0

@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -75,6 +77,15 @@ fun AppManagementDialog(
     }
 
     var isSystemWhitelisted by remember { mutableStateOf(false) }
+    var detailStatsForDialog by remember { mutableStateOf<com.nobg.app.data.AppDetailStats?>(null) }
+    var isDetailStatsLoading by remember { mutableStateOf(false) }
+
+    if (detailStatsForDialog != null) {
+        AppDetailDialog(
+            stats = detailStatsForDialog!!,
+            onDismiss = { detailStatsForDialog = null }
+        )
+    }
 
     LaunchedEffect(appModel.packageName) {
         if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()) {
@@ -320,6 +331,35 @@ fun AppManagementDialog(
                                 }
                             }
                         }
+                    }
+                }
+
+                val coroutineScope = rememberCoroutineScope()
+                OutlinedButton(
+                    onClick = {
+                        isDetailStatsLoading = true
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val endTime = System.currentTimeMillis()
+                            val startTime = endTime - 86400000L
+                            val stats = com.nobg.app.data.AppDetailStatsHelper.getAppDetailStats(
+                                context = context,
+                                packageName = appModel.packageName,
+                                startTimeMs = startTime,
+                                endTimeMs = endTime
+                            )
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                detailStatsForDialog = stats
+                                isDetailStatsLoading = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isDetailStatsLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    } else {
+                        Text("📊 Xem chi tiết dòng thời gian & hao pin")
                     }
                 }
 

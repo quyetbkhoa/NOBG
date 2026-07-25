@@ -111,8 +111,33 @@ private fun AppUsageTab(viewModel: BatteryStatsViewModel) {
     val items by viewModel.usageStats.collectAsState()
     val currentInterval by viewModel.currentInterval.collectAsState()
     val anchorTimeMs by viewModel.anchorTimeMs.collectAsState()
+    val selectedAppDetail by viewModel.selectedAppDetail.collectAsState()
+    val isLoadingDetail by viewModel.isLoadingDetail.collectAsState()
 
     val sdf = remember { SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()) }
+
+    if (selectedAppDetail != null) {
+        AppDetailDialog(
+            stats = selectedAppDetail!!,
+            onDismiss = { viewModel.clearSelectedAppDetail() }
+        )
+    }
+
+    if (isLoadingDetail) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            text = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(36.dp))
+                    Text("Đang tải chi tiết ứng dụng...")
+                }
+            }
+        )
+    }
 
     Column {
         // Sub-tabs: 1 Ngày / 1 Tuần / ⚡ Sạc đầy gần nhất
@@ -154,7 +179,11 @@ private fun AppUsageTab(viewModel: BatteryStatsViewModel) {
             val maxMah = items.maxOfOrNull { it.batteryMah } ?: 1.0
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(items, key = { it.packageName }) { item ->
-                    AppUsageRow(item = item, maxMah = maxMah)
+                    AppUsageRow(
+                        item = item,
+                        maxMah = maxMah,
+                        onClick = { viewModel.selectAppDetail(item.packageName) }
+                    )
                     HorizontalDivider()
                 }
             }
@@ -163,10 +192,11 @@ private fun AppUsageTab(viewModel: BatteryStatsViewModel) {
 }
 
 @Composable
-private fun AppUsageRow(item: UsageItem, maxMah: Double) {
+private fun AppUsageRow(item: UsageItem, maxMah: Double, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
