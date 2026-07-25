@@ -30,7 +30,9 @@ data class AppUiModel(
     val hasBackup: Boolean,
     val powerState: BackgroundPowerState = BackgroundPowerState.UNKNOWN,
     val isHidden: Boolean = false,
-    val isDisabled: Boolean = false
+    val isDisabled: Boolean = false,
+    val installTimeMs: Long = 0L,
+    val appSizeBytes: Long = 0L
 )
 
 enum class UserSystemFilterOption(val label: String) {
@@ -51,8 +53,15 @@ enum class PowerStateFilterOption(val label: String) {
 
 enum class NobgStateFilterOption(val label: String) {
     ENABLED_ONLY("Chỉ Đang bật NOBG"),
-    DISABLED_ONLY("Chỉ Tắt NOBG"),
-    NEVER_CONFIGURED("✨ Chưa cài đặt/tối ưu lần nào")
+    DISABLED_ONLY("Chỉ Tắt NOBG")
+}
+
+enum class AppSortOption(val label: String) {
+    NAME_ASC("Tên app (A-Z)"),
+    INSTALL_TIME_DESC("Mới cài đặt / Cập nhật"),
+    INSTALL_TIME_ASC("Cũ nhất"),
+    SIZE_DESC("Dung lượng (Lớn nhất)"),
+    SIZE_ASC("Dung lượng (Nhỏ nhất)")
 }
 
 enum class HiddenFilterOption(val label: String) {
@@ -77,6 +86,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val powerStateFilters = MutableStateFlow<Set<PowerStateFilterOption>>(emptySet())
     val nobgStateFilters = MutableStateFlow<Set<NobgStateFilterOption>>(emptySet())
     val hiddenFilter = MutableStateFlow(HiddenFilterOption.EXCLUDE_HIDDEN)
+    val sortOption = MutableStateFlow(AppSortOption.NAME_ASC)
 
     val isRefreshing = MutableStateFlow(false)
 
@@ -134,8 +144,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val appList: StateFlow<List<AppUiModel>> = combine(
-        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, hiddenFilter
-    ) { apps, powerF, nobgF, hiddenF ->
+        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, hiddenFilter, sortOption
+    ) { apps, powerF, nobgF, hiddenF, sortOpt ->
         apps
             .filter { model ->
                 val matchesHidden = when (hiddenF) {
@@ -152,17 +162,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
                 val matchesNobg = if (nobgF.isEmpty()) true else {
                     (NobgStateFilterOption.ENABLED_ONLY in nobgF && model.config?.enabled == true) ||
-                    (NobgStateFilterOption.DISABLED_ONLY in nobgF && model.config?.enabled != true) ||
-                    (NobgStateFilterOption.NEVER_CONFIGURED in nobgF && model.config == null)
+                    (NobgStateFilterOption.DISABLED_ONLY in nobgF && model.config?.enabled != true)
                 }
 
                 matchesHidden && matchesPower && matchesNobg
             }
-            .sortedWith(
-                compareByDescending<AppUiModel> { it.isDisabled }
-                    .thenByDescending { it.config?.enabled == true }
-                    .thenBy { it.label.lowercase() }
-            )
+            .sortedWith { a, b ->
+                when (sortOpt) {
+                    AppSortOption.NAME_ASC -> a.label.lowercase().compareTo(b.label.lowercase())
+                    AppSortOption.INSTALL_TIME_DESC -> b.installTimeMs.compareTo(a.installTimeMs)
+                    AppSortOption.INSTALL_TIME_ASC -> a.installTimeMs.compareTo(b.installTimeMs)
+                    AppSortOption.SIZE_DESC -> b.appSizeBytes.compareTo(a.appSizeBytes)
+                    AppSortOption.SIZE_ASC -> a.appSizeBytes.compareTo(b.appSizeBytes)
+                }
+            }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeFilterCount: StateFlow<Int> = combine(
@@ -207,6 +220,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
             val models = apps
                 .map { info: ApplicationInfo ->
+                    val pkgInfo = try { pm.getPackageInfo(info.packageName, 0) } catch (_: Exception) { null }
+                    val installTime = pkgInfo?.lastUpdateTime ?: pkgInfo?.firstInstallTime ?: 0L
+                    val apkSize = try { java.io.File(info.sourceDir).length() } catch (_: Exception) { 0L }
+
                     AppUiModel(
                         packageName = info.packageName,
                         label = pm.getApplicationLabel(info).toString(),
@@ -216,7 +233,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         hasBackup = false,
                         powerState = BackgroundPowerState.UNKNOWN,
                         isHidden = false,
-                        isDisabled = !info.enabled
+                        isDisabled = !info.enabled,
+                        installTimeMs = installTime,
+                        appSizeBytes = apkSize
                     )
                 }
             _installedApps.value = models

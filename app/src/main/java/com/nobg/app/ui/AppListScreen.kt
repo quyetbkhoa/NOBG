@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -32,6 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nobg.app.data.NobgMode
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,9 +46,9 @@ fun AppListScreen(
     onOpenAdvancedTweaks: () -> Unit,
     onOpenFreezerShelf: () -> Unit
 ) {
+    val context = LocalContext.current
     val apps by viewModel.appList.collectAsState()
-    val query by viewModel.searchQuery.collectAsState()
-    val shizukuReady by viewModel.shizukuReady.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val activeFilterCount by viewModel.activeFilterCount.collectAsState()
 
@@ -53,13 +57,26 @@ fun AppListScreen(
     val powerStateFilters by viewModel.powerStateFilters.collectAsState()
     val nobgStateFilters by viewModel.nobgStateFilters.collectAsState()
     val hiddenFilter by viewModel.hiddenFilter.collectAsState()
+    val currentSort by viewModel.sortOption.collectAsState()
 
-    var showShizukuWarning by remember { mutableStateOf(false) }
-    var selectedAppForDialog by remember { mutableStateOf<AppUiModel?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedAppForDialog by remember { mutableStateOf<AppUiModel?>(null) }
     var autoUpdateInfo by remember { mutableStateOf<com.nobg.app.update.UpdateInfo?>(null) }
 
-    val context = LocalContext.current
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing != isRefreshing) {
+        if (isRefreshing) {
+            // Already handled
+        } else {
+            LaunchedEffect(Unit) { pullToRefreshState.endRefresh() }
+        }
+    }
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
+            viewModel.reloadAllData()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.refreshShizukuStatus()
@@ -74,17 +91,6 @@ fun AppListScreen(
             updateInfo = autoUpdateInfo!!,
             context = context,
             onDismiss = { autoUpdateInfo = null }
-        )
-    }
-
-    if (showShizukuWarning) {
-        AlertDialog(
-            onDismissRequest = { showShizukuWarning = false },
-            title = { Text("Thiếu quyền Shizuku") },
-            text = { Text("Ứng dụng chưa được cấp quyền Shizuku hoặc Shizuku chưa chạy.\n\nBạn vẫn có thể xem trạng thái và mở Cài đặt pin hệ thống để chỉnh tay. Mở Shizuku để chỉnh trực tiếp trong app.") },
-            confirmButton = {
-                TextButton(onClick = { showShizukuWarning = false }) { Text("Đóng") }
-            }
         )
     }
 
@@ -107,16 +113,16 @@ fun AppListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("NOBG - Quản lý app") },
+                title = { Text("⚡ NOBG — Anti-Background", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = onOpenFreezerShelf) {
                         Text("🧊", fontSize = 18.sp)
                     }
                     IconButton(onClick = onOpenAdvancedTweaks) {
-                        Text("🛠️", fontSize = 18.sp)
+                        Text("⚡", fontSize = 18.sp)
                     }
                     IconButton(onClick = onOpenBatteryStats) {
-                        Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")
+                        Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin")
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Cài đặt")
@@ -125,19 +131,30 @@ fun AppListScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             OutlinedTextField(
-                value = query,
+                value = searchQuery,
                 onValueChange = viewModel::setSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-                placeholder = { Text("Tìm app hoặc package...") },
+                placeholder = { Text("Tìm ứng dụng...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            Icon(Icons.Filled.Clear, contentDescription = "Xóa tìm kiếm")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
             )
 
-            // COMPACT ACTIVE FILTER BAR
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -146,7 +163,6 @@ fun AppListScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Main Filter Sheet Button
                 FilterChip(
                     selected = activeFilterCount > 0,
                     onClick = { showFilterSheet = true },
@@ -158,22 +174,38 @@ fun AppListScreen(
                     }
                 )
 
-                // Quick Filter: App chưa tối ưu bao giờ
-                val isNeverConfiguredSelected = NobgStateFilterOption.NEVER_CONFIGURED in nobgStateFilters
-                FilterChip(
-                    selected = isNeverConfiguredSelected,
-                    onClick = {
-                        val current = viewModel.nobgStateFilters.value
-                        viewModel.nobgStateFilters.value = if (isNeverConfiguredSelected) {
-                            current - NobgStateFilterOption.NEVER_CONFIGURED
-                        } else {
-                            current + NobgStateFilterOption.NEVER_CONFIGURED
+                Box {
+                    FilterChip(
+                        selected = currentSort != AppSortOption.NAME_ASC,
+                        onClick = { showSortMenu = true },
+                        label = { Text("⇅ ${currentSort.label}") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
-                    },
-                    label = { Text("✨ Chưa tối ưu bao giờ") }
-                )
+                    )
 
-                // Render ONLY ACTIVE Filters
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        AppSortOption.values().forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        option.label,
+                                        fontWeight = if (currentSort == option) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (currentSort == option) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.sortOption.value = option
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 userSystemFilters.forEach { opt ->
                     InputChip(
                         selected = true,
@@ -222,20 +254,6 @@ fun AppListScreen(
 
             HorizontalDivider(modifier = Modifier.padding(top = 2.dp))
 
-            // Pull to Refresh Box
-            val pullToRefreshState = rememberPullToRefreshState()
-            if (pullToRefreshState.isRefreshing) {
-                LaunchedEffect(Unit) {
-                    viewModel.reloadAllData()
-                    pullToRefreshState.endRefresh()
-                }
-            }
-            LaunchedEffect(isRefreshing) {
-                if (!isRefreshing) {
-                    pullToRefreshState.endRefresh()
-                }
-            }
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -269,6 +287,8 @@ private fun AppRow(
 ) {
     val config = app.config
     val enabled = config?.enabled == true
+    val formattedSize = remember(app.appSizeBytes) { formatAppSize(app.appSizeBytes) }
+    val formattedDate = remember(app.installTimeMs) { formatInstallDate(app.installTimeMs) }
 
     Row(
         modifier = Modifier
@@ -280,15 +300,42 @@ private fun AppRow(
         DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(
-                app.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                if (formattedSize.isNotEmpty()) {
+                    Text(
+                        formattedSize,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    app.packageName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                if (formattedDate.isNotEmpty()) {
+                    Text(
+                        formattedDate,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Spacer(Modifier.height(6.dp))
-            // State Badges
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -313,6 +360,22 @@ private fun AppRow(
             }
         }
     }
+}
+
+private fun formatAppSize(bytes: Long): String {
+    if (bytes <= 0) return ""
+    val mb = bytes / (1024.0 * 1024.0)
+    return if (mb >= 1024.0) {
+        String.format(Locale.getDefault(), "%.1f GB", mb / 1024.0)
+    } else {
+        String.format(Locale.getDefault(), "%.1f MB", mb)
+    }
+}
+
+private fun formatInstallDate(millis: Long): String {
+    if (millis <= 0) return ""
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    return sdf.format(Date(millis))
 }
 
 @Composable
