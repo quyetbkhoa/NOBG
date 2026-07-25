@@ -25,6 +25,15 @@ interface AppDao {
 
     @Query("UPDATE nobg_apps SET blockedCount = blockedCount + 1, lastActionAt = :ts WHERE packageName = :pkg")
     suspend fun incrementBlockedCount(pkg: String, ts: Long)
+
+    @Query("SELECT * FROM nobg_apps WHERE isFrozenShelf = 1")
+    fun observeFrozenShelf(): Flow<List<AppEntity>>
+
+    @Query("SELECT * FROM nobg_apps WHERE isFrozenShelf = 1")
+    suspend fun getFrozenShelfApps(): List<AppEntity>
+
+    @Query("UPDATE nobg_apps SET isFrozenShelf = :isFrozen WHERE packageName = :pkg")
+    suspend fun updateFrozenShelf(pkg: String, isFrozen: Boolean)
 }
 
 @Dao

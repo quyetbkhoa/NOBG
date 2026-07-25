@@ -13,5 +13,6 @@ data class AppEntity(
     val delaySeconds: Int = 30, // used only for AGGRESSIVE, 10..1200 (20 min)
     val addedAt: Long = System.currentTimeMillis(),
     val blockedCount: Int = 0,
-    val lastActionAt: Long = 0L
+    val lastActionAt: Long = 0L,
+    val isFrozenShelf: Boolean = false
 )

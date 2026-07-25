@@ -39,7 +39,8 @@ fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
-    onOpenAdvancedTweaks: () -> Unit
+    onOpenAdvancedTweaks: () -> Unit,
+    onOpenFreezerShelf: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
@@ -108,6 +109,9 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("NOBG - Quản lý app") },
                 actions = {
+                    IconButton(onClick = onOpenFreezerShelf) {
+                        Text("🧊", fontSize = 18.sp)
+                    }
                     IconButton(onClick = onOpenAdvancedTweaks) {
                         Text("🛠️", fontSize = 18.sp)
                     }

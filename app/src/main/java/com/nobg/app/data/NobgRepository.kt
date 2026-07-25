@@ -311,6 +311,58 @@ class NobgRepository(context: Context) {
         ShizukuManager.exec("settings put surface_flinger show_refresh_rate $valStr")
         ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valStr")
     }
+
+    // --- APP FREEZER SHELF (KỆ ĐÓNG BẰNG ỨNG DỤNG) ---
+    val frozenShelfApps: kotlinx.coroutines.flow.Flow<List<AppEntity>> = appDao.observeFrozenShelf()
+
+    suspend fun freezePackage(pkg: String) {
+        ShizukuManager.exec("pm disable-user --user 0 $pkg")
+    }
+
+    suspend fun unfreezePackage(pkg: String) {
+        ShizukuManager.exec("pm enable $pkg")
+    }
+
+    suspend fun unfreezeAndLaunch(context: android.content.Context, pkg: String): Boolean {
+        unfreezePackage(pkg)
+        kotlinx.coroutines.delay(200)
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
+        return if (launchIntent != null) {
+            launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launchIntent)
+            true
+        } else {
+            false
+        }
+    }
+
+    suspend fun toggleAppFrozenShelf(pkg: String, addToShelf: Boolean) {
+        val existing = appDao.get(pkg)
+        if (existing != null) {
+            appDao.upsert(existing.copy(isFrozenShelf = addToShelf))
+        } else {
+            appDao.upsert(AppEntity(packageName = pkg, enabled = false, isFrozenShelf = addToShelf))
+        }
+        if (addToShelf) {
+            freezePackage(pkg)
+        } else {
+            unfreezePackage(pkg)
+        }
+    }
+
+    suspend fun freezeAllShelfApps() {
+        val apps = appDao.getFrozenShelfApps()
+        for (app in apps) {
+            freezePackage(app.packageName)
+        }
+    }
+
+    suspend fun unfreezeAllShelfApps() {
+        val apps = appDao.getFrozenShelfApps()
+        for (app in apps) {
+            unfreezePackage(app.packageName)
+        }
+    }
 }
 
 
