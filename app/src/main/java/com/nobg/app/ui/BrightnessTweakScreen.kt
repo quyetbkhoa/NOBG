@@ -113,6 +113,11 @@ fun BrightnessTweakScreen(
                         value = minCapValue,
                         onValueChange = { newValue ->
                             minCapValue = newValue
+                            if (isMinCapEnabled) {
+                                scope.launch {
+                                    repo.setMinBrightness(true, newValue.toInt())
+                                }
+                            }
                         },
                         onValueChangeFinished = {
                             if (isMinCapEnabled) {
@@ -183,6 +188,11 @@ fun BrightnessTweakScreen(
                         value = offsetValue,
                         onValueChange = { newValue ->
                             offsetValue = newValue
+                            if (isOffsetEnabled) {
+                                scope.launch {
+                                    repo.setAutoBrightnessOffset(true, newValue)
+                                }
+                            }
                         },
                         onValueChangeFinished = {
                             if (isOffsetEnabled) {
@@ -248,6 +258,11 @@ fun BrightnessTweakScreen(
                         value = extraDimLevel,
                         onValueChange = { newValue ->
                             extraDimLevel = newValue
+                            if (isExtraDimEnabled) {
+                                scope.launch {
+                                    repo.setExtraDim(true, newValue.toInt())
+                                }
+                            }
                         },
                         onValueChangeFinished = {
                             if (isExtraDimEnabled) {

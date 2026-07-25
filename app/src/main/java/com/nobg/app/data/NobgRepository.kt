@@ -296,7 +296,19 @@ class NobgRepository(context: Context) {
     suspend fun setMinBrightness(enabled: Boolean, value: Int) {
         prefs.edit().putBoolean("min_brightness_enabled", enabled).putInt("min_brightness_value", value).apply()
         val target = if (enabled) value else 1
+
+        // 1. Enable Auto-Brightness mode so min cap is active
+        ShizukuManager.exec("settings put system screen_brightness_mode 1")
+
+        // 2. Set min brightness across system, secure, and global namespaces (for Xiaomi/Samsung/Oppo OEM compatibility)
         ShizukuManager.exec("settings put system screen_brightness_min $target")
+        ShizukuManager.exec("settings put secure screen_brightness_min $target")
+        ShizukuManager.exec("settings put global screen_brightness_min $target")
+
+        // 3. Force update physical screen backlight immediately
+        if (enabled) {
+            ShizukuManager.exec("settings put system screen_brightness $target")
+        }
     }
 
     fun isAutoBrightnessOffsetEnabled(): Boolean = prefs.getBoolean("auto_brightness_offset_enabled", false)
@@ -304,8 +316,21 @@ class NobgRepository(context: Context) {
 
     suspend fun setAutoBrightnessOffset(enabled: Boolean, offset: Float) {
         prefs.edit().putBoolean("auto_brightness_offset_enabled", enabled).putFloat("auto_brightness_offset_value", offset).apply()
-        val target = if (enabled) String.format(java.util.Locale.US, "%.2f", offset) else "0.0"
-        ShizukuManager.exec("settings put system screen_auto_brightness_adj $target")
+        val targetStr = if (enabled) String.format(java.util.Locale.US, "%.2f", offset) else "0.0"
+
+        // 1. Enable Auto-Brightness mode
+        ShizukuManager.exec("settings put system screen_brightness_mode 1")
+
+        // 2. Set offset across system, secure, and global namespaces
+        ShizukuManager.exec("settings put system screen_auto_brightness_adj $targetStr")
+        ShizukuManager.exec("settings put secure screen_auto_brightness_adj $targetStr")
+        ShizukuManager.exec("settings put global screen_auto_brightness_adj $targetStr")
+
+        // 3. Force update physical screen backlight
+        if (enabled) {
+            val baseVal = (128 + (offset * 120)).toInt().coerceIn(15, 255)
+            ShizukuManager.exec("settings put system screen_brightness $baseVal")
+        }
     }
 
     fun isExtraDimEnabled(): Boolean = prefs.getBoolean("extra_dim_enabled", false)
