@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -24,17 +25,33 @@ sealed class UpdateResult {
 }
 
 object GitHubUpdater {
-    private const val GITHUB_RELEASE_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/tags/latest"
-    private const val FALLBACK_RELEASE_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/latest"
+    private const val GITHUB_RELEASES_ALL_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases"
+    private const val GITHUB_RELEASE_LATEST_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/latest"
+    private const val GITHUB_RELEASE_TAG_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/tags/latest"
 
     suspend fun checkForUpdates(): UpdateResult = withContext(Dispatchers.IO) {
         try {
-            val jsonStr = fetchJson(GITHUB_RELEASE_API) ?: fetchJson(FALLBACK_RELEASE_API)
-            if (jsonStr == null) {
+            val jsonStr = fetchJson(GITHUB_RELEASES_ALL_API)
+                ?: fetchJson(GITHUB_RELEASE_LATEST_API)
+                ?: fetchJson(GITHUB_RELEASE_TAG_API)
+
+            if (jsonStr.isNullOrBlank()) {
                 return@withContext UpdateResult.Error("Không thể kết nối tới GitHub Releases.")
             }
 
-            val json = JSONObject(jsonStr)
+            val json: JSONObject = try {
+                val trimmed = jsonStr.trim()
+                if (trimmed.startsWith("[")) {
+                    val array = JSONArray(trimmed)
+                    if (array.length() == 0) return@withContext UpdateResult.Error("Chưa có bản Release nào trên GitHub.")
+                    array.getJSONObject(0)
+                } else {
+                    JSONObject(trimmed)
+                }
+            } catch (e: Exception) {
+                return@withContext UpdateResult.Error("Lỗi đọc dữ liệu từ GitHub: ${e.message}")
+            }
+
             val tagName = json.optString("tag_name", "latest")
             val publishedAt = json.optString("published_at", "")
             val htmlUrl = json.optString("html_url", "https://github.com/quyetbkhoa/NOBG/releases")
