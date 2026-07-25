@@ -371,7 +371,7 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetAppUsageStats() {
         viewModelScope.launch {
-            repo.setUsageResetTime(System.currentTimeMillis())
+            repo.saveUsageResetTime()
             loadUsageStats(_currentInterval.value)
         }
     }
