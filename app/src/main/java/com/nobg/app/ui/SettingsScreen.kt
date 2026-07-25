@@ -257,6 +257,9 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             // Cập nhật ứng dụng từ GitHub
             var isCheckingUpdate by remember { mutableStateOf(false) }
             var updateResultState by remember { mutableStateOf<com.nobg.app.update.UpdateResult?>(null) }
+            var isDownloading by remember { mutableStateOf(false) }
+            var downloadProgressPct by remember { mutableStateOf(0) }
+            var downloadStatusText by remember { mutableStateOf("") }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -277,7 +280,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 isCheckingUpdate = false
                             }
                         },
-                        enabled = !isCheckingUpdate,
+                        enabled = !isCheckingUpdate && !isDownloading,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isCheckingUpdate) {
@@ -299,15 +302,57 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("✨ Đã tìm thấy bản Release APK mới!", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(4.dp))
-                                Text("Bản mới trên GitHub: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text("Phiên bản mới: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(8.dp))
                                 Button(
                                     onClick = {
-                                        com.nobg.app.update.GitHubUpdater.openDownloadLink(context, info.apkUrl)
+                                        isDownloading = true
+                                        scope.launch {
+                                            val downloadedFile = com.nobg.app.update.GitHubUpdater.downloadApk(context, info.apkUrl) { bytes, totalBytes, pct ->
+                                                downloadProgressPct = pct
+                                                val downloadedMB = String.format("%.1f", bytes / (1024.0 * 1024.0))
+                                                val totalMB = if (totalBytes > 0) String.format("%.1f MB", totalBytes / (1024.0 * 1024.0)) else "KB"
+                                                downloadStatusText = "Đang tải... $pct% ($downloadedMB / $totalMB)"
+                                            }
+                                            if (downloadedFile != null && downloadedFile.exists()) {
+                                                downloadStatusText = "⚡ Đang tiến hành cài đặt..."
+                                                com.nobg.app.update.GitHubUpdater.installApk(context, downloadedFile)
+                                            } else {
+                                                downloadStatusText = "❌ Tải file APK thất bại."
+                                            }
+                                            isDownloading = false
+                                        }
                                     },
+                                    enabled = !isDownloading,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("⬇️ Tải APK & Cập nhật ngay")
+                                    if (isDownloading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(if (downloadStatusText.isNotBlank()) downloadStatusText else "Đang tải APK...")
+                                    } else {
+                                        Text("🚀 Tải & Cài đặt trực tiếp")
+                                    }
+                                }
+
+                                if (isDownloading && downloadProgressPct > 0) {
+                                    Spacer(Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = downloadProgressPct / 100f,
+                                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                Spacer(Modifier.height(6.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        com.nobg.app.update.GitHubUpdater.openDownloadLink(context, info.apkUrl)
+                                    },
+                                    enabled = !isDownloading,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("🌐 Mở link trên trình duyệt")
                                 }
                             }
                         }
@@ -329,6 +374,15 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         val msg = (updateResultState as com.nobg.app.update.UpdateResult.Error).message
                         Spacer(Modifier.height(8.dp))
                         Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = {
+                                com.nobg.app.update.GitHubUpdater.openDownloadLink(context, "https://github.com/quyetbkhoa/NOBG/releases")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("🌐 Mở trang Release trên trình duyệt Web")
+                        }
                     }
                 }
             }
