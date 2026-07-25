@@ -2,6 +2,8 @@ package com.nobg.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -332,7 +334,7 @@ fun ChargingSessionDetailDialog(
                 }
 
                 Text(
-                    "Trục Ox: % Pin  |  Trục Oy: Thời gian sạc (phút)",
+                    "Trục Ox: Thời gian sạc (phút)  |  Trục Oy: % Pin",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -341,7 +343,7 @@ fun ChargingSessionDetailDialog(
                     points = points,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(220.dp)
                 )
             }
         }
@@ -354,6 +356,8 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
 
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
     val labelPaint = remember(onSurfaceVariantColor) {
         android.graphics.Paint().apply {
             color = onSurfaceVariantColor.toArgb()
@@ -362,7 +366,47 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
         }
     }
 
-    Canvas(modifier = modifier) {
+    val tooltipPaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 24f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+    }
+
+    val tooltipBgPaint = remember(primaryColor) {
+        android.graphics.Paint().apply {
+            color = primaryColor.toArgb()
+            isAntiAlias = true
+        }
+    }
+
+    Canvas(
+        modifier = modifier.pointerInput(points) {
+            detectTapGestures { tapOffset ->
+                if (points.isEmpty()) return@detectTapGestures
+                val padLeft = 55.dp.toPx()
+                val padBottom = 28.dp.toPx()
+                val padTop = 15.dp.toPx()
+                val padRight = 15.dp.toPx()
+                val chartW = size.width - padLeft - padRight
+                val maxMinutes = points.maxOfOrNull { it.cumulativeMinutes }?.coerceAtLeast(1f) ?: 60f
+
+                var closestIdx = 0
+                var minDist = Float.MAX_VALUE
+                points.forEachIndexed { idx, pt ->
+                    val x = padLeft + (pt.cumulativeMinutes / maxMinutes) * chartW
+                    val dist = Math.abs(x - tapOffset.x)
+                    if (dist < minDist) {
+                        minDist = dist
+                        closestIdx = idx
+                    }
+                }
+                selectedIndex = closestIdx
+            }
+        }
+    ) {
         if (points.isEmpty()) return@Canvas
 
         val padLeft = 55.dp.toPx()
@@ -379,21 +423,21 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop), Offset(padLeft, padTop + chartH), strokeWidth = 2.dp.toPx())
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop + chartH), Offset(padLeft + chartW, padTop + chartH), strokeWidth = 2.dp.toPx())
 
-        // Grid lines & Oy Axis (Thời gian sạc phút) Labels
-        for (i in 0..4) {
-            val ratio = i / 4f
-            val y = padTop + chartH * (1f - ratio)
-            val minVal = (maxMinutes * ratio).toInt()
-            drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
-            drawContext.canvas.nativeCanvas.drawText("${minVal}m", 8f, y + 6f, labelPaint)
-        }
-
-        // Ox Axis (% Pin) Labels
+        // Grid lines & Oy Axis (% Pin: 0%, 25%, 50%, 75%, 100%) Labels
         val stepPct = listOf(0, 25, 50, 75, 100)
         for (pctVal in stepPct) {
-            val x = padLeft + (pctVal / 100f) * chartW
+            val y = padTop + chartH * (1f - (pctVal / 100f))
+            drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
+            drawContext.canvas.nativeCanvas.drawText("$pctVal%", 8f, y + 6f, labelPaint)
+        }
+
+        // Ox Axis (Thời gian sạc phút: 0m ... maxMinutes) Labels
+        for (i in 0..4) {
+            val ratio = i / 4f
+            val minVal = (maxMinutes * ratio).toInt()
+            val x = padLeft + ratio * chartW
             drawLine(primaryColor.copy(alpha = 0.5f), Offset(x, padTop + chartH), Offset(x, padTop + chartH + 4.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-            drawContext.canvas.nativeCanvas.drawText("$pctVal%", x - 12f, size.height - 4f, labelPaint)
+            drawContext.canvas.nativeCanvas.drawText("${minVal}m", x - 12f, size.height - 4f, labelPaint)
         }
 
         // Line Path
@@ -401,8 +445,8 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
         val linePath = Path()
 
         points.forEachIndexed { idx, pt ->
-            val x = padLeft + (pt.batteryPct / 100f) * chartW
-            val y = padTop + chartH * (1f - (pt.cumulativeMinutes / maxMinutes))
+            val x = padLeft + (pt.cumulativeMinutes / maxMinutes) * chartW
+            val y = padTop + chartH * (1f - (pt.batteryPct / 100f))
 
             if (idx == 0) {
                 path.moveTo(x, y)
@@ -432,9 +476,34 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
         )
 
         points.forEach { pt ->
-            val x = padLeft + (pt.batteryPct / 100f) * chartW
-            val y = padTop + chartH * (1f - (pt.cumulativeMinutes / maxMinutes))
+            val x = padLeft + (pt.cumulativeMinutes / maxMinutes) * chartW
+            val y = padTop + chartH * (1f - (pt.batteryPct / 100f))
             drawCircle(primaryColor, radius = 3.dp.toPx(), center = Offset(x, y))
+        }
+
+        // Selected Point Crosshair lines (gióng sang 2 bên) & Tooltip
+        selectedIndex?.let { idx ->
+            if (idx in points.indices) {
+                val pt = points[idx]
+                val x = padLeft + (pt.cumulativeMinutes / maxMinutes) * chartW
+                val y = padTop + chartH * (1f - (pt.batteryPct / 100f))
+
+                // Dashed lines to Oy (% pin) & Ox (phút)
+                val dashEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(padLeft, y), Offset(x, y), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(x, y), Offset(x, padTop + chartH), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+
+                drawCircle(Color.White, radius = 6.dp.toPx(), center = Offset(x, y))
+                drawCircle(primaryColor, radius = 4.dp.toPx(), center = Offset(x, y))
+
+                // Draw Tooltip Box at top
+                val text = "⚡ ${pt.batteryPct}% Pin — Phút ${pt.cumulativeMinutes.toInt()}"
+                val textW = tooltipPaint.measureText(text)
+                val rectLeft = (x - textW / 2f - 16f).coerceIn(padLeft, padLeft + chartW - textW - 32f)
+                val rectTop = (y - 38.dp.toPx()).coerceAtLeast(padTop)
+                drawContext.canvas.nativeCanvas.drawRoundRect(rectLeft, rectTop, rectLeft + textW + 32f, rectTop + 32.dp.toPx(), 12f, 12f, tooltipBgPaint)
+                drawContext.canvas.nativeCanvas.drawText(text, rectLeft + 16f, rectTop + 22.dp.toPx(), tooltipPaint)
+            }
         }
     }
 }
@@ -445,6 +514,8 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
 
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
     val labelPaint = remember(onSurfaceVariantColor) {
         android.graphics.Paint().apply {
             color = onSurfaceVariantColor.toArgb()
@@ -453,7 +524,47 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         }
     }
 
-    Canvas(modifier = modifier) {
+    val tooltipPaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 24f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+    }
+
+    val tooltipBgPaint = remember(primaryColor) {
+        android.graphics.Paint().apply {
+            color = primaryColor.toArgb()
+            isAntiAlias = true
+        }
+    }
+
+    Canvas(
+        modifier = modifier.pointerInput(points) {
+            detectTapGestures { tapOffset ->
+                if (points.size < 2) return@detectTapGestures
+                val startTs = points.first().timestampMs
+                val totalMin = ((points.last().timestampMs - startTs) / 60000f).coerceAtLeast(0.1f)
+                val padLeft = 55.dp.toPx()
+                val padRight = 15.dp.toPx()
+                val chartW = size.width - padLeft - padRight
+
+                var closestIdx = 0
+                var minDist = Float.MAX_VALUE
+                points.forEachIndexed { idx, pt ->
+                    val elapsedMin = (pt.timestampMs - startTs) / 60000f
+                    val x = padLeft + (elapsedMin / totalMin) * chartW
+                    val dist = Math.abs(x - tapOffset.x)
+                    if (dist < minDist) {
+                        minDist = dist
+                        closestIdx = idx
+                    }
+                }
+                selectedIndex = closestIdx
+            }
+        }
+    ) {
         if (points.size < 2) return@Canvas
 
         val startTs = points.first().timestampMs
@@ -475,22 +586,22 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop), Offset(padLeft, padTop + chartH), strokeWidth = 2.dp.toPx())
         drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop + chartH), Offset(padLeft + chartW, padTop + chartH), strokeWidth = 2.dp.toPx())
 
-        // Grid lines & Oy Axis (Thời gian sạc phút) Labels
-        for (i in 0..4) {
-            val ratio = i / 4f
-            val y = padTop + chartH * (1f - ratio)
-            val minVal = (totalMin * ratio).toInt()
-            drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
-            drawContext.canvas.nativeCanvas.drawText("${minVal}m", 8f, y + 6f, labelPaint)
-        }
-
-        // Ox Axis (% Pin) Labels
+        // Grid lines & Oy Axis (% Pin) Labels
         val stepPct = pctDiff / 4.coerceAtLeast(1)
         for (i in 0..4) {
             val pctVal = minPct + (stepPct * i).coerceAtMost(maxPct - minPct)
-            val x = padLeft + ((pctVal - minPct).toFloat() / pctDiff) * chartW
+            val y = padTop + chartH * (1f - (pctVal - minPct).toFloat() / pctDiff)
+            drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
+            drawContext.canvas.nativeCanvas.drawText("$pctVal%", 8f, y + 6f, labelPaint)
+        }
+
+        // Ox Axis (Thời gian sạc phút: 0m -> totalMin) Labels
+        for (i in 0..4) {
+            val ratio = i / 4f
+            val minVal = (totalMin * ratio).toInt()
+            val x = padLeft + ratio * chartW
             drawLine(primaryColor.copy(alpha = 0.5f), Offset(x, padTop + chartH), Offset(x, padTop + chartH + 4.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-            drawContext.canvas.nativeCanvas.drawText("$pctVal%", x - 12f, size.height - 4f, labelPaint)
+            drawContext.canvas.nativeCanvas.drawText("${minVal}m", x - 12f, size.height - 4f, labelPaint)
         }
 
         val path = Path()
@@ -500,8 +611,8 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
             val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
             val elapsedMin = (pt.timestampMs - startTs) / 60000f
 
-            val x = padLeft + relPct * chartW
-            val y = padTop + chartH * (1f - (elapsedMin / totalMin.coerceAtLeast(0.1f)))
+            val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW
+            val y = padTop + chartH * (1f - relPct)
 
             if (idx == 0) {
                 path.moveTo(x, y)
@@ -534,9 +645,35 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
             val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
             val elapsedMin = (pt.timestampMs - startTs) / 60000f
 
-            val x = padLeft + relPct * chartW
-            val y = padTop + chartH * (1f - (elapsedMin / totalMin.coerceAtLeast(0.1f)))
+            val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW
+            val y = padTop + chartH * (1f - relPct)
             drawCircle(primaryColor, radius = 3.5.dp.toPx(), center = Offset(x, y))
+        }
+
+        // Selected Point Crosshair lines (gióng sang 2 bên) & Tooltip
+        selectedIndex?.let { idx ->
+            if (idx in points.indices) {
+                val pt = points[idx]
+                val relPct = (pt.batteryPct - minPct).toFloat() / pctDiff
+                val elapsedMin = (pt.timestampMs - startTs) / 60000f
+
+                val x = padLeft + (elapsedMin / totalMin.coerceAtLeast(0.1f)) * chartW
+                val y = padTop + chartH * (1f - relPct)
+
+                val dashEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(padLeft, y), Offset(x, y), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(x, y), Offset(x, padTop + chartH), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+
+                drawCircle(Color.White, radius = 6.dp.toPx(), center = Offset(x, y))
+                drawCircle(primaryColor, radius = 4.dp.toPx(), center = Offset(x, y))
+
+                val text = "⚡ ${pt.batteryPct}% Pin — Phút ${elapsedMin.toInt()}"
+                val textW = tooltipPaint.measureText(text)
+                val rectLeft = (x - textW / 2f - 16f).coerceIn(padLeft, padLeft + chartW - textW - 32f)
+                val rectTop = (y - 38.dp.toPx()).coerceAtLeast(padTop)
+                drawContext.canvas.nativeCanvas.drawRoundRect(rectLeft, rectTop, rectLeft + textW + 32f, rectTop + 32.dp.toPx(), 12f, 12f, tooltipBgPaint)
+                drawContext.canvas.nativeCanvas.drawText(text, rectLeft + 16f, rectTop + 22.dp.toPx(), tooltipPaint)
+            }
         }
     }
 }

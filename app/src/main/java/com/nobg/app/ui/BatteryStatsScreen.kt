@@ -7,6 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -398,6 +400,8 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
 
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
     val labelPaint = remember(onSurfaceVariantColor) {
         android.graphics.Paint().apply {
             color = onSurfaceVariantColor.toArgb()
@@ -406,16 +410,47 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         }
     }
 
-    val axisPaint = remember(primaryColor) {
+    val tooltipPaint = remember {
         android.graphics.Paint().apply {
-            color = primaryColor.toArgb()
-            textSize = 22f
+            color = android.graphics.Color.WHITE
+            textSize = 24f
             isFakeBoldText = true
             isAntiAlias = true
         }
     }
 
-    Canvas(modifier = modifier) {
+    val tooltipBgPaint = remember(primaryColor) {
+        android.graphics.Paint().apply {
+            color = primaryColor.toArgb()
+            isAntiAlias = true
+        }
+    }
+
+    Canvas(
+        modifier = modifier.pointerInput(curve) {
+            detectTapGestures { tapOffset ->
+                if (curve.isEmpty()) return@detectTapGestures
+                val padLeft = 60.dp.toPx()
+                val padRight = 15.dp.toPx()
+                val chartW = size.width - padLeft - padRight
+                val minPct = curve.minOf { it.batteryPct }
+                val maxPct = curve.maxOf { it.batteryPct }
+                val pctRange = (maxPct - minPct).coerceAtLeast(1)
+
+                var closestIdx = 0
+                var minDist = Float.MAX_VALUE
+                curve.forEachIndexed { idx, point ->
+                    val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
+                    val dist = Math.abs(x - tapOffset.x)
+                    if (dist < minDist) {
+                        minDist = dist
+                        closestIdx = idx
+                    }
+                }
+                selectedIndex = closestIdx
+            }
+        }
+    ) {
         if (curve.isEmpty()) return@Canvas
 
         val padLeft = 60.dp.toPx()
@@ -453,10 +488,6 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
             drawContext.canvas.nativeCanvas.drawText("$pctVal%", x - 15f, size.height - 4f, labelPaint)
         }
 
-        // Axis Titles
-        drawContext.canvas.nativeCanvas.drawText("Oy: Giây/%", 5f, padTop - 2f, axisPaint)
-        drawContext.canvas.nativeCanvas.drawText("Ox: % Pin", padLeft + chartW - 55.dp.toPx(), size.height - 4f, axisPaint)
-
         val path = Path()
         curve.forEachIndexed { idx, point ->
             val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
@@ -484,6 +515,29 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
             val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
             val y = padTop + chartH * (1f - point.secondsPerPct / maxSeconds)
             drawCircle(primaryColor, radius = 3.dp.toPx(), center = Offset(x, y))
+        }
+
+        // Crosshair Projection Lines ("gióng sang 2 bên") & Tooltip
+        selectedIndex?.let { idx ->
+            if (idx in curve.indices) {
+                val pt = curve[idx]
+                val x = padLeft + ((pt.batteryPct - minPct).toFloat() / pctRange) * chartW
+                val y = padTop + chartH * (1f - pt.secondsPerPct / maxSeconds)
+
+                val dashEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(padLeft, y), Offset(x, y), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+                drawLine(primaryColor.copy(alpha = 0.9f), Offset(x, y), Offset(x, padTop + chartH), strokeWidth = 1.5.dp.toPx(), pathEffect = dashEffect)
+
+                drawCircle(Color.White, radius = 6.dp.toPx(), center = Offset(x, y))
+                drawCircle(primaryColor, radius = 4.dp.toPx(), center = Offset(x, y))
+
+                val text = "⚡ ${pt.batteryPct}% Pin — ${pt.secondsPerPct.toInt()}s / 1%"
+                val textW = tooltipPaint.measureText(text)
+                val rectLeft = (x - textW / 2f - 16f).coerceIn(padLeft, padLeft + chartW - textW - 32f)
+                val rectTop = (y - 38.dp.toPx()).coerceAtLeast(padTop)
+                drawContext.canvas.nativeCanvas.drawRoundRect(rectLeft, rectTop, rectLeft + textW + 32f, rectTop + 32.dp.toPx(), 12f, 12f, tooltipBgPaint)
+                drawContext.canvas.nativeCanvas.drawText(text, rectLeft + 16f, rectTop + 22.dp.toPx(), tooltipPaint)
+            }
         }
     }
 }
