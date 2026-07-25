@@ -161,7 +161,22 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
                     if (selfStats != null) {
                         val stats = selfStats!!
+                        val uptimeMs = android.os.SystemClock.elapsedRealtime()
+                        val uptimeH = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(uptimeMs)
+                        val uptimeM = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(uptimeMs) % 60
+                        val uptimeS = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(uptimeMs) % 60
+                        val sessionTimeText = String.format(java.util.Locale.getDefault(), "%02dh %02dm %02ds", uptimeH, uptimeM, uptimeS)
+
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("⏱️ Thời gian đếm (Phiên):", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    sessionTimeText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("💾 Bộ nhớ RAM đang dùng:", style = MaterialTheme.typography.bodyMedium)
                                 Text(
@@ -193,8 +208,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-
-            var isCpuUnderclocked by remember { mutableStateOf(repo.isCpuUnderclockEnabled()) }
 
             val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 if (uri != null) {
@@ -267,55 +280,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         ) {
                             Text("📥 Nhập cấu hình")
                         }
-                    }
-                }
-            }
-
-            // ⚡ ÉP ANDROID POWERHAL HẠ XUNG CPU (CHẾ ĐỘ TIẾT KIỆM PIN)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "⚡ GIẢM XUNG CPU & TIẾT KIỆM PIN",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Ép PowerHAL hệ thống (cmd power set-mode 1) tự động giới hạn xung nhịp tối đa của các nhân CPU hiệu năng cao qua Shizuku.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = isCpuUnderclocked,
-                            onCheckedChange = { enabled ->
-                                isCpuUnderclocked = enabled
-                                scope.launch {
-                                    repo.setCpuUnderclockEnabled(enabled)
-                                    val msg = if (enabled) "⚡ Đã bật hạ xung CPU (PowerHAL Mode 1)" else "Đã tắt chế độ hạ xung CPU"
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                    }
-                    if (isCpuUnderclocked) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "STATUS: Trạng thái hạ xung CPU đang hoạt động và được hiển thị trên thông báo MonitorService.",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
                     }
                 }
             }

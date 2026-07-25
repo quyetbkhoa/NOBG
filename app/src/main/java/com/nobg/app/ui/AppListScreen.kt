@@ -39,7 +39,6 @@ fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
-    onOpenCpuUnderclock: () -> Unit,
     onOpenBrightnessTweak: () -> Unit,
     onOpenAdvancedTweaks: () -> Unit
 ) {
@@ -115,9 +114,6 @@ fun AppListScreen(
                     }
                     IconButton(onClick = onOpenBrightnessTweak) {
                         Text("💡", fontSize = 18.sp)
-                    }
-                    IconButton(onClick = onOpenCpuUnderclock) {
-                        Text("⚡", fontSize = 18.sp)
                     }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")

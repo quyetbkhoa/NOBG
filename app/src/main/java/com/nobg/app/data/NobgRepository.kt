@@ -201,19 +201,6 @@ class NobgRepository(context: Context) {
         prefs.edit().putBoolean(KEY_FULL_BATTERY_SOUND, enabled).apply()
     }
 
-    fun isCpuUnderclockEnabled(): Boolean = prefs.getBoolean("cpu_underclock_enabled", false)
-
-    suspend fun setCpuUnderclockEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("cpu_underclock_enabled", enabled).apply()
-        if (enabled) {
-            ShizukuManager.exec("cmd power set-mode 1")
-            ShizukuManager.exec("settings put global low_power 1")
-        } else {
-            ShizukuManager.exec("cmd power set-mode 0")
-            ShizukuManager.exec("settings put global low_power 0")
-        }
-    }
-
     suspend fun exportConfigJson(): String {
         val apps = appDao.getAll()
         val root = JSONObject()
@@ -261,32 +248,6 @@ class NobgRepository(context: Context) {
             restoredCount++
         }
         return restoredCount to totalCount
-    }
-
-    suspend fun recordCpuFreqLog(isUnderclockOn: Boolean) {
-        val curFreqKhz = try {
-            val file = java.io.File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
-            if (file.exists()) file.readText().trim().toIntOrNull() ?: 1600000 else 1600000
-        } catch (_: Exception) {
-            1600000
-        }
-        val rawMhz = (curFreqKhz / 1000).coerceIn(400, 3200)
-        val actualMhz = if (isUnderclockOn) (rawMhz * 0.72).toInt() else rawMhz
-
-        val now = System.currentTimeMillis()
-        cpuLogDao.insert(
-            CpuLogEntity(
-                timestamp = now,
-                freqMhz = actualMhz,
-                isUnderclockOn = isUnderclockOn
-            )
-        )
-        cpuLogDao.deleteOldLogs(now - 86400_000L)
-    }
-
-    suspend fun getCpuLogsLast2Hours(): List<CpuLogEntity> {
-        val since = System.currentTimeMillis() - 7200_000L
-        return cpuLogDao.getLogsSince(since)
     }
 
     // --- BRIGHTNESS TWEAKS ---

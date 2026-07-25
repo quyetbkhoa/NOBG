@@ -112,9 +112,6 @@ class MainActivity : ComponentActivity() {
                             viewModel = batteryStatsViewModel,
                             onBack = { currentScreen = "LIST" }
                         )
-                        "CPU_UNDERCLOCK" -> com.nobg.app.ui.CpuUnderclockScreen(
-                            onBack = { currentScreen = "LIST" }
-                        )
                         "BRIGHTNESS_TWEAK" -> com.nobg.app.ui.BrightnessTweakScreen(
                             onBack = { currentScreen = "LIST" }
                         )
@@ -126,7 +123,6 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
-                            onOpenCpuUnderclock = { currentScreen = "CPU_UNDERCLOCK" },
                             onOpenBrightnessTweak = { currentScreen = "BRIGHTNESS_TWEAK" },
                             onOpenAdvancedTweaks = { currentScreen = "ADVANCED_TWEAKS" }
                         )
