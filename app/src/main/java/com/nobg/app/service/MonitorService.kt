@@ -305,17 +305,22 @@ class MonitorService : Service() {
         val chargingStateText = if (isCharging) "⚡ Đang sạc" else "🔋 Đang dùng pin"
         val batteryText = if (batteryPct >= 0) "$batteryPct% ($chargingStateText)" else "Đang theo dõi"
         val appsText = if (enabledApps > 0) "Đang tối ưu $enabledApps ứng dụng" else "Đang bảo vệ thiết bị"
+        val isCpuUnderclocked = repo.isCpuUnderclockEnabled()
+        val cpuStatusText = if (isCpuUnderclocked) "⚡ Giảm xung CPU: BẬT" else "⚡ Xung CPU: Bình thường"
 
         val bigText = """
             🛡️ Trạng thái: Đang bảo vệ & dọn app ngầm (Shizuku)
             📊 Ứng dụng đã tối ưu: $enabledApps app
+            ⚡ Giới hạn xung CPU: ${if (isCpuUnderclocked) "Đã hạ xung (PowerHAL Mode 1)" else "Mặc định"}
             🔋 Trạng thái pin: $batteryText
         """.trimIndent()
 
+        val notifTitle = if (isCpuUnderclocked) "⚡ NOBG (Đã hạ xung CPU) — Đang bảo vệ" else "🛡️ NOBG — Đang bảo vệ hệ thống"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentTitle("🛡️ NOBG — Đang bảo vệ hệ thống")
-            .setContentText("$appsText · Pin: $batteryText")
+            .setContentTitle(notifTitle)
+            .setContentText("$appsText · $cpuStatusText")
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setContentIntent(openAppPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -331,6 +336,9 @@ class MonitorService : Service() {
             ShizukuManager.bindUserService()
             while (isActive) {
                 try {
+                    if (repo.isCpuUnderclockEnabled()) {
+                        ShizukuManager.exec("cmd power set-mode 1")
+                    }
                     pollForegroundApp()
                     reconcileTickCounter++
                     if (reconcileTickCounter >= RECONCILE_EVERY_TICKS) {

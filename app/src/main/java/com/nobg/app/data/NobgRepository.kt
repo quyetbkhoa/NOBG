@@ -199,4 +199,18 @@ class NobgRepository(context: Context) {
     fun setFullBatterySoundEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_FULL_BATTERY_SOUND, enabled).apply()
     }
+
+    fun isCpuUnderclockEnabled(): Boolean = prefs.getBoolean("cpu_underclock_enabled", false)
+
+    suspend fun setCpuUnderclockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("cpu_underclock_enabled", enabled).apply()
+        if (enabled) {
+            ShizukuManager.exec("cmd power set-mode 1")
+            ShizukuManager.exec("settings put global low_power 1")
+        } else {
+            ShizukuManager.exec("cmd power set-mode 0")
+            ShizukuManager.exec("settings put global low_power 0")
+        }
+    }
 }
+

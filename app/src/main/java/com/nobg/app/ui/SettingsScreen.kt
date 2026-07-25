@@ -191,10 +191,61 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
+            var isCpuUnderclocked by remember { mutableStateOf(repo.isCpuUnderclockEnabled()) }
+
+            // ⚡ ÉP ANDROID POWERHAL HẠ XUNG CPU (CHẾ ĐỘ TIẾT KIỆM PIN)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "⚡ GIẢM XUNG CPU & TIẾT KIỆM PIN",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Ép PowerHAL hệ thống (cmd power set-mode 1) tự động giới hạn xung nhịp tối đa của các nhân CPU hiệu năng cao qua Shizuku.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isCpuUnderclocked,
+                            onCheckedChange = { enabled ->
+                                isCpuUnderclocked = enabled
+                                scope.launch {
+                                    repo.setCpuUnderclockEnabled(enabled)
+                                    val msg = if (enabled) "⚡ Đã bật hạ xung CPU (PowerHAL Mode 1)" else "Đã tắt chế độ hạ xung CPU"
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+                    if (isCpuUnderclocked) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "STATUS: Trạng thái hạ xung CPU đang hoạt động và được hiển thị trên thông báo MonitorService.",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
