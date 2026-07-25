@@ -44,7 +44,7 @@ fun BatteryStatsScreen(
     viewModel: BatteryStatsViewModel,
     onBack: () -> Unit
 ) {
-    val tabs = listOf("App tiêu thụ pin", "Chỉ số Pin chung")
+    val tabs = listOf("App tiêu thụ pin", "Chỉ số Pin chung", "⚡ Tốc độ sạc")
     var selectedTab by remember { mutableStateOf(0) }
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -82,6 +82,7 @@ fun BatteryStatsScreen(
             when (selectedTab) {
                 0 -> AppUsageTab(viewModel)
                 1 -> OverviewTab(viewModel)
+                2 -> ChargingSessionsTab(viewModel)
             }
         }
     }

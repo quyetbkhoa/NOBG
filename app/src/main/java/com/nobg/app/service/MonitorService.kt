@@ -27,13 +27,52 @@ class MonitorService : Service() {
     private val pendingKills = mutableMapOf<String, Job>()
     private var reconcileTickCounter = 0
 
-    // Charging prediction state
+    // Charging prediction & session tracking state
     private var chargingStartLevel: Int = -1
     private var chargingStartTime: Long = -1L
     private var wasCharging: Boolean = false
     private var timeToFullNotifSent: Boolean = false
+    private var fullBatterySoundPlayed: Boolean = false
+    private val activeChargingPoints = mutableListOf<com.nobg.app.data.ChargingPoint>()
+
     private val NOTIF_CHARGE_ID = 1002
+    private val NOTIF_FULL_BATTERY_ID = 1003
     private val CHANNEL_CHARGE_ID = "nobg_charge"
+    private val CHANNEL_FULL_BATTERY_ID = "nobg_full_battery"
+
+    companion object {
+        const val CHANNEL_ID = "nobg_monitor"
+        const val NOTIF_ID = 1001
+        const val POLL_INTERVAL_MS = 60000L
+        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        repo = NobgRepository(applicationContext)
+        usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(batteryReceiver, filter)
+
+        startForeground(NOTIF_ID, buildNotification())
+        loop()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        unregisterReceiver(batteryReceiver)
+        scope.cancel()
+        super.onDestroy()
+    }
 
     private var lastBatteryLogTime: Long = 0L
 
@@ -69,14 +108,112 @@ class MonitorService : Service() {
 
             if (batteryPct >= 0) {
                 repo.insertBatteryLog(batteryPct, isCharging, isScreenOn)
+                trackChargingSession(batteryPct, isCharging)
                 checkChargingPrediction(context, batteryPct, isCharging)
+                checkFullBatterySoundAlert(context, batteryPct, isCharging)
+                updateOngoingNotification(batteryPct, isCharging)
             }
+        }
+    }
+
+    private suspend fun trackChargingSession(batteryPct: Int, isCharging: Boolean) {
+        val now = System.currentTimeMillis()
+        if (isCharging) {
+            if (!wasCharging || activeChargingPoints.isEmpty()) {
+                activeChargingPoints.clear()
+                activeChargingPoints.add(com.nobg.app.data.ChargingPoint(batteryPct, now))
+            } else {
+                val lastPt = activeChargingPoints.lastOrNull()
+                if (lastPt == null || lastPt.batteryPct != batteryPct) {
+                    activeChargingPoints.add(com.nobg.app.data.ChargingPoint(batteryPct, now))
+                }
+            }
+        } else {
+            if (activeChargingPoints.size >= 2) {
+                val startPt = activeChargingPoints.first()
+                val endPt = activeChargingPoints.last()
+                val durationSec = (endPt.timestampMs - startPt.timestampMs) / 1000L
+
+                if (endPt.batteryPct > startPt.batteryPct && durationSec >= 60L) {
+                    val session = com.nobg.app.data.ChargingSessionEntity(
+                        startTimeMs = startPt.timestampMs,
+                        endTimeMs = endPt.timestampMs,
+                        startLevel = startPt.batteryPct,
+                        endLevel = endPt.batteryPct,
+                        totalDurationSeconds = durationSec,
+                        isCompletedToFull = endPt.batteryPct >= 99,
+                        pointsJson = com.nobg.app.data.ChargingPredictor.serializePointsJson(activeChargingPoints)
+                    )
+                    repo.insertChargingSession(session)
+                }
+            }
+            activeChargingPoints.clear()
+        }
+    }
+
+    private fun checkFullBatterySoundAlert(context: Context, batteryPct: Int, isCharging: Boolean) {
+        if (!isCharging) {
+            fullBatterySoundPlayed = false
+            return
+        }
+
+        if (batteryPct >= 100 && !fullBatterySoundPlayed && repo.isFullBatterySoundEnabled()) {
+            fullBatterySoundPlayed = true
+            sendFullBatteryNotification(context)
+        }
+    }
+
+    private fun sendFullBatteryNotification(context: Context) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_FULL_BATTERY_ID,
+                "Cảnh báo pin đầy 100%",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Thông báo phát âm thanh khi pin sạc đầy 100%"
+                setSound(soundUri, android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build())
+                enableVibration(true)
+            }
+            nm.createNotificationChannel(channel)
+        }
+
+        val openAppIntent = Intent(context, com.nobg.app.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 2, openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notif = NotificationCompat.Builder(context, CHANNEL_FULL_BATTERY_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setContentTitle("🔋 NOBG — Pin đã sạc đầy 100%!")
+            .setContentText("Pin đã đạt 100%. Vui lòng rút sạc để bảo vệ pin thiết bị.")
+            .setSound(soundUri)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        nm.notify(NOTIF_FULL_BATTERY_ID, notif)
+
+        try {
+            val ringtone = android.media.RingtoneManager.getRingtone(context, soundUri)
+            ringtone?.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private suspend fun checkChargingPrediction(context: Context, currentLevel: Int, isCharging: Boolean) {
         if (isCharging && !wasCharging) {
-            // Just plugged in
             chargingStartLevel = currentLevel
             chargingStartTime = System.currentTimeMillis()
             timeToFullNotifSent = false
@@ -89,18 +226,15 @@ class MonitorService : Service() {
             return
         }
 
-        // Need at least 5% gain and 5 min to make a prediction
         val elapsedMs = System.currentTimeMillis() - chargingStartTime
         val pctGained = currentLevel - chargingStartLevel
-        if (chargingStartLevel < 0 || elapsedMs < 300_000 || pctGained < 5 || timeToFullNotifSent) return
+        if (chargingStartLevel < 0 || elapsedMs < 120_000 || pctGained < 3 || timeToFullNotifSent) return
 
-        val chargeRatePctPerMs = pctGained.toDouble() / elapsedMs
-        val pctNeeded = 100 - currentLevel
-        if (pctNeeded <= 0) return
+        val sessions = repo.getAllChargingSessions()
+        val prediction = com.nobg.app.data.ChargingPredictor.calculateNonLinearPrediction(currentLevel, sessions)
+        val minutesToFull = prediction.remainingMinutes
 
-        val msToFull = (pctNeeded / chargeRatePctPerMs).toLong()
-        val minutesToFull = (msToFull / 60_000).toInt()
-        if (minutesToFull < 5) return  // too short, skip
+        if (minutesToFull < 2) return
 
         sendTimeToFullNotification(context, currentLevel, minutesToFull)
         timeToFullNotifSent = true
@@ -124,8 +258,8 @@ class MonitorService : Service() {
 
         val notif = NotificationCompat.Builder(context, CHANNEL_CHARGE_ID)
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setContentTitle("⚡ NOBG — Dự đoán sạc pin")
-            .setContentText("Pin ${currentLevel}% → Dự kiến đầy sau ~$timeStr")
+            .setContentTitle("⚡ NOBG — Dự đoán sạc đầy pin")
+            .setContentText("Pin ${currentLevel}% → Dự kiến đầy sau ~$timeStr (Thuật toán phi tuyến)")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
@@ -133,54 +267,61 @@ class MonitorService : Service() {
         nm.notify(NOTIF_CHARGE_ID, notif)
     }
 
-    companion object {
-        const val CHANNEL_ID = "nobg_monitor"
-        const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 60000L
-        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-        repo = NobgRepository(applicationContext)
-        usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_SCREEN_OFF)
+    private fun updateOngoingNotification(batteryPct: Int, isCharging: Boolean) {
+        scope.launch {
+            val enabledApps = repo.getEnabledApps().size
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIF_ID, buildNotification(enabledApps, batteryPct, isCharging))
         }
-        registerReceiver(batteryReceiver, filter)
-
-        startForeground(NOTIF_ID, buildNotification())
-        loop()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onDestroy() {
-        unregisterReceiver(batteryReceiver)
-        scope.cancel()
-        super.onDestroy()
-    }
-
-    private fun buildNotification(): Notification {
+    private fun buildNotification(enabledApps: Int = 0, batteryPct: Int = -1, isCharging: Boolean = false): Notification {
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel(
-                CHANNEL_ID, "NOBG Giam sat",
-                NotificationManager.IMPORTANCE_MIN
+                CHANNEL_ID, "NOBG Giám sát hệ thống",
+                NotificationManager.IMPORTANCE_LOW
             )
             channel.setShowBadge(false)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+
+        val openAppIntent = Intent(this, com.nobg.app.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            this, 0, openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val openStatsIntent = Intent(this, com.nobg.app.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "battery_stats")
+        }
+        val openStatsPendingIntent = PendingIntent.getActivity(
+            this, 1, openStatsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val chargingStateText = if (isCharging) "⚡ Đang sạc" else "🔋 Đang dùng pin"
+        val batteryText = if (batteryPct >= 0) "$batteryPct% ($chargingStateText)" else "Đang theo dõi"
+        val appsText = if (enabledApps > 0) "Đang tối ưu $enabledApps ứng dụng" else "Đang bảo vệ thiết bị"
+
+        val bigText = """
+            🛡️ Trạng thái: Đang bảo vệ & dọn app ngầm (Shizuku)
+            📊 Ứng dụng đã tối ưu: $enabledApps app
+            🔋 Trạng thái pin: $batteryText
+        """.trimIndent()
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("NOBG dang giam sat")
-            .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentTitle("🛡️ NOBG — Đang bảo vệ hệ thống")
+            .setContentText("$appsText · Pin: $batteryText")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+            .setContentIntent(openAppPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_preferences, "⚙️ Quản lý App", openAppPendingIntent)
+            .addAction(android.R.drawable.ic_menu_sort_by_size, "📊 Thống kê Pin", openStatsPendingIntent)
             .build()
     }
 

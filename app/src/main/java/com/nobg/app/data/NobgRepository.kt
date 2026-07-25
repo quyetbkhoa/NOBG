@@ -13,11 +13,13 @@ class NobgRepository(context: Context) {
     private val appDao = db.appDao()
     private val backupDao = db.backupDao()
     private val batteryLogDao = db.batteryLogDao()
+    private val chargingSessionDao = db.chargingSessionDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
 
     companion object {
         private const val KEY_BATTERY_RESET_TIME = "battery_reset_time"
         private const val KEY_USAGE_RESET_TIME = "usage_reset_time"
+        private const val KEY_FULL_BATTERY_SOUND = "full_battery_sound_enabled"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -178,5 +180,23 @@ class NobgRepository(context: Context) {
         batteryLogDao.deleteAll()
         saveBatteryResetTime()
         saveUsageResetTime()
+    }
+
+    // ---- Charging Session methods ----
+
+    fun observeChargingSessions(): Flow<List<ChargingSessionEntity>> = chargingSessionDao.observeAll()
+
+    suspend fun getAllChargingSessions(): List<ChargingSessionEntity> = chargingSessionDao.getAll()
+
+    suspend fun insertChargingSession(session: ChargingSessionEntity): Long = chargingSessionDao.insert(session)
+
+    suspend fun deleteChargingSession(id: Long) = chargingSessionDao.delete(id)
+
+    suspend fun clearAllChargingSessions() = chargingSessionDao.deleteAll()
+
+    fun isFullBatterySoundEnabled(): Boolean = prefs.getBoolean(KEY_FULL_BATTERY_SOUND, true)
+
+    fun setFullBatterySoundEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FULL_BATTERY_SOUND, enabled).apply()
     }
 }

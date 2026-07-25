@@ -19,12 +19,13 @@ class Converters {
     }
 }
 
-@Database(entities = [AppEntity::class, BackupEntity::class, BatteryLogEntity::class], version = 3, exportSchema = false)
+@Database(entities = [AppEntity::class, BackupEntity::class, BatteryLogEntity::class, ChargingSessionEntity::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
     abstract fun backupDao(): BackupDao
     abstract fun batteryLogDao(): BatteryLogDao
+    abstract fun chargingSessionDao(): ChargingSessionDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

@@ -60,3 +60,21 @@ interface BatteryLogDao {
     suspend fun deleteAll()
 }
 
+@Dao
+interface ChargingSessionDao {
+    @Insert
+    suspend fun insert(session: ChargingSessionEntity): Long
+
+    @Query("SELECT * FROM charging_sessions ORDER BY startTimeMs DESC")
+    fun observeAll(): Flow<List<ChargingSessionEntity>>
+
+    @Query("SELECT * FROM charging_sessions ORDER BY startTimeMs DESC")
+    suspend fun getAll(): List<ChargingSessionEntity>
+
+    @Query("DELETE FROM charging_sessions WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM charging_sessions")
+    suspend fun deleteAll()
+}
+

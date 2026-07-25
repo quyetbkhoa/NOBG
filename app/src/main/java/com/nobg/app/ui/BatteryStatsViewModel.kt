@@ -80,11 +80,49 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
     private val _isLoadingDetail = MutableStateFlow(false)
     val isLoadingDetail: StateFlow<Boolean> = _isLoadingDetail
 
+    private val _chargingSessions = MutableStateFlow<List<com.nobg.app.data.ChargingSessionEntity>>(emptyList())
+    val chargingSessions: StateFlow<List<com.nobg.app.data.ChargingSessionEntity>> = _chargingSessions
+
+    private val _isFullBatterySoundEnabled = MutableStateFlow(true)
+    val isFullBatterySoundEnabled: StateFlow<Boolean> = _isFullBatterySoundEnabled
+
+    private val _predictionResult = MutableStateFlow(com.nobg.app.data.ChargingPredictor.calculateNonLinearPrediction(0, emptyList()))
+    val predictionResult: StateFlow<com.nobg.app.data.PredictionResult> = _predictionResult
+
     private var lastTotalCalculatedMah: Double = 1.0
 
     init {
         loadUsageStats(StatsInterval.SINCE_CHARGED)
         loadOverview()
+        observeChargingSessions()
+    }
+
+    private fun observeChargingSessions() {
+        _isFullBatterySoundEnabled.value = repo.isFullBatterySoundEnabled()
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.observeChargingSessions().collect { list ->
+                _chargingSessions.value = list
+                val currentLevel = _overview.value.currentChargeLevel.let { if (it >= 0) it else 0 }
+                _predictionResult.value = com.nobg.app.data.ChargingPredictor.calculateNonLinearPrediction(currentLevel, list)
+            }
+        }
+    }
+
+    fun setFullBatterySoundEnabled(enabled: Boolean) {
+        repo.setFullBatterySoundEnabled(enabled)
+        _isFullBatterySoundEnabled.value = enabled
+    }
+
+    fun clearAllChargingSessions() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.clearAllChargingSessions()
+        }
+    }
+
+    fun deleteChargingSession(id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.deleteChargingSession(id)
+        }
     }
 
     fun selectAppDetail(packageName: String) {

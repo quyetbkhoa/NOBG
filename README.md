@@ -1,19 +1,30 @@
-# 🔋 NOBG (No Background) — v2.0.0
+# 🔋 NOBG (No Background) — v2.1.0
 
-**NOBG (No Background)** là ứng dụng Android chuyên dụng giúp tối ưu hóa hệ thống, quản lý và kiểm soát triệt để các ứng dụng chạy ngầm nhằm tiết kiệm tối đa tài nguyên RAM, CPU và kéo dài thời lượng sử dụng Pin.
+**NOBG (No Background)** là ứng dụng Android chuyên dụng giúp tối ưu hóa hệ thống, quản lý và kiểm soát triệt me các ứng dụng chạy ngầm nhằm tiết kiệm tối đa tài nguyên RAM, CPU và kéo dài thời lượng sử dụng Pin.
 
 Điểm đặc biệt của **NOBG** là khả năng can thiệp sâu vào hệ thống Android qua **Shizuku API** (sử dụng quyền ADB) mà **KHÔNG CẦN ROOT** thiết bị.
 
 ---
 
-## 🌟 Tính Năng Nổi Bật (Version 2.0.0)
+## 🌟 Tính Năng Nổi Bật (Version 2.1.0)
 
 ### 1. 🛡️ 3 Chế Độ Quản Lý App Ngầm (Optimization Modes)
 - **Chế độ Tiêu chuẩn (Standard Mode)**: Áp dụng các hạn chế ngầm mặc định của Android đối với ứng dụng được chọn.
 - **Chế độ Mạnh mẽ (Aggressive Mode - Force Stop)**: Tự động buộc dừng (`am force-stop`) ứng dụng qua Shizuku ngay khi người dùng thoát ứng dụng (sau khoảng thời gian đếm ngược tùy chỉnh).
 - **Chế độ Đóng băng (Disable-Enable Mode)**: Vô hiệu hóa hoàn toàn package (`pm disable-user`) qua Shizuku khi ứng dụng xuống nền, loại bỏ 100% khả năng tự chạy ngầm/chạy ngầm trái phép. Tự động kích hoạt lại (`pm enable`) khi người dùng mở ứng dụng.
 
-### 2. 📊 Thống Kê Pin & Dòng Thời Gian Sự Kiện Chi Tiết (Detailed Battery & Event Timeline)
+### 2. ⚡ Lịch Sử Các Phiên Sạc & Biểu Đồ Tốc Độ Sạc Phi Tuyến Tính (`ChargingSessionsTab`)
+- **Lưu vết từng phiên sạc riêng biệt**: Tự động lưu tất cả các lần cắm sạc vào Room Database (thời gian bắt đầu/kết thúc, % pin ban đầu, % kết thúc, tổng thời gian).
+- **Biểu đồ Tốc độ Sạc từng phiên (Session Curve)**: Bấm vào bất kỳ phiên sạc nào trong lịch sử để xem biểu đồ đường sạc tương ứng với **Trục Ox: % Pin** và **Trục Oy: Thời gian sạc**.
+- **Thuật toán dự đoán sạc phi tuyến tính**: Tính toán trung bình từng nấc 1% pin dựa trên các phiên sạc lịch sử, từ đó đưa ra dự đoán thời gian sạc đầy 100% chính xác (tính đến hiện tượng sạc chậm dần từ 80% -> 100%).
+- **🔊 Cảnh báo âm thanh khi pin đầy 100%**: Tự động phát âm thanh thông báo/chuông cảnh báo khi pin được sạc tới 100% để nhắc người dùng rút sạc.
+
+### 3. 🛡️ Nâng Cấp Thông Báo Giám Sát Hệ Thống (Rich Dashboard Notification)
+- Nâng cấp thông báo giám sát thường trực thành dashboard thông báo tiếng Việt hiện đại.
+- Hiển thị thông số thời gian thực: Số ứng dụng đang được tối ưu, số lượt dọn ngầm, phần trăm pin và tốc độ sạc/xả.
+- Tích hợp các nút thao tác nhanh: **`⚙️ Quản lý App`** và **`📊 Thống kê Pin`**.
+
+### 4. 📊 Thống Kê Pin & Dòng Thời Gian Sự Kiện Chi Tiết (Detailed Battery & Event Timeline)
 - **Dòng thời gian sự kiện (Event Timeline Canvas)**:
   - Biểu đồ thời gian trực quan phân định rõ các khoảng thời gian **Tiền cảnh (Foreground)** và **Dịch vụ nền (Background Service)**.
   - Hiển thị đầy đủ mốc thời gian, số phiên tiền cảnh, tổng thời gian hiển thị, phiên dài nhất, số lần chạy dịch vụ nền và số lần tương tác.
