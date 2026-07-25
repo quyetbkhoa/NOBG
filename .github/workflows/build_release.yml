@@ -50,6 +50,14 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Extract App Version
+        id: version
+        run: |
+          VER=$(grep 'versionName =' app/build.gradle.kts | cut -d'"' -f2)
+          if [ -z "$VER" ]; then VER="3.0.0"; fi
+          echo "APP_VER=v$VER" >> $GITHUB_ENV
+          echo "VER_RAW=$VER" >> $GITHUB_ENV
+
       - name: Find APK and verify
         id: apk
         run: |
@@ -71,9 +79,9 @@ jobs:
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: "NOBG Latest Release"
-          body: "Tự động build bản Release APK mới nhất từ branch main."
+          tag_name: ${{ env.APP_VER }}
+          name: "NOBG ${{ env.APP_VER }} Release"
+          body: "Tự động build bản Release APK ${{ env.APP_VER }} mới nhất từ branch main."
           files: ${{ steps.apk.outputs.path }}
           make_latest: true
         env:
@@ -87,6 +95,7 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           APK_PATH: ${{ steps.apk.outputs.path }}
+          APP_VER: ${{ env.APP_VER }}
         run: |
           python3 -c '
           import os, sys, urllib.request
@@ -94,6 +103,7 @@ jobs:
           token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
           chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
           apk_path = os.environ.get("APK_PATH", "").strip()
+          app_ver = os.environ.get("APP_VER", "v3.0.0").strip()
           commit_sha = os.environ.get("COMMIT_SHA", "")[:7]
           commit_msg = os.environ.get("COMMIT_MSG", "").split("\n")[0][:80]
 
@@ -106,7 +116,7 @@ jobs:
               sys.exit(1)
 
           url = f"https://api.telegram.org/bot{token}/sendDocument"
-          caption = f"🚀 NOBG Release APK (v2.1.0)\n📌 Commit: {commit_sha}\n📝 {commit_msg}"
+          caption = f"🚀 NOBG Release APK ({app_ver})\n📌 Commit: {commit_sha}\n📝 {commit_msg}"
 
           print(f"Sending APK ({os.path.getsize(apk_path)} bytes) to Telegram chat: {chat_id}...")
 
@@ -118,7 +128,7 @@ jobs:
 
           body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}\r\n".encode("utf-8"))
           body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}\r\n".encode("utf-8"))
-          body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"NOBG-v2.1.0-release.apk\"\r\nContent-Type: application/vnd.android.package-archive\r\n\r\n".encode("utf-8"))
+          body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"NOBG-{app_ver}-release.apk\"\r\nContent-Type: application/vnd.android.package-archive\r\n\r\n".encode("utf-8"))
           body.extend(file_bytes)
           body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
 
