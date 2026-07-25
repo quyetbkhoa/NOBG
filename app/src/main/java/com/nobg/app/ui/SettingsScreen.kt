@@ -272,7 +272,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         onClick = {
                             isCheckingUpdate = true
                             scope.launch {
-                                val res = com.nobg.app.update.GitHubUpdater.checkForUpdates()
+                                val res = com.nobg.app.update.GitHubUpdater.checkForUpdates(context)
                                 updateResultState = res
                                 isCheckingUpdate = false
                             }
@@ -299,7 +299,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("✨ Đã tìm thấy bản Release APK mới!", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(4.dp))
-                                Text("Tag: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text("Bản mới trên GitHub: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(8.dp))
                                 Button(
                                     onClick = {
@@ -309,6 +309,20 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 ) {
                                     Text("⬇️ Tải APK & Cập nhật ngay")
                                 }
+                            }
+                        }
+                    } else if (updateResultState is com.nobg.app.update.UpdateResult.AlreadyLatest) {
+                        val ver = (updateResultState as com.nobg.app.update.UpdateResult.AlreadyLatest).currentVersion
+                        Spacer(Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("✅ Bạn đang sử dụng phiên bản mới nhất (v$ver)!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else if (updateResultState is com.nobg.app.update.UpdateResult.Error) {

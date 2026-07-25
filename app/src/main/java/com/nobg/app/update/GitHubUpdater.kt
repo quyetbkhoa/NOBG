@@ -15,12 +15,13 @@ data class UpdateInfo(
     val publishedAt: String,
     val apkUrl: String,
     val htmlUrl: String,
-    val body: String
+    val body: String,
+    val isNewer: Boolean
 )
 
 sealed class UpdateResult {
     data class UpdateAvailable(val info: UpdateInfo) : UpdateResult()
-    object AlreadyLatest : UpdateResult()
+    data class AlreadyLatest(val currentVersion: String) : UpdateResult()
     data class Error(val message: String) : UpdateResult()
 }
 
@@ -29,7 +30,38 @@ object GitHubUpdater {
     private const val GITHUB_RELEASE_LATEST_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/latest"
     private const val GITHUB_RELEASE_TAG_API = "https://api.github.com/repos/quyetbkhoa/NOBG/releases/tags/latest"
 
-    suspend fun checkForUpdates(): UpdateResult = withContext(Dispatchers.IO) {
+    fun getCurrentVersionName(context: Context): String {
+        return try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.0.0"
+        } catch (_: Exception) {
+            "1.0.0"
+        }
+    }
+
+    private fun isNewerVersion(remoteTag: String, currentVer: String): Boolean {
+        if (remoteTag.equals("latest", ignoreCase = true) || remoteTag.contains("latest", ignoreCase = true)) {
+            return true
+        }
+
+        val remoteClean = remoteTag.replace("[^0-9.]".toRegex(), "")
+        val currentClean = currentVer.replace("[^0-9.]".toRegex(), "")
+
+        val remoteParts = remoteClean.split(".").mapNotNull { it.toIntOrNull() }
+        val currentParts = currentClean.split(".").mapNotNull { it.toIntOrNull() }
+
+        val maxLen = maxOf(remoteParts.size, currentParts.size)
+        for (i in 0 until maxLen) {
+            val r = remoteParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+            if (r > c) return true
+            if (r < c) return false
+        }
+        return false
+    }
+
+    suspend fun checkForUpdates(context: Context): UpdateResult = withContext(Dispatchers.IO) {
+        val currentVer = getCurrentVersionName(context)
         try {
             val jsonStr = fetchJson(GITHUB_RELEASES_ALL_API)
                 ?: fetchJson(GITHUB_RELEASE_LATEST_API)
@@ -74,15 +106,22 @@ object GitHubUpdater {
                 apkUrl = htmlUrl
             }
 
+            val isNewer = isNewerVersion(tagName, currentVer)
+
             val info = UpdateInfo(
                 tagName = tagName,
                 publishedAt = publishedAt,
                 apkUrl = apkUrl,
                 htmlUrl = htmlUrl,
-                body = body
+                body = body,
+                isNewer = isNewer
             )
 
-            return@withContext UpdateResult.UpdateAvailable(info)
+            if (isNewer) {
+                return@withContext UpdateResult.UpdateAvailable(info)
+            } else {
+                return@withContext UpdateResult.AlreadyLatest(currentVer)
+            }
         } catch (e: Exception) {
             return@withContext UpdateResult.Error("Lỗi kiểm tra bản cập nhật: ${e.message}")
         }
