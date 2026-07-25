@@ -4,12 +4,12 @@
 
 **Ứng dụng quản lý app ngầm, ép hạ xung CPU & tiết kiệm pin tối đa trên Android (Không cần Root)**
 
-[![Việt Nam](https://img.shields.io/badge/Ng%C3%B4n_ng%E1%BB%AF-Ti%E1%BA%BFng_Vi%E1%BB%87t-blue?style=for-the-badge)](#-tiếng-việt---nobg-v300)
-[![English](https://img.shields.io/badge/Language-English-red?style=for-the-badge)](#-english---nobg-v300)
+[![Việt Nam](https://img.shields.io/badge/Ng%C3%B4n_ng%E1%BB%AF-Ti%E1%BA%BFng_Vi%E1%BB%87t-blue?style=for-the-badge)](#vietnamese)
+[![English](https://img.shields.io/badge/Language-English-red?style=for-the-badge)](#english)
 
 <br/>
 
-[![Views](https://profile-counter.glitch.me/quyetbkhoa_NOBG/count.svg)](https://github.com/quyetbkhoa/NOBG)
+![Views](https://komarev.com/ghpvc/?username=quyetbkhoa-nobg&label=Views&color=007ec6&style=flat-square)
 ![GitHub release](https://img.shields.io/github/v/release/quyetbkhoa/NOBG?color=brightgreen)
 ![GitHub stars](https://img.shields.io/github/stars/quyetbkhoa/NOBG?style=social)
 ![License](https://img.shields.io/github/license/quyetbkhoa/NOBG)
@@ -17,6 +17,8 @@
 </div>
 
 ---
+
+<a name="vietnamese"></a>
 
 ## 🇻🇳 TIẾNG VIỆT — NOBG v3.0.0
 
@@ -71,6 +73,8 @@
 3. **Chế độ Đóng băng (Disable-Enable Mode)**: Vô hiệu hóa hoàn toàn package (`pm disable-user`) khi app xuống nền và kích hoạt lại (`pm enable`) khi người dùng mở lại.
 
 ---
+
+<a name="english"></a>
 
 ## 🇬🇧 ENGLISH — NOBG v3.0.0
 
