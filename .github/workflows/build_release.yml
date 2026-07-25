@@ -87,27 +87,57 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           APK_PATH: ${{ steps.apk.outputs.path }}
         run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "Thieu TELEGRAM secret. Bo qua."
-            exit 0
-          fi
-          cp "$APK_PATH" /tmp/nobg_release.apk
-          SHORT_SHA="${COMMIT_SHA:0:7}"
-          CLEAN_MSG=$(printf '%s' "$COMMIT_MSG" | head -n 1 | cut -c1-100)
-          echo "Sending to Telegram chat: $TELEGRAM_CHAT_ID"
-          HTTP_CODE=$(curl -s -o /tmp/tg_response.json -w "%{http_code}" \
-               -F chat_id="$TELEGRAM_CHAT_ID" \
-               -F document=@/tmp/nobg_release.apk \
-               -F caption="NOBG New Release - $SHORT_SHA - $CLEAN_MSG" \
-               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument")
-          cat /tmp/tg_response.json
-          echo ""
-          echo "HTTP Status: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Telegram API returned non-200 status: $HTTP_CODE"
-            exit 1
-          fi
-          echo "APK sent to Telegram successfully!"
+          python3 -c '
+          import os, sys, urllib.request
+
+          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+          apk_path = os.environ.get("APK_PATH", "").strip()
+          commit_sha = os.environ.get("COMMIT_SHA", "")[:7]
+          commit_msg = os.environ.get("COMMIT_MSG", "").split("\n")[0][:80]
+
+          if not token or not chat_id:
+              print("Chua cau hinh TELEGRAM secrets. Bo qua.")
+              sys.exit(0)
+
+          if not os.path.exists(apk_path):
+              print(f"File APK khong ton tai tai: {apk_path}")
+              sys.exit(1)
+
+          url = f"https://api.telegram.org/bot{token}/sendDocument"
+          caption = f"🚀 NOBG Release APK (v2.1.0)\n📌 Commit: {commit_sha}\n📝 {commit_msg}"
+
+          print(f"Sending APK ({os.path.getsize(apk_path)} bytes) to Telegram chat: {chat_id}...")
+
+          with open(apk_path, "rb") as f:
+              file_bytes = f.read()
+
+          boundary = "---------------------------12345678901234567890"
+          body = []
+          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}".encode("utf-8"))
+          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}".encode("utf-8"))
+          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"NOBG-v2.1.0-release.apk\"\r\nContent-Type: application/vnd.android.package-archive\r\n\r\n".encode("utf-8") + file_bytes)
+          body.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+
+          payload = b"\r\n".join(body)
+
+          req = urllib.request.Request(
+              url,
+              data=payload,
+              headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
+          )
+
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  res = resp.read().decode("utf-8")
+                  print("Telegram API Success Response:", res)
+          except Exception as e:
+              print("Telegram API Upload Failed Error:", e)
+              if hasattr(e, "read"):
+                  print("Error details:", e.read().decode("utf-8"))
+              sys.exit(1)
+          '
+
 
 
 
