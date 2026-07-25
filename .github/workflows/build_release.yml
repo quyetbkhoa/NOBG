@@ -86,13 +86,16 @@ jobs:
           if [ -z "$MSG" ]; then
             MSG=$(git log -1 --pretty=format:"%s")
           fi
-          echo "BODY<<EOF" >> $GITHUB_ENV
-          echo "📌 Commit Message:" >> $GITHUB_ENV
-          echo "$MSG" >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "📝 Nhật ký commit gần đây:" >> $GITHUB_ENV
-          git log -n 5 --pretty=format:"• %s" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          {
+            echo 'body<<EOF'
+            echo "📌 Commit Message:"
+            echo "$MSG"
+            echo ""
+            echo "📝 Nhật ký commit gần đây:"
+            git log -n 5 --pretty=format:"• %s"
+            echo ""
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -100,7 +103,7 @@ jobs:
           tag_name: ${{ env.APP_VER }}
           target_commitish: ${{ github.sha }}
           name: "NOBG ${{ env.APP_VER }} Release"
-          body: ${{ env.BODY }}
+          body: ${{ steps.changelog.outputs.body }}
           files: ${{ steps.apk.outputs.path }}
           make_latest: true
           overwrite: true
