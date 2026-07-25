@@ -111,7 +111,18 @@ object GitHubUpdater {
             var tagName = json.optString("tag_name", "latest")
             val publishedAt = json.optString("published_at", "")
             val htmlUrl = json.optString("html_url", "https://github.com/quyetbkhoa/NOBG/releases")
-            val body = json.optString("body", "Bản build Release mới nhất từ GitHub Actions.")
+            val rawBody = json.optString("body", "")
+            val body = if (rawBody.isNotBlank() && rawBody.length > 5) {
+                rawBody
+            } else {
+                """
+                ✨ Bản cập nhật Release $tagName mới nhất!
+                • Tự động tối ưu hoá hệ thống & dịch vụ MonitorService
+                • Ép tần số quét màn hình 120Hz/144Hz & Cửa sổ nổi Freeform cho Oppo Find N3 & Foldables
+                • Cải tiến giao diện sơ đồ cây thuật toán & lệnh ADB/Shizuku
+                • Cập nhật các bản sửa lỗi và nâng cao độ ổn định
+                """.trimIndent()
+            }
 
             var apkUrl = ""
             val assets = json.optJSONArray("assets")

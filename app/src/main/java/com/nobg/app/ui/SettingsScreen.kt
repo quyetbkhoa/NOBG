@@ -33,7 +33,11 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun SettingsScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+    onOpenAlgorithmScreen: () -> Unit
+) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
@@ -571,7 +575,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
-            var showAlgorithmDialog by remember { mutableStateOf(false) }
             val currentVersionName = remember(context) {
                 try {
                     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.0.0"
@@ -579,13 +582,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     "3.0.0"
                 }
             }
-
-            if (showAlgorithmDialog) {
-                AlgorithmDocDialog(
-                    onDismiss = { showAlgorithmDialog = false }
-                )
-            }
-
             // 📘 THUẬT TOÁN & LỆNH HỆ THỐNG NOBG
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -594,14 +590,14 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("📘 THUẬT TOÁN & LỆNH HỆ THỐNG", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
                     Spacer(Modifier.height(4.dp))
-                    Text("Xem chi tiết các nguyên lý thuật toán, công thức toán học và lệnh Shell ADB/Shizuku thực thi cho từng tính năng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text("Xem chi tiết sơ đồ cây nguyên lý thuật toán, công thức toán học và toàn bộ lệnh Shell ADB/Shizuku cho mọi tính năng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     Spacer(Modifier.height(10.dp))
                     Button(
-                        onClick = { showAlgorithmDialog = true },
+                        onClick = onOpenAlgorithmScreen,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                     ) {
-                        Text("📖 Mở bảng tra cứu Thuật toán & Lệnh")
+                        Text("📖 Mở bảng tra cứu Thuật toán & Lệnh (Cây Sơ Đồ)")
                     }
                 }
             }

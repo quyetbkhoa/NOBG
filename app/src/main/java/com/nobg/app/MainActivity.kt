@@ -106,24 +106,24 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "SETTINGS" -> SettingsScreen(
                             viewModel = viewModel,
-                            onBack = { currentScreen = "LIST" }
+                            onBack = { currentScreen = "LIST" },
+                            onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" }
                         )
                         "BATTERY_STATS" -> BatteryStatsScreen(
                             viewModel = batteryStatsViewModel,
-                            onBack = { currentScreen = "LIST" }
-                        )
-                        "BRIGHTNESS_TWEAK" -> com.nobg.app.ui.BrightnessTweakScreen(
                             onBack = { currentScreen = "LIST" }
                         )
                         "ADVANCED_TWEAKS" -> com.nobg.app.ui.AdvancedTweaksScreen(
                             repo = com.nobg.app.data.NobgRepository(applicationContext),
                             onBack = { currentScreen = "LIST" }
                         )
+                        "ALGORITHM" -> com.nobg.app.ui.AlgorithmScreen(
+                            onBack = { currentScreen = "SETTINGS" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
-                            onOpenBrightnessTweak = { currentScreen = "BRIGHTNESS_TWEAK" },
                             onOpenAdvancedTweaks = { currentScreen = "ADVANCED_TWEAKS" }
                         )
                     }

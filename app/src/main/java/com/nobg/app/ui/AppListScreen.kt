@@ -39,7 +39,6 @@ fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
-    onOpenBrightnessTweak: () -> Unit,
     onOpenAdvancedTweaks: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
@@ -111,9 +110,6 @@ fun AppListScreen(
                 actions = {
                     IconButton(onClick = onOpenAdvancedTweaks) {
                         Text("🛠️", fontSize = 18.sp)
-                    }
-                    IconButton(onClick = onOpenBrightnessTweak) {
-                        Text("💡", fontSize = 18.sp)
                     }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")
