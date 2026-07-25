@@ -268,6 +268,12 @@ class NobgRepository(context: Context) {
         return restoredCount to totalCount
     }
 
+    // --- APP SCREEN STATE PERSISTENCE ---
+    fun getLastActiveScreen(): String = prefs.getString("last_active_screen", "LIST") ?: "LIST"
+    fun setLastActiveScreen(screen: String) {
+        prefs.edit().putString("last_active_screen", screen).apply()
+    }
+
     // --- ADVANCED HIDDEN TWEAKS ---
     fun isForceFreeformEnabled(): Boolean = prefs.getBoolean("force_freeform_enabled", false)
 

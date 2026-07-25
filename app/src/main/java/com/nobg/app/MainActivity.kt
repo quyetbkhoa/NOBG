@@ -86,13 +86,18 @@ class MainActivity : ComponentActivity() {
 
         val shouldShowOnboardingInitially = missingShizuku || missingNotification || missingBatteryOpt
 
-        val initialScreen = intent?.getStringExtra("open_screen") ?: "LIST"
+        val repo = com.nobg.app.data.NobgRepository(applicationContext)
+        val initialScreen = intent?.getStringExtra("open_screen") ?: repo.getLastActiveScreen()
 
         setContent {
             NobgTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var currentScreen by remember { mutableStateOf(initialScreen) }
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
+
+                    LaunchedEffect(currentScreen) {
+                        repo.setLastActiveScreen(currentScreen)
+                    }
 
                     LaunchedEffect(intent) {
                         val screenExtra = intent?.getStringExtra("open_screen")
