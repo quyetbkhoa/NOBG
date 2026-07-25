@@ -215,44 +215,30 @@ object GitHubUpdater {
 
     private fun formatFeatureChangelog(tagName: String, rawBody: String): String {
         val cleanTag = tagName.trim()
-        val isGeneric = rawBody.isBlank() || 
-                rawBody.contains("Automated release", ignoreCase = true) || 
-                rawBody.contains("Release build", ignoreCase = true) ||
-                rawBody.contains("from commit", ignoreCase = true) ||
-                rawBody.length < 15
+        val trimmed = rawBody.trim()
 
-        if (!isGeneric) {
-            val lines = rawBody.lines().filterNot { line ->
-                line.contains("commit", ignoreCase = true) && line.contains("https://github.com", ignoreCase = true)
-            }
-            val cleaned = lines.joinToString("\n").trim()
-            if (cleaned.length > 25) return cleaned
+        if (trimmed.isNotBlank() && !trimmed.startsWith("Tự động build bản Release APK")) {
+            return "📌 NHẬT KÝ COMMITS ($cleanTag):\n\n$trimmed"
+        }
+
+        if (trimmed.startsWith("Tự động build bản Release APK")) {
+            val commitSha = trimmed.substringAfter("commit ").take(7)
+            return """
+                📌 BẢN CẬP NHẬT COMMITS ($cleanTag):
+                • Commit ID: $commitSha
+                • Sửa lỗi biểu đồ Ox Oy, trùng lặp phiên sạc & dừng đếm thời gian sạc khi đạt 100%
+                • Loại bỏ hoàn toàn các tính năng Hz & tối ưu cửa sổ Freeform Oppo Find N3
+                • Thiết kế mới Widget Kệ Đóng Bằng bo góc nền trắng & mở Kệ khi bấm vùng trống
+                • Giảm nhịp polling ngầm xuống 2 phút/lần & tự động ngủ sâu khi tắt màn hình
+            """.trimIndent()
         }
 
         return """
-            🌟 NHẬT KÝ TÍNH NĂNG NÂNG CẤP ($cleanTag):
-
-            🧊 KỆ ĐÓNG BẰNG ỨNG DỤNG (ICEBOX SHELF)
-            • Tích hợp Kệ Đóng Bằng: Đóng băng triệt để 100% RAM/CPU ứng dụng
-            • Cơ chế 1-Chạm Mở & Xả đóng băng: Tự động khôi phục và bật app khi cần dùng
-            • Đóng băng & Xả đóng băng hàng loạt toàn bộ danh sách kệ
-
-            📺 QUẢN LÝ TẦN SỐ QUÉT MÀN HÌNH (HZ & OVERLAY)
-            • Thẻ hiển thị Tần Số Quét thực tế hiện tại của phần cứng (Display Manager API)
-            • Công tắc bật/tắt Bộ đếm Hz/FPS nhảy trực tiếp góc màn hình (SurfaceFlinger)
-            • Ép tần số quét đỉnh 90Hz / 120Hz / 144Hz không bị tụt về 60Hz khi xem video
-
-            📐 CỬA SỔ NỔI & CHIA ĐÔI MÀN HÌNH (FOLDABLE READY)
-            • Ép tất cả app (Instagram, Zalo, Ngân hàng, Game...) hỗ trợ Freeform & Split Screen
-            • Tối ưu đặc biệt cho Oppo Find N3, Samsung Galaxy Z Fold & các máy màn gập
-
-            🌲 SƠ ĐỒ CÂY THUẬT TOÁN & LỆNH SYSTEM (TREE VIEW)
-            • Giao diện Cây Tra Cứu tương tác từng nhánh Flow ứng dụng
-            • Bổ sung thuật toán Quản lý Hạn Chế Pin Android (Unrestricted / Optimized / Restricted)
-
-            🚀 NÂNG CẤP HỆ THỐNG & PIN
-            • Tắt Cảnh báo Âm lượng Tai nghe 60% & Tắt giữ mạng 4G/5G ngầm khi dùng Wi-Fi
-            • Tự động kiểm tra cập nhật & Hộp thoại Tải / Cài đặt trực tiếp từ GitHub Releases
+            🌟 NHẬT KÝ CẬP NHẬT COMMITS ($cleanTag):
+            • Sửa lỗi biểu đồ Ox Oy, trùng lặp phiên sạc & dừng đếm thời gian sạc khi đạt 100%
+            • Loại bỏ hoàn toàn các tính năng Hz & tối ưu cửa sổ Freeform Oppo Find N3
+            • Thiết kế mới Widget Kệ Đóng Bằng bo góc nền trắng & mở Kệ khi bấm vùng trống
+            • Giảm nhịp polling ngầm xuống 2 phút/lần & tự động ngủ sâu khi tắt màn hình
         """.trimIndent()
     }
 

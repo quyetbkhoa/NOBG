@@ -79,13 +79,28 @@ jobs:
           name: NOBG-Release-APK
           path: ${{ steps.apk.outputs.path }}
 
+      - name: Generate Release Body Changelog
+        id: changelog
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          if [ -z "$MSG" ]; then
+            MSG=$(git log -1 --pretty=format:"%s")
+          fi
+          echo "BODY<<EOF" >> $GITHUB_ENV
+          echo "📌 Commit Message:" >> $GITHUB_ENV
+          echo "$MSG" >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "📝 Nhật ký commit gần đây:" >> $GITHUB_ENV
+          git log -n 5 --pretty=format:"• %s" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.APP_VER }}
           target_commitish: ${{ github.sha }}
           name: "NOBG ${{ env.APP_VER }} Release"
-          body: "Tự động build bản Release APK ${{ env.APP_VER }} mới nhất từ commit ${{ github.sha }}."
+          body: ${{ env.BODY }}
           files: ${{ steps.apk.outputs.path }}
           make_latest: true
           overwrite: true
