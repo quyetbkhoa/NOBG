@@ -296,18 +296,23 @@ class NobgRepository(context: Context) {
     suspend fun setMinBrightness(enabled: Boolean, value: Int) {
         prefs.edit().putBoolean("min_brightness_enabled", enabled).putInt("min_brightness_value", value).apply()
         val target = if (enabled) value else 1
+        val floatVal = String.format(java.util.Locale.US, "%.3f", (target / 255f).coerceIn(0.01f, 1.0f))
 
-        // 1. Enable Auto-Brightness mode so min cap is active
+        // 1. Enable Auto-Brightness mode across standard and Vivo OriginOS keys
         ShizukuManager.exec("settings put system screen_brightness_mode 1")
+        ShizukuManager.exec("settings put system vivo_screen_brightness_mode 1")
 
-        // 2. Set min brightness across system, secure, and global namespaces (for Xiaomi/Samsung/Oppo OEM compatibility)
+        // 2. Set min brightness across system, secure, and global namespaces + Vivo custom keys
         ShizukuManager.exec("settings put system screen_brightness_min $target")
         ShizukuManager.exec("settings put secure screen_brightness_min $target")
         ShizukuManager.exec("settings put global screen_brightness_min $target")
+        ShizukuManager.exec("settings put system vivo_night_mode_brightness $target")
 
-        // 3. Force update physical screen backlight immediately
+        // 3. Force hardware backlight update via direct DisplayManager service call (Works on Vivo OriginOS 6)
         if (enabled) {
+            ShizukuManager.exec("cmd display set-brightness $floatVal")
             ShizukuManager.exec("settings put system screen_brightness $target")
+            ShizukuManager.exec("settings put system screen_brightness_float $floatVal")
         }
     }
 
@@ -320,16 +325,23 @@ class NobgRepository(context: Context) {
 
         // 1. Enable Auto-Brightness mode
         ShizukuManager.exec("settings put system screen_brightness_mode 1")
+        ShizukuManager.exec("settings put system vivo_screen_brightness_mode 1")
 
-        // 2. Set offset across system, secure, and global namespaces
+        // 2. Set offset across system, secure, and global namespaces + Vivo OriginOS custom keys
         ShizukuManager.exec("settings put system screen_auto_brightness_adj $targetStr")
+        ShizukuManager.exec("settings put system auto_brightness_adj $targetStr")
         ShizukuManager.exec("settings put secure screen_auto_brightness_adj $targetStr")
         ShizukuManager.exec("settings put global screen_auto_brightness_adj $targetStr")
 
-        // 3. Force update physical screen backlight
+        // 3. Calculate target brightness and execute cmd display set-brightness for Vivo OriginOS
         if (enabled) {
-            val baseVal = (128 + (offset * 120)).toInt().coerceIn(15, 255)
-            ShizukuManager.exec("settings put system screen_brightness $baseVal")
+            val targetFloat = (0.25f + (offset * 0.40f)).coerceIn(0.02f, 1.0f)
+            val floatValStr = String.format(java.util.Locale.US, "%.3f", targetFloat)
+            val targetInt = (targetFloat * 255).toInt().coerceIn(5, 255)
+
+            ShizukuManager.exec("cmd display set-brightness $floatValStr")
+            ShizukuManager.exec("settings put system screen_brightness $targetInt")
+            ShizukuManager.exec("settings put system screen_brightness_float $floatValStr")
         }
     }
 

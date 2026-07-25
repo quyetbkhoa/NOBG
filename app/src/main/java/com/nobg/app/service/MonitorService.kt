@@ -339,6 +339,11 @@ class MonitorService : Service() {
                     if (repo.isCpuUnderclockEnabled()) {
                         ShizukuManager.exec("cmd power set-mode 1")
                     }
+                    if (repo.isMinBrightnessEnabled()) {
+                        val minVal = repo.getMinBrightnessValue()
+                        val floatVal = String.format(java.util.Locale.US, "%.3f", (minVal / 255f).coerceIn(0.01f, 1.0f))
+                        ShizukuManager.exec("cmd display set-brightness $floatVal")
+                    }
                     pollForegroundApp()
                     reconcileTickCounter++
                     if (reconcileTickCounter >= RECONCILE_EVERY_TICKS) {
