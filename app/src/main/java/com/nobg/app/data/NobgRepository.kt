@@ -288,6 +288,35 @@ class NobgRepository(context: Context) {
         val since = System.currentTimeMillis() - 7200_000L
         return cpuLogDao.getLogsSince(since)
     }
+
+    // --- BRIGHTNESS TWEAKS ---
+    fun isMinBrightnessEnabled(): Boolean = prefs.getBoolean("min_brightness_enabled", false)
+    fun getMinBrightnessValue(): Int = prefs.getInt("min_brightness_value", 15)
+
+    suspend fun setMinBrightness(enabled: Boolean, value: Int) {
+        prefs.edit().putBoolean("min_brightness_enabled", enabled).putInt("min_brightness_value", value).apply()
+        val target = if (enabled) value else 1
+        ShizukuManager.exec("settings put system screen_brightness_min $target")
+    }
+
+    fun isAutoBrightnessOffsetEnabled(): Boolean = prefs.getBoolean("auto_brightness_offset_enabled", false)
+    fun getAutoBrightnessOffset(): Float = prefs.getFloat("auto_brightness_offset_value", 0.0f)
+
+    suspend fun setAutoBrightnessOffset(enabled: Boolean, offset: Float) {
+        prefs.edit().putBoolean("auto_brightness_offset_enabled", enabled).putFloat("auto_brightness_offset_value", offset).apply()
+        val target = if (enabled) String.format(java.util.Locale.US, "%.2f", offset) else "0.0"
+        ShizukuManager.exec("settings put system screen_auto_brightness_adj $target")
+    }
+
+    fun isExtraDimEnabled(): Boolean = prefs.getBoolean("extra_dim_enabled", false)
+    fun getExtraDimLevel(): Int = prefs.getInt("extra_dim_level", 40)
+
+    suspend fun setExtraDim(enabled: Boolean, level: Int) {
+        prefs.edit().putBoolean("extra_dim_enabled", enabled).putInt("extra_dim_level", level).apply()
+        val activeStr = if (enabled) "1" else "0"
+        ShizukuManager.exec("settings put secure reduce_bright_colors_activated $activeStr")
+        ShizukuManager.exec("settings put secure reduce_bright_colors_level $level")
+    }
 }
 
 
