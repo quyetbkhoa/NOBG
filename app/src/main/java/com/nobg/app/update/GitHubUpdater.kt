@@ -72,8 +72,8 @@ object GitHubUpdater {
     suspend fun checkForUpdates(context: Context): UpdateResult = withContext(Dispatchers.IO) {
         val currentVer = getCurrentVersionName(context)
         try {
-            val (code1, res1) = fetchJson(GITHUB_RELEASES_ALL_API)
-            val (code2, res2) = if (res1 == null) fetchJson(GITHUB_RELEASE_LATEST_API) else (code1 to res1)
+            val (code1, res1) = fetchJson(GITHUB_RELEASE_LATEST_API)
+            val (code2, res2) = if (res1 == null) fetchJson(GITHUB_RELEASES_ALL_API) else (code1 to res1)
             val (code3, res3) = if (res2 == null) fetchJson(GITHUB_RELEASE_TAG_API) else (code2 to res2)
 
             val jsonStr = res3
