@@ -44,7 +44,13 @@ object GitHubUpdater {
     }
 
     private fun isNewerVersion(remoteTag: String, currentVer: String): Boolean {
-        // Always allow OTA update to the latest build from GitHub Releases
+        val cleanRemote = remoteTag.trim().removePrefix("v").removePrefix("V")
+        val cleanCurrent = currentVer.trim().removePrefix("v").removePrefix("V")
+
+        // If clean remote tag matches installed version exactly, it is NOT newer
+        if (cleanRemote.equals(cleanCurrent, ignoreCase = true)) {
+            return false
+        }
         return true
     }
 

@@ -12,6 +12,17 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 
+fun getGitCommitSha(): String {
+    return try {
+        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD").start()
+        process.inputStream.bufferedReader().readText().trim().ifEmpty { "dev" }
+    } catch (_: Exception) {
+        "dev"
+    }
+}
+
+val gitSha = getGitCommitSha()
+
 android {
     namespace = "com.nobg.app"
     compileSdk = 34
@@ -21,7 +32,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 6
-        versionName = "3.0.0"
+        versionName = "3.0.0-$gitSha"
     }
 
     buildFeatures {

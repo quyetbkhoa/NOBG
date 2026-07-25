@@ -54,9 +54,11 @@ jobs:
         id: version
         run: |
           VER=$(grep 'versionName =' app/build.gradle.kts | cut -d'"' -f2)
-          if [ -z "$VER" ]; then VER="3.0.0"; fi
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "APP_VER=v${VER}-${SHORT_SHA}" >> $GITHUB_ENV
+          if [[ "$VER" != *"$SHORT_SHA"* ]]; then
+            VER="3.0.0-${SHORT_SHA}"
+          fi
+          echo "APP_VER=v${VER}" >> $GITHUB_ENV
           echo "VER_RAW=$VER" >> $GITHUB_ENV
 
       - name: Find APK and verify
