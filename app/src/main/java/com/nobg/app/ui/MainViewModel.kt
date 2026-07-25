@@ -157,8 +157,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val appList: StateFlow<List<AppUiModel>> = combine(
-        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, frozenShelfFilters, hiddenFilter, sortOption
-    ) { apps, powerF, nobgF, shelfF, hiddenF, sortOpt ->
+        _filteredTypeAndDisabled, powerStateFilters, nobgStateFilters, frozenShelfFilters, sortOption
+    ) { apps, powerF, nobgF, shelfF, sortOpt ->
+        val hiddenF = hiddenFilter.value
         apps
             .filter { model ->
                 val matchesHidden = when (hiddenF) {
@@ -197,10 +198,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeFilterCount: StateFlow<Int> = combine(
-        userSystemFilters, disabledFilters, powerStateFilters, nobgStateFilters, frozenShelfFilters, hiddenFilter
-    ) { typeF, disabledF, powerF, nobgF, shelfF, hiddenF ->
+        userSystemFilters, disabledFilters, powerStateFilters, nobgStateFilters, frozenShelfFilters
+    ) { typeF, disabledF, powerF, nobgF, shelfF ->
         var count = typeF.size + disabledF.size + powerF.size + nobgF.size + shelfF.size
-        if (hiddenF != HiddenFilterOption.EXCLUDE_HIDDEN) count++
+        if (hiddenFilter.value != HiddenFilterOption.EXCLUDE_HIDDEN) count++
         count
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
@@ -299,7 +300,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         disabledFilters.value = emptySet()
         powerStateFilters.value = emptySet()
         nobgStateFilters.value = emptySet()
+        frozenShelfFilters.value = emptySet()
         hiddenFilter.value = HiddenFilterOption.EXCLUDE_HIDDEN
+        setSearchQuery("")
     }
 
     fun refreshPowerStates() {
@@ -424,16 +427,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         shellReady.value = PrivilegedShell.isReady()
         activeBackend.value = PrivilegedShell.activeBackend.value
         refreshPowerStates()
-    }
-
-    fun clearAllFilters() {
-        userSystemFilters.value = emptySet()
-        disabledFilters.value = emptySet()
-        powerStateFilters.value = emptySet()
-        nobgStateFilters.value = emptySet()
-        frozenShelfFilters.value = emptySet()
-        hiddenFilter.value = HiddenFilterOption.EXCLUDE_HIDDEN
-        searchQuery.value = ""
     }
 
     fun toggleFrozenShelf(packageName: String, addToShelf: Boolean) {
