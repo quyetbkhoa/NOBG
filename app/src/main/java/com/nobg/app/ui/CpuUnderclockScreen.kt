@@ -313,6 +313,7 @@ private fun CpuClockLineChart(
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val underclockColor = Color(0xFF00E676)
     val defaultColor = Color(0xFFFF5252)
@@ -328,17 +329,26 @@ private fun CpuClockLineChart(
     val axisPaint = remember(primaryColor) {
         android.graphics.Paint().apply {
             color = primaryColor.toArgb()
-            textSize = 24f
+            textSize = 26f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+    }
+
+    val valPaint = remember(onSurfaceColor) {
+        android.graphics.Paint().apply {
+            color = onSurfaceColor.toArgb()
+            textSize = 20f
             isFakeBoldText = true
             isAntiAlias = true
         }
     }
 
     Canvas(modifier = modifier) {
-        val padLeft = 65.dp.toPx()
-        val padBottom = 30.dp.toPx()
-        val padTop = 15.dp.toPx()
-        val padRight = 20.dp.toPx()
+        val padLeft = 85.dp.toPx()
+        val padBottom = 40.dp.toPx()
+        val padTop = 30.dp.toPx()
+        val padRight = 30.dp.toPx()
 
         val chartWidth = size.width - padLeft - padRight
         val chartHeight = size.height - padTop - padBottom
@@ -346,49 +356,92 @@ private fun CpuClockLineChart(
         val minMhz = 400f
         val maxMhz = 3000f
 
-        // Draw Oy & Ox Axis lines
+        // 1. TRỤC OY & TRỤC OX (SOLID AXIS LINES WITH ARROWS)
+        // Trục Oy (Đứng)
         drawLine(
-            color = primaryColor.copy(alpha = 0.7f),
-            start = Offset(padLeft, padTop),
+            color = primaryColor,
+            start = Offset(padLeft, padTop - 15.dp.toPx()),
             end = Offset(padLeft, padTop + chartHeight),
-            strokeWidth = 2.dp.toPx()
+            strokeWidth = 3.dp.toPx()
         )
-        drawLine(
-            color = primaryColor.copy(alpha = 0.7f),
-            start = Offset(padLeft, padTop + chartHeight),
-            end = Offset(padLeft + chartWidth, padTop + chartHeight),
-            strokeWidth = 2.dp.toPx()
-        )
+        // Mũi tên trục Oy
+        val arrowPathY = Path().apply {
+            moveTo(padLeft - 6.dp.toPx(), padTop - 10.dp.toPx())
+            lineTo(padLeft + 6.dp.toPx(), padTop - 10.dp.toPx())
+            lineTo(padLeft, padTop - 22.dp.toPx())
+            close()
+        }
+        drawPath(arrowPathY, color = primaryColor)
 
-        // Oy Axis Ticks & Grid Lines (3.0G, 2.0G, 1.0G, 0.4G)
-        val oyTicks = listOf(3000 to "3.0G", 2000 to "2.0G", 1000 to "1.0G", 400 to "0.4G")
+        // Trục Ox (Ngang)
+        drawLine(
+            color = primaryColor,
+            start = Offset(padLeft, padTop + chartHeight),
+            end = Offset(padLeft + chartWidth + 15.dp.toPx(), padTop + chartHeight),
+            strokeWidth = 3.dp.toPx()
+        )
+        // Mũi tên trục Ox
+        val arrowPathX = Path().apply {
+            moveTo(padLeft + chartWidth + 10.dp.toPx(), padTop + chartHeight - 6.dp.toPx())
+            lineTo(padLeft + chartWidth + 10.dp.toPx(), padTop + chartHeight + 6.dp.toPx())
+            lineTo(padLeft + chartWidth + 22.dp.toPx(), padTop + chartHeight)
+            close()
+        }
+        drawPath(arrowPathX, color = primaryColor)
+
+        // 2. NHÃN TIÊU ĐỀ TRỤC (AXIS TITLES)
+        drawContext.canvas.nativeCanvas.drawText("▲ Trục Oy: Tần số (GHz)", 10f, padTop - 12.dp.toPx(), axisPaint)
+        drawContext.canvas.nativeCanvas.drawText("► Trục Ox: Thời gian (Phút)", padLeft + chartWidth - 110.dp.toPx(), size.height - 4.dp.toPx(), axisPaint)
+
+        // 3. VẠCH CHIA MỐC TRỤC OY (OY TICKS & GRID LINES)
+        val oyTicks = listOf(
+            3000 to "3.0 GHz",
+            2300 to "2.3 GHz",
+            1600 to "1.6 GHz",
+            1000 to "1.0 GHz",
+            400 to "0.4 GHz"
+        )
         oyTicks.forEach { (mhz, label) ->
             val y = padTop + chartHeight - ((mhz.toFloat() - minMhz) / (maxMhz - minMhz) * chartHeight)
+
+            // Vạch chia Oy (Tick mark)
             drawLine(
-                color = Color.Gray.copy(alpha = 0.25f),
+                color = primaryColor,
+                start = Offset(padLeft - 8.dp.toPx(), y),
+                end = Offset(padLeft, y),
+                strokeWidth = 2.dp.toPx()
+            )
+
+            // Đường lưới ngang
+            drawLine(
+                color = Color.Gray.copy(alpha = 0.2f),
                 start = Offset(padLeft, y),
                 end = Offset(padLeft + chartWidth, y),
                 strokeWidth = 1.dp.toPx()
             )
-            drawContext.canvas.nativeCanvas.drawText(label, 10f, y + 8f, labelPaint)
+
+            // Chữ mốc Oy
+            drawContext.canvas.nativeCanvas.drawText(label, 8f, y + 6f, labelPaint)
         }
 
-        // Ox Axis Ticks (-120m, -90m, -60m, -30m, Hiện tại)
+        // 4. VẠCH CHIA MỐC TRỤC OX (OX TICKS)
         val oxLabels = listOf("-120m", "-90m", "-60m", "-30m", "Hiện tại")
         oxLabels.forEachIndexed { idx, label ->
             val x = padLeft + (idx * (chartWidth / (oxLabels.size - 1)))
+
+            // Vạch chia Ox (Tick mark)
             drawLine(
-                color = primaryColor.copy(alpha = 0.5f),
+                color = primaryColor,
                 start = Offset(x, padTop + chartHeight),
-                end = Offset(x, padTop + chartHeight + 6.dp.toPx()),
-                strokeWidth = 1.5.dp.toPx()
+                end = Offset(x, padTop + chartHeight + 8.dp.toPx()),
+                strokeWidth = 2.dp.toPx()
             )
-            drawContext.canvas.nativeCanvas.drawText(label, x - 22f, size.height - 4f, labelPaint)
+
+            // Chữ mốc Ox
+            drawContext.canvas.nativeCanvas.drawText(label, x - 25f, padTop + chartHeight + 26.dp.toPx(), labelPaint)
         }
 
-        // Axis Titles
-        drawContext.canvas.nativeCanvas.drawText("Oy: GHz", 5f, padTop - 2f, axisPaint)
-
+        // 5. ĐỒ THỊ DỮ LIỆU (DATA LINE & POINTS)
         if (logs.size < 2) {
             val yNorm = padTop + chartHeight - ((1600f - minMhz) / (maxMhz - minMhz) * chartHeight)
             drawLine(
@@ -412,15 +465,21 @@ private fun CpuClockLineChart(
             val circleColor = if (log.isUnderclockOn) underclockColor else defaultColor
             drawCircle(
                 color = circleColor,
-                radius = 3.5.dp.toPx(),
+                radius = 4.dp.toPx(),
                 center = Offset(x, normY)
             )
+
+            // Vẽ nhãn giá trị GHz trên mốc điểm đồ thị (mỗi 2 điểm vẽ 1 lần để tránh đè chữ)
+            if (i % 2 == 0 || i == logs.size - 1) {
+                val ghzText = String.format(Locale.getDefault(), "%.2fG", log.freqMhz / 1000f)
+                drawContext.canvas.nativeCanvas.drawText(ghzText, x - 18f, normY - 8.dp.toPx(), valPaint)
+            }
         }
 
         drawPath(
             path = path,
             color = primaryColor,
-            style = Stroke(width = 2.5.dp.toPx())
+            style = Stroke(width = 3.dp.toPx())
         )
     }
 }
