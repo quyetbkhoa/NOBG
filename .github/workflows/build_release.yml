@@ -57,24 +57,24 @@ jobs:
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             echo "Sending APK to Telegram..."
-            APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+            APK_FILE=$(find "$(pwd)/app/build/outputs/apk/release/" -name "*.apk" | head -n 1)
             if [ -z "$APK_FILE" ]; then
-              echo "Khong tim thay file APK trong app/build/outputs/apk/release/"
+              echo "Khong tim thay file APK"
               exit 1
             fi
-            echo "File APK tim thay: $APK_FILE"
+            echo "File APK: $APK_FILE"
+            ls -lh "$APK_FILE"
             SHORT_SHA="${COMMIT_SHA:0:7}"
-            CLEAN_MSG=$(echo "$COMMIT_MSG" | head -n 1 | tr -d '"'\''`<>')
-            CAPTION="NOBG Release APK moi nhat! Commit: ${SHORT_SHA} - ${CLEAN_MSG}"
-            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            CLEAN_MSG=$(echo "$COMMIT_MSG" | head -n 1 | cut -c1-80)
+            curl -v \
                  -F chat_id="$TELEGRAM_CHAT_ID" \
                  -F document=@"$APK_FILE" \
-                 -F caption="$CAPTION" \
-                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument")
-            echo "Ket qua gui Telegram: $RESPONSE"
+                 -F caption="NOBG APK - $SHORT_SHA - $CLEAN_MSG" \
+                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
           else
-            echo "Chua cau hinh TELEGRAM_BOT_TOKEN hoac TELEGRAM_CHAT_ID. Bo qua gui Telegram."
+            echo "Thieu TELEGRAM_BOT_TOKEN hoac TELEGRAM_CHAT_ID. Bo qua."
           fi
+
 
 
 
