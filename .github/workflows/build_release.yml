@@ -84,6 +84,7 @@ jobs:
           body: "Tự động build bản Release APK ${{ env.APP_VER }} mới nhất từ branch main."
           files: ${{ steps.apk.outputs.path }}
           make_latest: true
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
