@@ -308,8 +308,20 @@ class NobgRepository(context: Context) {
     suspend fun setShowRefreshRateOverlay(enabled: Boolean) {
         prefs.edit().putBoolean("show_refresh_rate_overlay_enabled", enabled).apply()
         val valStr = if (enabled) "1" else "0"
+        val valInt = if (enabled) 1 else 0
+
+        // 1. Direct SurfaceFlinger IPC calls
+        ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valInt")
+        ShizukuManager.exec("service call SurfaceFlinger 1035 i32 $valInt")
+
+        // 2. Settings across global, system, secure, surface_flinger for Android 11-15 & OEM ROMs (OriginOS, HyperOS, ColorOS, One UI)
+        ShizukuManager.exec("settings put global show_fps $valStr")
+        ShizukuManager.exec("settings put system show_fps $valStr")
+        ShizukuManager.exec("settings put secure show_fps $valStr")
+        ShizukuManager.exec("settings put global show_refresh_rate $valStr")
+        ShizukuManager.exec("settings put system show_refresh_rate $valStr")
         ShizukuManager.exec("settings put surface_flinger show_refresh_rate $valStr")
-        ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valStr")
+        ShizukuManager.exec("settings put surface_flinger show_fps $valStr")
     }
 
     // --- APP FREEZER SHELF (KỆ ĐÓNG BẰNG ỨNG DỤNG) ---

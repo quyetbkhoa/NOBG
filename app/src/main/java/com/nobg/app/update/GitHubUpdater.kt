@@ -112,17 +112,7 @@ object GitHubUpdater {
             val publishedAt = json.optString("published_at", "")
             val htmlUrl = json.optString("html_url", "https://github.com/quyetbkhoa/NOBG/releases")
             val rawBody = json.optString("body", "")
-            val body = if (rawBody.isNotBlank() && rawBody.length > 5) {
-                rawBody
-            } else {
-                """
-                ✨ Bản cập nhật Release $tagName mới nhất!
-                • Tự động tối ưu hoá hệ thống & dịch vụ MonitorService
-                • Ép tần số quét màn hình 120Hz/144Hz & Cửa sổ nổi Freeform cho Oppo Find N3 & Foldables
-                • Cải tiến giao diện sơ đồ cây thuật toán & lệnh ADB/Shizuku
-                • Cập nhật các bản sửa lỗi và nâng cao độ ổn định
-                """.trimIndent()
-            }
+            val body = formatFeatureChangelog(tagName, rawBody)
 
             var apkUrl = ""
             val assets = json.optJSONArray("assets")
@@ -168,13 +158,7 @@ object GitHubUpdater {
     suspend fun fetchLatestReleaseInfo(context: Context): UpdateInfo = withContext(Dispatchers.IO) {
         val currentVer = getCurrentVersionName(context)
         val (_, jsonStr) = fetchJson(GITHUB_RELEASE_LATEST_API)
-        val defaultBody = """
-            ✨ Phiên bản NOBG $currentVer
-            • Tự động tối ưu hoá ứng dụng chạy ngầm qua Shizuku
-            • Quản lý trạng thái Pin & Dự đoán thời gian sạc đầy
-            • Ép tần số quét màn hình 120Hz/144Hz & Cửa sổ nổi Freeform (Oppo Find N3 / Màn gập)
-            • Sơ đồ cây tra cứu thuật toán & lệnh ADB/Shizuku đầy đủ
-        """.trimIndent()
+        val defaultBody = formatFeatureChangelog("v$currentVer", "")
 
         if (jsonStr.isNullOrBlank()) {
             return@withContext UpdateInfo(
@@ -193,7 +177,7 @@ object GitHubUpdater {
             val publishedAt = json.optString("published_at", "")
             val htmlUrl = json.optString("html_url", "https://github.com/quyetbkhoa/NOBG/releases")
             val rawBody = json.optString("body", "")
-            val body = if (rawBody.isNotBlank() && rawBody.length > 5) rawBody else defaultBody
+            val body = formatFeatureChangelog(tagName, rawBody)
 
             var apkUrl = ""
             val assets = json.optJSONArray("assets")
@@ -227,6 +211,49 @@ object GitHubUpdater {
                 isNewer = false
             )
         }
+    }
+
+    private fun formatFeatureChangelog(tagName: String, rawBody: String): String {
+        val cleanTag = tagName.trim()
+        val isGeneric = rawBody.isBlank() || 
+                rawBody.contains("Automated release", ignoreCase = true) || 
+                rawBody.contains("Release build", ignoreCase = true) ||
+                rawBody.contains("from commit", ignoreCase = true) ||
+                rawBody.length < 15
+
+        if (!isGeneric) {
+            val lines = rawBody.lines().filterNot { line ->
+                line.contains("commit", ignoreCase = true) && line.contains("https://github.com", ignoreCase = true)
+            }
+            val cleaned = lines.joinToString("\n").trim()
+            if (cleaned.length > 25) return cleaned
+        }
+
+        return """
+            🌟 NHẬT KÝ TÍNH NĂNG NÂNG CẤP ($cleanTag):
+
+            🧊 KỆ ĐÓNG BẰNG ỨNG DỤNG (ICEBOX SHELF)
+            • Tích hợp Kệ Đóng Bằng: Đóng băng triệt để 100% RAM/CPU ứng dụng
+            • Cơ chế 1-Chạm Mở & Xả đóng băng: Tự động khôi phục và bật app khi cần dùng
+            • Đóng băng & Xả đóng băng hàng loạt toàn bộ danh sách kệ
+
+            📺 QUẢN LÝ TẦN SỐ QUÉT MÀN HÌNH (HZ & OVERLAY)
+            • Thẻ hiển thị Tần Số Quét thực tế hiện tại của phần cứng (Display Manager API)
+            • Công tắc bật/tắt Bộ đếm Hz/FPS nhảy trực tiếp góc màn hình (SurfaceFlinger)
+            • Ép tần số quét đỉnh 90Hz / 120Hz / 144Hz không bị tụt về 60Hz khi xem video
+
+            📐 CỬA SỔ NỔI & CHIA ĐÔI MÀN HÌNH (FOLDABLE READY)
+            • Ép tất cả app (Instagram, Zalo, Ngân hàng, Game...) hỗ trợ Freeform & Split Screen
+            • Tối ưu đặc biệt cho Oppo Find N3, Samsung Galaxy Z Fold & các máy màn gập
+
+            🌲 SƠ ĐỒ CÂY THUẬT TOÁN & LỆNH SYSTEM (TREE VIEW)
+            • Giao diện Cây Tra Cứu tương tác từng nhánh Flow ứng dụng
+            • Bổ sung thuật toán Quản lý Hạn Chế Pin Android (Unrestricted / Optimized / Restricted)
+
+            🚀 NÂNG CẤP HỆ THỐNG & PIN
+            • Tắt Cảnh báo Âm lượng Tai nghe 60% & Tắt giữ mạng 4G/5G ngầm khi dùng Wi-Fi
+            • Tự động kiểm tra cập nhật & Hộp thoại Tải / Cài đặt trực tiếp từ GitHub Releases
+        """.trimIndent()
     }
 
     suspend fun downloadApk(
