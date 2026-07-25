@@ -254,6 +254,71 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
+            // Cập nhật ứng dụng từ GitHub
+            var isCheckingUpdate by remember { mutableStateOf(false) }
+            var updateResultState by remember { mutableStateOf<com.nobg.app.update.UpdateResult?>(null) }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("🚀 Cập nhật ứng dụng từ GitHub", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Kiểm tra và tải trực tiếp bản Release APK mới nhất được tự động build từ GitHub Actions.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            isCheckingUpdate = true
+                            scope.launch {
+                                val res = com.nobg.app.update.GitHubUpdater.checkForUpdates()
+                                updateResultState = res
+                                isCheckingUpdate = false
+                            }
+                        },
+                        enabled = !isCheckingUpdate,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Đang kiểm tra...")
+                        } else {
+                            Text("🔄 Kiểm tra bản cập nhật mới")
+                        }
+                    }
+
+                    if (updateResultState is com.nobg.app.update.UpdateResult.UpdateAvailable) {
+                        val info = (updateResultState as com.nobg.app.update.UpdateResult.UpdateAvailable).info
+                        Spacer(Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("✨ Đã tìm thấy bản Release APK mới!", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Spacer(Modifier.height(4.dp))
+                                Text("Tag: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Spacer(Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        com.nobg.app.update.GitHubUpdater.openDownloadLink(context, info.apkUrl)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("⬇️ Tải APK & Cập nhật ngay")
+                                }
+                            }
+                        }
+                    } else if (updateResultState is com.nobg.app.update.UpdateResult.Error) {
+                        val msg = (updateResultState as com.nobg.app.update.UpdateResult.Error).message
+                        Spacer(Modifier.height(8.dp))
+                        Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
             // Thông tin ứng dụng
             Card(
                 modifier = Modifier.fillMaxWidth(),
