@@ -7,9 +7,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,7 +44,7 @@ fun BatteryStatsScreen(
     viewModel: BatteryStatsViewModel,
     onBack: () -> Unit
 ) {
-    val tabs = listOf("App", "Chung")
+    val tabs = listOf("App tiêu thụ pin", "Chỉ số Pin chung")
     var selectedTab by remember { mutableStateOf(0) }
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -108,32 +110,45 @@ fun BatteryStatsScreen(
 private fun AppUsageTab(viewModel: BatteryStatsViewModel) {
     val items by viewModel.usageStats.collectAsState()
     val currentInterval by viewModel.currentInterval.collectAsState()
+    val anchorTimeMs by viewModel.anchorTimeMs.collectAsState()
+
+    val sdf = remember { SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()) }
 
     Column {
-        // Sub-tabs: 1 Ngày / 1 Tuần
+        // Sub-tabs: 1 Ngày / 1 Tuần / ⚡ Sạc đầy gần nhất
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilterChip(
-                selected = currentInterval == StatsInterval.DAILY,
-                onClick = { viewModel.loadUsageStats(StatsInterval.DAILY) },
-                label = { Text("1 Ngày") },
-                modifier = Modifier.weight(1f)
-            )
-            FilterChip(
-                selected = currentInterval == StatsInterval.WEEKLY,
-                onClick = { viewModel.loadUsageStats(StatsInterval.WEEKLY) },
-                label = { Text("1 Tuần") },
-                modifier = Modifier.weight(1f)
+            StatsInterval.values().forEach { interval ->
+                FilterChip(
+                    selected = currentInterval == interval,
+                    onClick = { viewModel.loadUsageStats(interval) },
+                    label = { Text(interval.label) }
+                )
+            }
+        }
+
+        if (anchorTimeMs > 0) {
+            val labelText = when (currentInterval) {
+                StatsInterval.SINCE_CHARGED -> "⚡ Tính từ mốc sạc đầy: ${sdf.format(Date(anchorTimeMs))}"
+                StatsInterval.DAILY -> "📅 Tính trong 24 giờ qua (${sdf.format(Date(anchorTimeMs))})"
+                StatsInterval.WEEKLY -> "📅 Tính trong 7 ngày qua (${sdf.format(Date(anchorTimeMs))})"
+            }
+            Text(
+                text = labelText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
         }
 
         if (items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Không có dữ liệu. Hãy cấp quyền Usage Stats.")
+                Text("Không có dữ liệu. Hãy đảm bảo đã cấp quyền Usage Stats.")
             }
         } else {
             val maxMah = items.maxOfOrNull { it.batteryMah } ?: 1.0
@@ -152,48 +167,52 @@ private fun AppUsageRow(item: UsageItem, maxMah: Double) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         DrawableImage(item.icon, modifier = Modifier.size(42.dp))
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.label, fontWeight = FontWeight.SemiBold, maxLines = 1, fontSize = 14.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(item.label, fontWeight = FontWeight.SemiBold, maxLines = 1, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(
+                    "Dùng: ${formatDurationShort(item.totalTimeInForeground)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(4.dp))
             // Battery bar
-            if (item.batteryMah > 0) {
-                val fraction = (item.batteryMah / maxMah.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "Pin: ${String.format("%.1f", item.batteryMah)} mAh",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            "Dùng: ${formatDurationShort(item.totalTimeInForeground)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(Modifier.height(3.dp))
-                    LinearProgressIndicator(
-                        progress = { fraction },
-                        modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
-                        color = lerp(Color(0xFF4CAF50), Color(0xFFF44336), fraction),
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                }
-            } else {
+            val fraction = (item.batteryMah / maxMah.coerceAtLeast(1.0)).toFloat().coerceIn(0.01f, 1f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
-                    "Dùng: ${formatDurationShort(item.totalTimeInForeground)} · Không có dữ liệu pin",
+                    "Pin: ${String.format("%.1f", item.batteryMah)} mAh",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "${String.format("%.1f", item.batteryPct)}% tổng dùng",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50)),
+                color = lerp(Color(0xFF4CAF50), Color(0xFFF44336), fraction),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         }
     }
 }
@@ -239,7 +258,6 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
                 )
             }
 
-            // Time to full card (only when charging)
             if (overview.timeToFullMinutes >= 0) {
                 item {
                     Card(
@@ -269,7 +287,6 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
             item { StatMetricCard("🌙 Tốc độ hao (màn hình tắt)", overview.drainRateOffscreen, "% / giờ", isNegative = true) }
             item { StatMetricCard("⚡ Tốc độ sạc", overview.chargeRate, "% / giờ") }
 
-            // Charging curve chart
             if (curve.isNotEmpty()) {
                 item {
                     Card(
@@ -343,7 +360,6 @@ private fun StatMetricCard(
 @Composable
 private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val errorColor = MaterialTheme.colorScheme.error
     val surfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
 
     Canvas(modifier = modifier) {
@@ -362,13 +378,11 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         val maxPct = curve.maxOf { it.batteryPct }
         val pctRange = (maxPct - minPct).coerceAtLeast(1)
 
-        // Grid lines
         for (i in 0..4) {
             val y = padTop + chartH * (1f - i / 4f)
             drawLine(surfaceVariant, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
         }
 
-        // Gradient fill under curve
         val path = Path()
         curve.forEachIndexed { idx, point ->
             val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
@@ -384,7 +398,6 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
             startY = padTop, endY = padTop + chartH
         ))
 
-        // Curve line
         val linePath = Path()
         curve.forEachIndexed { idx, point ->
             val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
@@ -393,14 +406,12 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         }
         drawPath(linePath, color = primaryColor, style = Stroke(width = 2.dp.toPx()))
 
-        // Dots for each data point
         curve.forEach { point ->
             val x = padLeft + ((point.batteryPct - minPct).toFloat() / pctRange) * chartW
             val y = padTop + chartH * (1f - point.secondsPerPct / maxSeconds)
             drawCircle(primaryColor, radius = 3.dp.toPx(), center = Offset(x, y))
         }
 
-        // Axes
         drawLine(
             color = surfaceVariant.copy(alpha = 0.8f),
             start = Offset(padLeft, padTop),

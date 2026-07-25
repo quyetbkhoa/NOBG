@@ -3,6 +3,7 @@ package com.nobg.app.ui
 import android.app.Application
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.AndroidViewModel
@@ -17,19 +18,22 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
-// ---- App Usage Tab data ----
 data class UsageItem(
     val packageName: String,
     val label: String,
     val icon: Drawable?,
     val totalTimeInForeground: Long,
     val lastTimeUsed: Long,
-    val batteryMah: Double = 0.0
+    val batteryMah: Double = 0.0,
+    val batteryPct: Double = 0.0
 )
 
-enum class StatsInterval { DAILY, WEEKLY }
+enum class StatsInterval(val label: String) {
+    DAILY("1 Ngày"),
+    WEEKLY("1 Tuần"),
+    SINCE_CHARGED("⚡ Sạc đầy gần nhất")
+}
 
-// ---- Global Battery Overview Tab data ----
 data class OverviewStats(
     val sinceMs: Long = 0L,         // timestamp of reset anchor
     val totalDays: Double = 0.0,    // days since reset
@@ -43,7 +47,6 @@ data class OverviewStats(
     val hasData: Boolean = false
 )
 
-// Charging curve: maps pct (0..100) -> average seconds per % to charge
 data class ChargingCurvePoint(val batteryPct: Int, val secondsPerPct: Float)
 
 class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
@@ -54,8 +57,11 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
     private val _usageStats = MutableStateFlow<List<UsageItem>>(emptyList())
     val usageStats: StateFlow<List<UsageItem>> = _usageStats
 
-    private val _currentInterval = MutableStateFlow(StatsInterval.DAILY)
+    private val _currentInterval = MutableStateFlow(StatsInterval.SINCE_CHARGED)
     val currentInterval: StateFlow<StatsInterval> = _currentInterval
+
+    private val _anchorTimeMs = MutableStateFlow(0L)
+    val anchorTimeMs: StateFlow<Long> = _anchorTimeMs
 
     private val _overview = MutableStateFlow(OverviewStats())
     val overview: StateFlow<OverviewStats> = _overview
@@ -64,7 +70,7 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
     val chargingCurve: StateFlow<List<ChargingCurvePoint>> = _chargingCurve
 
     init {
-        loadUsageStats(StatsInterval.DAILY)
+        loadUsageStats(StatsInterval.SINCE_CHARGED)
         loadOverview()
     }
 
@@ -75,44 +81,99 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val cal = Calendar.getInstance()
             val endTime = cal.timeInMillis
-            when (interval) {
-                StatsInterval.DAILY -> cal.add(Calendar.DAY_OF_YEAR, -1)
-                StatsInterval.WEEKLY -> cal.add(Calendar.DAY_OF_YEAR, -7)
+
+            val startTime: Long = when (interval) {
+                StatsInterval.DAILY -> {
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                    cal.timeInMillis
+                }
+                StatsInterval.WEEKLY -> {
+                    cal.add(Calendar.DAY_OF_YEAR, -7)
+                    cal.timeInMillis
+                }
+                StatsInterval.SINCE_CHARGED -> {
+                    val lastFullChargeTs = getLastFullChargeTime()
+                    if (lastFullChargeTs > 0) {
+                        lastFullChargeTs
+                    } else {
+                        // Fallback to start of today
+                        cal.set(Calendar.HOUR_OF_DAY, 0)
+                        cal.set(Calendar.MINUTE, 0)
+                        cal.set(Calendar.SECOND, 0)
+                        cal.timeInMillis
+                    }
+                }
             }
-            // Use reset anchor as the lower bound if it's more recent than the interval
-            val intervalStart = cal.timeInMillis
-            val resetTime = repo.getUsageResetTime()
-            val startTime = maxOf(intervalStart, resetTime)
+
+            _anchorTimeMs.value = startTime
 
             val statsMap = usm.queryAndAggregateUsageStats(startTime, endTime)
             val batteryUsageMap = BatteryDumpsysParser.getAppBatteryUsage()
 
-            val items = statsMap.values
+            var totalCalculatedMah = 0.0
+
+            val tempItems = statsMap.values
                 .filter { it.totalTimeInForeground > 0 }
                 .map { stat ->
                     var label = stat.packageName
                     var icon: Drawable? = null
                     var uid = -1
+                    var category = ApplicationInfo.CATEGORY_UNDEFINED
+
                     try {
                         val ai = pm.getApplicationInfo(stat.packageName, 0)
                         label = pm.getApplicationLabel(ai).toString()
                         icon = pm.getApplicationIcon(ai)
                         uid = ai.uid
-                    } catch (e: PackageManager.NameNotFoundException) { /* keep pkg name */ }
-                    val usedMah = batteryUsageMap[uid.toString()] ?: 0.0
+                        category = ai.category
+                    } catch (e: PackageManager.NameNotFoundException) { }
+
+                    var usedMah = batteryUsageMap[uid.toString()]
+                        ?: batteryUsageMap[stat.packageName]
+                        ?: 0.0
+
+                    // Smart Fallback Estimation if dumpsys omitted mAh
+                    if (usedMah <= 0.0 && stat.totalTimeInForeground > 0) {
+                        val hours = stat.totalTimeInForeground / 3600000.0
+                        val weight = when (category) {
+                            ApplicationInfo.CATEGORY_GAME, ApplicationInfo.CATEGORY_AUDIO -> 1.8
+                            ApplicationInfo.CATEGORY_VIDEO, ApplicationInfo.CATEGORY_IMAGE -> 1.4
+                            ApplicationInfo.CATEGORY_SOCIAL, ApplicationInfo.CATEGORY_MAPS -> 1.3
+                            else -> 1.0
+                        }
+                        usedMah = hours * 180.0 * weight // ~180mA average screen-on drain
+                    }
+
+                    totalCalculatedMah += usedMah
+
                     UsageItem(
                         packageName = stat.packageName,
                         label = label,
                         icon = icon,
                         totalTimeInForeground = stat.totalTimeInForeground,
                         lastTimeUsed = stat.lastTimeUsed,
-                        batteryMah = usedMah
+                        batteryMah = usedMah,
+                        batteryPct = 0.0
                     )
                 }
-                .sortedByDescending { it.batteryMah.takeIf { it > 0 } ?: it.totalTimeInForeground.toDouble() }
+
+            val finalTotalMah = totalCalculatedMah.coerceAtLeast(1.0)
+            val items = tempItems
+                .map { item ->
+                    val pct = (item.batteryMah / finalTotalMah) * 100.0
+                    item.copy(batteryPct = pct)
+                }
+                .sortedByDescending { it.batteryMah }
 
             _usageStats.value = items
         }
+    }
+
+    private suspend fun getLastFullChargeTime(): Long {
+        val logs = repo.getBatteryLogsSince(0)
+        // Find the last log where battery reached >= 90% while charging
+        val fullChargeLog = logs.lastOrNull { it.isCharging && it.batteryLevel >= 90 }
+        return fullChargeLog?.timestamp ?: 0L
     }
 
     // ---- Overview tab ----
@@ -128,7 +189,6 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
 
-            // Calculate stats
             var screenOnDischargeMs = 0L
             var screenOnDischargePct = 0
             var screenOffDischargeMs = 0L
@@ -158,7 +218,6 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                         if (levelDiff > 0) chargePct += levelDiff
                     }
 
-                    if (levelDiff > 0) chargePct += 0 // already counted
                     if (levelDiff < 0 && !prevLog.isCharging) dischargePct += (-levelDiff)
                 }
                 prevLog = log
@@ -178,7 +237,6 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
             val avgDischargePctPerDay = if (totalDays > 0) dischargePct / totalDays else 0.0
             val avgChargePctPerDay = if (totalDays > 0) chargePct / totalDays else 0.0
 
-            // Time to full: check if currently charging
             val lastLog = logs.last()
             var timeToFullMinutes = -1
             var currentLevel = -1
@@ -203,21 +261,19 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                 hasData = true
             )
 
-            // Build charging curve: avg seconds per % for each % bucket
             buildChargingCurve()
         }
     }
 
     private suspend fun buildChargingCurve() {
         val allLogs = repo.getBatteryLogsSince(0)
-        // Map pct -> list of (seconds it took to charge that %)
         val buckets = mutableMapOf<Int, MutableList<Long>>()
 
         var prevLog: BatteryLogEntity? = null
         for (log in allLogs) {
             if (prevLog != null && prevLog.isCharging && log.isCharging) {
                 val timeDiff = log.timestamp - prevLog.timestamp
-                if (timeDiff in 1..300000L) { // cap at 5min per % to avoid gaps
+                if (timeDiff in 1..300000L) {
                     val pct = prevLog.batteryLevel
                     val levelDiff = log.batteryLevel - prevLog.batteryLevel
                     if (levelDiff == 1) {

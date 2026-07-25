@@ -1,8 +1,18 @@
 package com.nobg.app.ui
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -10,11 +20,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.core.content.ContextCompat
 import com.nobg.app.shizuku.ShizukuManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +33,50 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    var isUsageStatsOk by remember { mutableStateOf(false) }
+    var isNotificationOk by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= 33) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
+    var isBatteryOptOk by remember {
+        mutableStateOf(
+            (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(context.packageName)
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            isUsageStatsOk = ShizukuManager.hasUsageStatsAccess(context)
+        }
+    }
+
+    fun refreshAllPermissionStatus() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            isNotificationOk = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        }
+        isBatteryOptOk = (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(context.packageName)
+        scope.launch {
+            isUsageStatsOk = ShizukuManager.hasUsageStatsAccess(context)
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                refreshAllPermissionStatus()
+                viewModel.refreshShizukuStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     BackHandler(onBack = onBack)
 
@@ -45,7 +99,122 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            
+
+            // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "📋 TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Kiểm tra trạng thái thời gian thực và đòi các quyền cần thiết cho NOBG.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    // 1. Shizuku
+                    PermissionStatusCard(
+                        title = "1. Quyền đặc quyền Shizuku",
+                        description = "Cần thiết để Ép dừng, Vô hiệu hóa & Đổi chế độ pin ngầm.",
+                        isGranted = shizukuReady,
+                        buttonLabel = "Cấp quyền Shizuku",
+                        onAction = {
+                            if (ShizukuManager.isShizukuRunning()) {
+                                ShizukuManager.requestPermission(1001)
+                                Toast.makeText(context, "Đã gửi yêu cầu quyền Shizuku", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Shizuku chưa chạy trên thiết bị!", Toast.LENGTH_SHORT).show()
+                            }
+                            refreshAllPermissionStatus()
+                        }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 2. Usage Stats
+                    PermissionStatusCard(
+                        title = "2. Giám sát sử dụng App (Usage Stats)",
+                        description = "Theo dõi thời gian app mở/thoát để tính toán pin.",
+                        isGranted = isUsageStatsOk,
+                        buttonLabel = "Cấp quyền",
+                        onAction = {
+                            scope.launch {
+                                var granted = false
+                                if (shizukuReady) {
+                                    granted = ShizukuManager.grantUsageStatsAccessToSelf(context)
+                                }
+                                if (!granted) {
+                                    try {
+                                        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {}
+                                } else {
+                                    Toast.makeText(context, "Đã cấp quyền Usage Stats thành công!", Toast.LENGTH_SHORT).show()
+                                }
+                                refreshAllPermissionStatus()
+                            }
+                        }
+                    )
+
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        Spacer(Modifier.height(8.dp))
+                        // 3. Notifications
+                        PermissionStatusCard(
+                            title = "3. Quyền Thông báo (Notifications)",
+                            description = "Hiển thị thông báo sạc pin & dịch vụ chạy ngầm.",
+                            isGranted = isNotificationOk,
+                            buttonLabel = "Cấp quyền",
+                            onAction = {
+                                try {
+                                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                                refreshAllPermissionStatus()
+                            }
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 4. Ignore Battery Saver
+                    PermissionStatusCard(
+                        title = "4. Tắt Hạn chế Pin cho NOBG",
+                        description = "Giữ cho dịch vụ NOBG không bị Android tự động tắt.",
+                        isGranted = isBatteryOptOk,
+                        buttonLabel = "Tắt tối ưu pin",
+                        onAction = {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(fallbackIntent)
+                                } catch (_: Exception) {}
+                            }
+                            refreshAllPermissionStatus()
+                        }
+                    )
+                }
+            }
+
             // Chế độ hoạt động
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -54,19 +223,19 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Chế độ hoạt động", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = !shizukuReady, onClick = { /* Normal Mode is default fallback */ })
                         Text("Chế độ Thường (Chỉ theo dõi pin)")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = shizukuReady, onClick = { 
+                        RadioButton(selected = shizukuReady, onClick = {
                             if (!shizukuReady) {
                                 if (ShizukuManager.isShizukuRunning()) {
                                     ShizukuManager.requestPermission(1001)
-                                    android.widget.Toast.makeText(context, "Đã gửi yêu cầu quyền Shizuku", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Đã gửi yêu cầu quyền Shizuku", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    android.widget.Toast.makeText(context, "Thất bại: Shizuku chưa chạy trên thiết bị!", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Thất bại: Shizuku chưa chạy trên thiết bị!", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         })
@@ -85,30 +254,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // Tối ưu Pin / Autostart
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Tối ưu hệ thống (Rất quan trọng)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Để tránh hệ thống tự động tắt bộ đếm pin của NOBG, hãy cấp quyền Tự Khởi Động (Auto Start) và Tắt Hạn Chế Pin (No Restrictions) cho app NOBG.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = android.net.Uri.parse("package:${context.packageName}")
-                        }
-                        context.startActivity(intent)
-                    }) {
-                        Text("Mở Cài Đặt App")
-                    }
-                }
-            }
-
             // Thông tin ứng dụng
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -117,7 +262,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Thông tin ứng dụng", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(8.dp))
-                    Text("Phiên bản: V1.0.3", style = MaterialTheme.typography.bodySmall)
+                    Text("Phiên bản: V1.0.4", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))
                     Text("Tác giả: quyetbkhoa", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))
@@ -159,7 +304,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.resetAll()
-                    android.widget.Toast.makeText(context, "Đã khôi phục tất cả!", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Đã khôi phục tất cả!", Toast.LENGTH_SHORT).show()
                     showConfirm = false
                 }) { Text("Đồng ý") }
             },

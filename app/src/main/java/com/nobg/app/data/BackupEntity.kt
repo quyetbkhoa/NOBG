@@ -15,6 +15,7 @@ data class BackupEntity(
     @PrimaryKey val packageName: String,
     val originalEnabledState: Int, // 0 default / 3 disabled-by-user (see ShizukuManager)
     val appOpsJson: String,
+    val isPowerWhitelisted: Boolean = false, // Original deviceidle whitelist state
     val hasBackup: Boolean = true,
     val backupTimestamp: Long = System.currentTimeMillis()
 )

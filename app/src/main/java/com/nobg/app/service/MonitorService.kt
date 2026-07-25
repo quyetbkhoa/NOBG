@@ -35,21 +35,26 @@ class MonitorService : Service() {
     private val NOTIF_CHARGE_ID = 1002
     private val CHANNEL_CHARGE_ID = "nobg_charge"
 
+    private var lastBatteryLogTime: Long = 0L
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                Intent.ACTION_BATTERY_CHANGED,
                 Intent.ACTION_POWER_CONNECTED,
                 Intent.ACTION_POWER_DISCONNECTED,
                 Intent.ACTION_SCREEN_ON,
                 Intent.ACTION_SCREEN_OFF -> {
-                    logBatteryState(context)
+                    logBatteryState(context, force = true)
                 }
             }
         }
     }
 
-    private fun logBatteryState(context: Context) {
+    private fun logBatteryState(context: Context, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastBatteryLogTime < 15 * 60 * 1000L) return
+        lastBatteryLogTime = now
+
         scope.launch {
             val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -131,8 +136,8 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 10000L
-        const val RECONCILE_EVERY_TICKS = (120_000L / POLL_INTERVAL_MS).toInt() // ~2 minutes
+        const val POLL_INTERVAL_MS = 60000L
+        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
     }
 
     override fun onCreate() {
@@ -141,7 +146,6 @@ class MonitorService : Service() {
         usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         
         val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
             addAction(Intent.ACTION_SCREEN_ON)

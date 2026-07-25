@@ -1,30 +1,34 @@
 package com.nobg.app.ui
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.painter.BitmapPainter
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import com.nobg.app.data.NobgMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,19 +36,26 @@ import com.nobg.app.data.NobgMode
 fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
-    onOpenBatteryStats: () -> Unit,
-    onOpenQuickSettings: () -> Unit
+    onOpenBatteryStats: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
-    val filter by viewModel.filter.collectAsState()
-    val showSystem by viewModel.showSystemApps.collectAsState()
     val shizukuReady by viewModel.shizukuReady.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val activeFilterCount by viewModel.activeFilterCount.collectAsState()
+
+    val userSystemFilters by viewModel.userSystemFilters.collectAsState()
+    val disabledFilters by viewModel.disabledFilters.collectAsState()
+    val powerStateFilters by viewModel.powerStateFilters.collectAsState()
+    val nobgStateFilters by viewModel.nobgStateFilters.collectAsState()
+    val hiddenFilter by viewModel.hiddenFilter.collectAsState()
 
     var showShizukuWarning by remember { mutableStateOf(false) }
+    var selectedAppForDialog by remember { mutableStateOf<AppUiModel?>(null) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(500) // Đợi chút để Shizuku có thể connect
+        kotlinx.coroutines.delay(500)
         if (!com.nobg.app.shizuku.ShizukuManager.isShizukuRunning() || !com.nobg.app.shizuku.ShizukuManager.hasPermission()) {
             showShizukuWarning = true
         }
@@ -54,10 +65,26 @@ fun AppListScreen(
         AlertDialog(
             onDismissRequest = { showShizukuWarning = false },
             title = { Text("Thiếu quyền Shizuku") },
-            text = { Text("Ứng dụng chưa được cấp quyền Shizuku hoặc Shizuku chưa chạy.\n\nBạn sẽ chỉ có thể dùng các tính năng cơ bản (theo dõi pin). Vui lòng mở Shizuku để cấp quyền cho app hoạt động đầy đủ chức năng.") },
+            text = { Text("Ứng dụng chưa được cấp quyền Shizuku hoặc Shizuku chưa chạy.\n\nBạn vẫn có thể xem trạng thái và mở Cài đặt pin hệ thống để chỉnh tay. Mở Shizuku để chỉnh trực tiếp trong app.") },
             confirmButton = {
                 TextButton(onClick = { showShizukuWarning = false }) { Text("Đóng") }
             }
+        )
+    }
+
+    if (showFilterSheet) {
+        FilterBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showFilterSheet = false }
+        )
+    }
+
+    if (selectedAppForDialog != null) {
+        val currentSelected = apps.find { it.packageName == selectedAppForDialog!!.packageName } ?: selectedAppForDialog!!
+        AppManagementDialog(
+            appModel = currentSelected,
+            viewModel = viewModel,
+            onDismiss = { selectedAppForDialog = null }
         )
     }
 
@@ -66,9 +93,6 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("NOBG - Quản lý app") },
                 actions = {
-                    IconButton(onClick = onOpenQuickSettings) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Quick Setting")
-                    }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")
                     }
@@ -85,176 +109,171 @@ fun AppListScreen(
                 onValueChange = viewModel::setSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 placeholder = { Text("Tìm app hoặc package...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true
             )
 
+            // COMPACT ACTIVE FILTER BAR
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChipItem("Tất cả", filter == AppFilter.ALL) { viewModel.setFilter(AppFilter.ALL) }
-                FilterChipItem("User", filter == AppFilter.USER) { viewModel.setFilter(AppFilter.USER) }
-                FilterChipItem("Hệ thống", filter == AppFilter.SYSTEM) { viewModel.setFilter(AppFilter.SYSTEM) }
-                FilterChipItem("Đang bật", filter == AppFilter.ENABLED_ONLY) { viewModel.setFilter(AppFilter.ENABLED_ONLY) }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Hiển thị app hệ thống", modifier = Modifier.weight(1f))
-                Switch(checked = showSystem, onCheckedChange = viewModel::setShowSystemApps)
-            }
-
-            HorizontalDivider()
-
-            LazyColumn {
-                items(apps, key = { it.packageName }) { app ->
-                    AppRow(app = app, viewModel = viewModel)
-                    HorizontalDivider()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilterChipItem(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
-}
-
-@Composable
-private fun AppRow(app: AppUiModel, viewModel: MainViewModel) {
-    var expanded by remember { mutableStateOf(false) }
-    val config = app.config
-    val enabled = config?.enabled == true
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    if (config?.mode == NobgMode.DISABLE_ENABLE && enabled) {
-                        viewModel.launchDisabledApp(app.packageName)
+                // Main Filter Sheet Button
+                FilterChip(
+                    selected = activeFilterCount > 0,
+                    onClick = { showFilterSheet = true },
+                    label = {
+                        Text(if (activeFilterCount > 0) "🔍 Bộ lọc ($activeFilterCount)" else "🔍 Bộ lọc")
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
-                }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            DrawableIcon(app.icon, modifier = Modifier.size(40.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(app.label, fontWeight = FontWeight.Medium, maxLines = 1)
-                Text(
-                    app.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
                 )
-                if (config != null && config.blockedCount > 0) {
-                    Text(
-                        "Đã chặn ${config.blockedCount} lần",
-                        style = MaterialTheme.typography.labelSmall
+
+                // Render ONLY ACTIVE Filters
+                userSystemFilters.forEach { opt ->
+                    InputChip(
+                        selected = true,
+                        onClick = { viewModel.userSystemFilters.value = userSystemFilters - opt },
+                        label = { Text(opt.label) },
+                        trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                }
+
+                disabledFilters.forEach { opt ->
+                    InputChip(
+                        selected = true,
+                        onClick = { viewModel.disabledFilters.value = disabledFilters - opt },
+                        label = { Text(opt.label) },
+                        trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                }
+
+                powerStateFilters.forEach { opt ->
+                    InputChip(
+                        selected = true,
+                        onClick = { viewModel.powerStateFilters.value = powerStateFilters - opt },
+                        label = { Text(opt.label) },
+                        trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                }
+
+                nobgStateFilters.forEach { opt ->
+                    InputChip(
+                        selected = true,
+                        onClick = { viewModel.nobgStateFilters.value = nobgStateFilters - opt },
+                        label = { Text(opt.label) },
+                        trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                }
+
+                if (hiddenFilter != HiddenFilterOption.EXCLUDE_HIDDEN) {
+                    InputChip(
+                        selected = true,
+                        onClick = { viewModel.hiddenFilter.value = HiddenFilterOption.EXCLUDE_HIDDEN },
+                        label = { Text(hiddenFilter.label) },
+                        trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     )
                 }
             }
 
-            if (app.config != null) {
-                IconButton(onClick = { viewModel.resetApp(app.packageName) }) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Reset về mặc định")
+            HorizontalDivider(modifier = Modifier.padding(top = 2.dp))
+
+            // Pull to Refresh Box
+            val pullToRefreshState = rememberPullToRefreshState()
+            if (pullToRefreshState.isRefreshing) {
+                LaunchedEffect(Unit) {
+                    viewModel.reloadAllData()
+                    pullToRefreshState.endRefresh()
+                }
+            }
+            LaunchedEffect(isRefreshing) {
+                if (!isRefreshing) {
+                    pullToRefreshState.endRefresh()
                 }
             }
 
-            Switch(
-                checked = enabled,
-                onCheckedChange = { checked ->
-                    val mode = config?.mode ?: NobgMode.STANDARD
-                    val delay = config?.delaySeconds ?: 30
-                    viewModel.toggleNobg(app.packageName, checked, mode, delay)
-                    if (checked) expanded = true
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(pullToRefreshState.nestedScrollConnection)
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(apps, key = { it.packageName }) { app ->
+                        AppRow(
+                            app = app,
+                            onOpenDialog = { selectedAppForDialog = app }
+                        )
+                        HorizontalDivider()
+                    }
                 }
-            )
-        }
 
-        if (enabled) {
-            ModeSelector(
-                pkg = app.packageName,
-                currentMode = config?.mode ?: NobgMode.STANDARD,
-                delaySeconds = config?.delaySeconds ?: 30,
-                viewModel = viewModel
-            )
+                if (pullToRefreshState.isRefreshing) {
+                    PullToRefreshContainer(
+                        state = pullToRefreshState,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ModeSelector(
-    pkg: String,
-    currentMode: NobgMode,
-    delaySeconds: Int,
-    viewModel: MainViewModel
+private fun AppRow(
+    app: AppUiModel,
+    onOpenDialog: () -> Unit
 ) {
-    Column(modifier = Modifier.padding(start = 64.dp, end = 12.dp, bottom = 8.dp)) {
-        SingleChoiceSegmented(
-            options = listOf(
-                NobgMode.STANDARD to "Standard",
-                NobgMode.AGGRESSIVE to "Aggressive",
-                NobgMode.DISABLE_ENABLE to "Disable/Enable"
-            ),
-            selected = currentMode,
-            onSelect = { viewModel.changeMode(pkg, it) }
-        )
+    val config = app.config
+    val enabled = config?.enabled == true
 
-        if (currentMode == NobgMode.AGGRESSIVE) {
-            var sliderValue by remember(pkg) { mutableStateOf(delaySeconds.toFloat()) }
-            Text("Delay trước khi kill: ${sliderValue.toInt()} giây", style = MaterialTheme.typography.bodySmall)
-            Slider(
-                value = sliderValue,
-                onValueChange = { sliderValue = it },
-                onValueChangeFinished = { viewModel.changeDelay(pkg, sliderValue.toInt()) },
-                valueRange = 10f..1200f
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenDialog)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(
+                app.packageName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-        }
-
-        when (currentMode) {
-            NobgMode.STANDARD -> Text(
-                "Chặn background/thông báo/autostart. KHÔNG kill, app vẫn ở trong đa nhiệm.",
-                style = MaterialTheme.typography.labelSmall
-            )
-            NobgMode.AGGRESSIVE -> Text(
-                "Chặn background + kill hẳn tiến trình sau khoảng delay ở trên.",
-                style = MaterialTheme.typography.labelSmall
-            )
-            NobgMode.DISABLE_ENABLE -> Text(
-                "Vô hiệu hóa app khi rời đi. Bấm nút ▶ ở trên để mở lại app.",
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-    }
-}
-
-@Composable
-private fun SingleChoiceSegmented(
-    options: List<Pair<NobgMode, String>>,
-    selected: NobgMode,
-    onSelect: (NobgMode) -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (mode, label) ->
-            val isSelected = mode == selected
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelect(mode) },
-                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                modifier = Modifier.padding(end = 6.dp)
-            )
+            Spacer(Modifier.height(6.dp))
+            // State Badges
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PowerBadge(state = app.powerState)
+                NobgBadge(
+                    enabled = enabled,
+                    mode = config?.mode ?: NobgMode.STANDARD,
+                    delaySeconds = config?.delaySeconds ?: 30
+                )
+                if (app.isDisabled) {
+                    DisabledBadge()
+                }
+            }
+            if (config != null && config.blockedCount > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Đã chặn ${config.blockedCount} lần",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }

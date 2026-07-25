@@ -19,7 +19,7 @@ class Converters {
     }
 }
 
-@Database(entities = [AppEntity::class, BackupEntity::class, BatteryLogEntity::class], version = 2, exportSchema = false)
+@Database(entities = [AppEntity::class, BackupEntity::class, BatteryLogEntity::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao

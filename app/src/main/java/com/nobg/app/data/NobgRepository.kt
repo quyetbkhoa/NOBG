@@ -29,10 +29,11 @@ class NobgRepository(context: Context) {
     suspend fun hasBackup(pkg: String): Boolean = backupDao.get(pkg)?.hasBackup == true
 
     /** Snapshot original state, only if not already backed up. */
-    private suspend fun backupIfNeeded(pkg: String) {
+    suspend fun backupIfNeeded(pkg: String) {
         if (backupDao.get(pkg)?.hasBackup == true) return
 
         val enabledState = ShizukuManager.getApplicationEnabledState(pkg)
+        val isWhitelisted = ShizukuManager.isPowerWhitelisted(pkg)
         val opsMap = JSONObject()
         for (op in AppOps.ALL) {
             opsMap.put(op, ShizukuManager.getAppOp(pkg, op))
@@ -42,6 +43,7 @@ class NobgRepository(context: Context) {
                 packageName = pkg,
                 originalEnabledState = enabledState,
                 appOpsJson = opsMap.toString(),
+                isPowerWhitelisted = isWhitelisted,
                 hasBackup = true
             )
         )
@@ -103,16 +105,29 @@ class NobgRepository(context: Context) {
     /** Restore an app fully back to its state before NOBG ever touched it. */
     suspend fun resetApp(pkg: String) {
         val backup = backupDao.get(pkg) ?: return
+
+        // 1. Restore enabled state
         if (backup.originalEnabledState == 3) {
             ShizukuManager.disablePackage(pkg)
         } else {
             ShizukuManager.enablePackage(pkg)
         }
+
+        // 2. Restore AppOps
         val opsMap = JSONObject(backup.appOpsJson)
         for (op in AppOps.ALL) {
             val original = opsMap.optString(op, "allow")
             ShizukuManager.setAppOp(pkg, op, allow = original == "allow")
         }
+
+        // 3. Restore deviceidle power save whitelist state
+        if (backup.isPowerWhitelisted) {
+            ShizukuManager.exec("dumpsys deviceidle whitelist +$pkg")
+        } else {
+            ShizukuManager.exec("dumpsys deviceidle whitelist -$pkg")
+        }
+
+        // 4. Remove NOBG config & backup record
         appDao.delete(pkg)
         backupDao.delete(pkg)
     }
