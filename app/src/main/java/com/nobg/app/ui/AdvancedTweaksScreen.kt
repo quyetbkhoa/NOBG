@@ -31,9 +31,23 @@ fun AdvancedTweaksScreen(
     var isRefreshRateEnabled by remember { mutableStateOf(repo.isForcedRefreshRateEnabled()) }
     var selectedHz by remember { mutableStateOf(repo.getForcedRefreshRateValue()) }
 
+    var isShowHzOverlayEnabled by remember { mutableStateOf(repo.isShowRefreshRateOverlayEnabled()) }
     var isFreeformEnabled by remember { mutableStateOf(repo.isForceFreeformEnabled()) }
     var isSafeVolumeDisabled by remember { mutableStateOf(repo.isDisableSafeVolumeEnabled()) }
     var isCellularSaverEnabled by remember { mutableStateOf(repo.isDisableCellularAlwaysOnEnabled()) }
+
+    val currentDisplayHz = remember {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                context.display?.mode?.refreshRate?.toInt() ?: 60
+            } else {
+                @Suppress("DEPRECATION")
+                (context.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager)?.defaultDisplay?.mode?.refreshRate?.toInt() ?: 60
+            }
+        } catch (_: Exception) {
+            60
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -55,6 +69,75 @@ fun AdvancedTweaksScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // CURRENT HZ DISPLAY BANNER
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("📺 TẦN SỐ QUÉT MÀN HÌNH THỰC TẾ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(2.dp))
+                        Text("Trạng thái hiện tại của Display Manager OS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    ) {
+                        Text(
+                            "$currentDisplayHz Hz",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            // CARD 0: SHOW HZ OVERLAY ON SCREEN
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "📺 HIỂN THỊ HZ HIỆN TẠI TRÊN MÀN HÌNH",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Bật bộ đếm tần số quét Hz/FPS trực tiếp ở góc trên màn hình thông qua Android SurfaceFlinger.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Switch(
+                            checked = isShowHzOverlayEnabled,
+                            onCheckedChange = { enabled ->
+                                isShowHzOverlayEnabled = enabled
+                                scope.launch {
+                                    repo.setShowRefreshRateOverlay(enabled)
+                                    val msg = if (enabled) "📺 Đã BẬT hiển thị Hz trên màn hình" else "Đã TẮT hiển thị Hz"
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+                }
+            }
             // CARD 1: FORCED REFRESH RATE
             Card(
                 modifier = Modifier.fillMaxWidth(),

@@ -302,6 +302,15 @@ class NobgRepository(context: Context) {
         val valStr = if (enabled) "0" else "1"
         ShizukuManager.exec("settings put global mobile_data_always_on $valStr")
     }
+
+    fun isShowRefreshRateOverlayEnabled(): Boolean = prefs.getBoolean("show_refresh_rate_overlay_enabled", false)
+
+    suspend fun setShowRefreshRateOverlay(enabled: Boolean) {
+        prefs.edit().putBoolean("show_refresh_rate_overlay_enabled", enabled).apply()
+        val valStr = if (enabled) "1" else "0"
+        ShizukuManager.exec("settings put surface_flinger show_refresh_rate $valStr")
+        ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valStr")
+    }
 }
 
 
