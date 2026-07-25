@@ -44,24 +44,8 @@ object GitHubUpdater {
     }
 
     private fun isNewerVersion(remoteTag: String, currentVer: String): Boolean {
-        if (remoteTag.equals("latest", ignoreCase = true) || remoteTag.contains("latest", ignoreCase = true)) {
-            return true
-        }
-
-        val remoteClean = remoteTag.replace("[^0-9.]".toRegex(), "")
-        val currentClean = currentVer.replace("[^0-9.]".toRegex(), "")
-
-        val remoteParts = remoteClean.split(".").mapNotNull { it.toIntOrNull() }
-        val currentParts = currentClean.split(".").mapNotNull { it.toIntOrNull() }
-
-        val maxLen = maxOf(remoteParts.size, currentParts.size)
-        for (i in 0 until maxLen) {
-            val r = remoteParts.getOrElse(i) { 0 }
-            val c = currentParts.getOrElse(i) { 0 }
-            if (r > c) return true
-            if (r < c) return false
-        }
-        return false
+        // Always allow OTA update to the latest build from GitHub Releases
+        return true
     }
 
     private fun fetchJson(urlString: String): Pair<Int, String?> {
