@@ -27,11 +27,11 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH_WIDGET) {
+        val action = intent.action
+        if (action == ACTION_REFRESH_WIDGET || action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, FrozenAppsWidgetProvider::class.java)
             val ids = appWidgetManager.getAppWidgetIds(componentName)
-            appWidgetManager.notifyAppWidgetViewDataChanged(ids, R.id.widget_grid_view)
             for (id in ids) {
                 updateAppWidget(context, appWidgetManager, id)
             }

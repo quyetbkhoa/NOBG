@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONObject
 
-class NobgRepository(context: Context) {
+class NobgRepository(private val context: Context) {
 
     private val db = AppDatabase.get(context)
     private val appDao = db.appDao()
@@ -357,6 +357,7 @@ class NobgRepository(context: Context) {
         } else {
             unfreezePackage(pkg)
         }
+        com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
     }
 
     suspend fun freezeAllShelfApps() {
@@ -364,6 +365,7 @@ class NobgRepository(context: Context) {
         for (app in apps) {
             freezePackage(app.packageName)
         }
+        com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
     }
 
     suspend fun unfreezeAllShelfApps() {
@@ -371,6 +373,7 @@ class NobgRepository(context: Context) {
         for (app in apps) {
             unfreezePackage(app.packageName)
         }
+        com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
     }
 }
 
