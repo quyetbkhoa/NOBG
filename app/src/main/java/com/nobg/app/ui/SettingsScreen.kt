@@ -607,6 +607,41 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
+            var showAlgorithmDialog by remember { mutableStateOf(false) }
+            val currentVersionName = remember(context) {
+                try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.0.0"
+                } catch (e: Exception) {
+                    "3.0.0"
+                }
+            }
+
+            if (showAlgorithmDialog) {
+                AlgorithmDocDialog(
+                    onDismiss = { showAlgorithmDialog = false }
+                )
+            }
+
+            // 📘 THUẬT TOÁN & LỆNH HỆ THỐNG NOBG
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("📘 THUẬT TOÁN & LỆNH HỆ THỐNG", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Xem chi tiết các nguyên lý thuật toán, công thức toán học và lệnh Shell ADB/Shizuku thực thi cho từng tính năng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { showAlgorithmDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Text("📖 Mở bảng tra cứu Thuật toán & Lệnh")
+                    }
+                }
+            }
+
             // Thông tin ứng dụng
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -615,7 +650,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Thông tin ứng dụng", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(8.dp))
-                    Text("Phiên bản: V1.0.4", style = MaterialTheme.typography.bodySmall)
+                    Text("Phiên bản: v$currentVersionName", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     Text("Tác giả: quyetbkhoa", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))
