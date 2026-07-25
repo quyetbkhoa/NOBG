@@ -17,8 +17,8 @@
     <!-- Granted via ADB: adb shell pm grant com.nobg.app android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
-    <!-- Granted via: adb shell appops set com.nobg.app android:write_settings allow -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="false"
@@ -51,11 +51,17 @@
             android:label="🧊 Kệ đóng băng NOBG">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.nobg.app.action.REFRESH_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/frozen_apps_widget_info" />
         </receiver>
+
+        <service
+            android:name=".widget.FreezerWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
@@ -85,6 +91,10 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Giam sat app theo yeu cau NOBG" />
         </service>
+
+        <service
+            android:name=".service.HzOverlayService"
+            android:exported="false" />
 
     </application>
 </manifest>

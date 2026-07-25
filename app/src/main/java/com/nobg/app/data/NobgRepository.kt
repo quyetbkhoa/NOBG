@@ -305,16 +305,18 @@ class NobgRepository(context: Context) {
 
     fun isShowRefreshRateOverlayEnabled(): Boolean = prefs.getBoolean("show_refresh_rate_overlay_enabled", false)
 
-    suspend fun setShowRefreshRateOverlay(enabled: Boolean) {
+    suspend fun setShowRefreshRateOverlay(enabled: Boolean, context: android.content.Context) {
         prefs.edit().putBoolean("show_refresh_rate_overlay_enabled", enabled).apply()
         val valStr = if (enabled) "1" else "0"
         val valInt = if (enabled) 1 else 0
 
-        // 1. Direct SurfaceFlinger IPC calls
+        // 1. Direct SurfaceFlinger & Vivo OriginOS IPC calls
         ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valInt")
         ShizukuManager.exec("service call SurfaceFlinger 1035 i32 $valInt")
+        ShizukuManager.exec("service call SurfaceFlinger 1029 i32 $valInt")
+        ShizukuManager.exec("service call SurfaceFlinger 1030 i32 $valInt")
 
-        // 2. Settings across global, system, secure, surface_flinger for Android 11-15 & OEM ROMs (OriginOS, HyperOS, ColorOS, One UI)
+        // 2. Settings across global, system, secure, surface_flinger + Vivo custom keys
         ShizukuManager.exec("settings put global show_fps $valStr")
         ShizukuManager.exec("settings put system show_fps $valStr")
         ShizukuManager.exec("settings put secure show_fps $valStr")
@@ -322,10 +324,29 @@ class NobgRepository(context: Context) {
         ShizukuManager.exec("settings put system show_refresh_rate $valStr")
         ShizukuManager.exec("settings put surface_flinger show_refresh_rate $valStr")
         ShizukuManager.exec("settings put surface_flinger show_fps $valStr")
+
+        ShizukuManager.exec("settings put system vivo_show_refresh_rate $valStr")
+        ShizukuManager.exec("settings put global vivo_show_refresh_rate $valStr")
+        ShizukuManager.exec("settings put system vivo_fps_overlay $valStr")
+        ShizukuManager.exec("settings put system display_fps $valStr")
+
+        // 3. Setprop properties
+        ShizukuManager.exec("setprop debug.sf.showfps $valStr")
+        ShizukuManager.exec("setprop persist.sys.show_refresh_rate $valStr")
+        ShizukuManager.exec("setprop debug.vivo.fps.enable $valStr")
+
+        // 4. Start/Stop HzOverlayService floating green pill
+        val serviceIntent = android.content.Intent(context, com.nobg.app.service.HzOverlayService::class.java)
+        if (enabled) {
+            try { context.startService(serviceIntent) } catch (_: Exception) {}
+        } else {
+            try { context.stopService(serviceIntent) } catch (_: Exception) {}
+        }
     }
 
     // --- APP FREEZER SHELF (KỆ ĐÓNG BẰNG ỨNG DỤNG) ---
     val frozenShelfApps: kotlinx.coroutines.flow.Flow<List<AppEntity>> = appDao.observeFrozenShelf()
+    suspend fun getFrozenShelfApps(): List<AppEntity> = appDao.getFrozenShelfApps()
 
     suspend fun freezePackage(pkg: String) {
         ShizukuManager.exec("pm disable-user --user 0 $pkg")

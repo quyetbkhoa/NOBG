@@ -129,7 +129,7 @@ fun AdvancedTweaksScreen(
                             onCheckedChange = { enabled ->
                                 isShowHzOverlayEnabled = enabled
                                 scope.launch {
-                                    repo.setShowRefreshRateOverlay(enabled)
+                                    repo.setShowRefreshRateOverlay(enabled, context)
                                     val msg = if (enabled) "📺 Đã BẬT hiển thị Hz trên màn hình" else "Đã TẮT hiển thị Hz"
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }

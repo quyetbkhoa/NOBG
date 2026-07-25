@@ -371,16 +371,25 @@ class MonitorService : Service() {
 
     private suspend fun onAppLeftForeground(pkg: String) {
         if (pkg == packageName) return // ignore NOBG itself
+
+        // 1. Check if app is on Freezer Shelf: auto-refreeze on exit
+        val shelfApps = repo.getFrozenShelfApps()
+        if (shelfApps.any { it.packageName == pkg }) {
+            ShizukuManager.forceStop(pkg)
+            ShizukuManager.disablePackage(pkg)
+            repo.recordBlockedAction(pkg)
+            com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
+            return
+        }
+
         val cfg = repo.getConfig(pkg) ?: return
         if (!cfg.enabled) return
 
         when (cfg.mode) {
             NobgMode.STANDARD -> {
                 // Background restrictions are already persistently applied when toggled on.
-                // Nothing to do on leave - app stays alive in recents, just can't do anything.
             }
             NobgMode.AGGRESSIVE -> {
-                // Schedule delayed kill; cancel if user returns before it fires.
                 pendingKills[pkg]?.cancel()
                 pendingKills[pkg] = scope.launch {
                     delay(cfg.delaySeconds * 1000L)
@@ -392,6 +401,7 @@ class MonitorService : Service() {
                 ShizukuManager.forceStop(pkg)
                 ShizukuManager.disablePackage(pkg)
                 repo.recordBlockedAction(pkg)
+                com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
             }
         }
     }

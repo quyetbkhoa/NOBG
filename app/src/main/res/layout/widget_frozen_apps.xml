@@ -4,25 +4,52 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:background="@android:color/holo_blue_dark">
+    android:padding="8dp"
+    android:background="#1E293B">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/tv_widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🧊 KỆ ĐÓNG BẰNG NOBG"
+            android:textColor="#38BDF8"
+            android:textStyle="bold"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tv_widget_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 app"
+            android:textColor="#94A3B8"
+            android:textSize="11sp" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/tv_widget_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🧊 KỆ ĐÓNG BĂNG NOBG"
-        android:textColor="@android:color/white"
-        android:textStyle="bold"
-        android:textSize="14sp" />
+        android:id="@+id/tv_widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="Chưa có app nào trên Kệ"
+        android:textColor="#94A3B8"
+        android:textSize="12sp"
+        android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/tv_widget_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Chưa có ứng dụng nào"
-        android:textColor="@android:color/white"
-        android:textSize="12sp" />
+    <GridView
+        android:id="@+id/widget_grid_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:numColumns="4"
+        android:verticalSpacing="4dp"
+        android:horizontalSpacing="4dp"
+        android:gravity="center" />
 
 </LinearLayout>
