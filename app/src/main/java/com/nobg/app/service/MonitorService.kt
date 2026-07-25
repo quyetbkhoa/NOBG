@@ -43,7 +43,7 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 60000L
+        const val POLL_INTERVAL_MS = 120_000L // Polling strictly once every 2 minutes (120s)
         const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
     }
 
@@ -130,27 +130,31 @@ class MonitorService : Service() {
                 activeChargingPoints.add(com.nobg.app.data.ChargingPoint(batteryPct, now))
             } else {
                 val lastPt = activeChargingPoints.lastOrNull()
-                if (lastPt == null || lastPt.batteryPct != batteryPct) {
+                // Stop adding extra points once 100% is reached so sitting on charger doesn't inflate duration/distort speed
+                if (lastPt != null && lastPt.batteryPct >= 100 && batteryPct >= 100) {
+                    // Ignored: already capped at 100%
+                } else if (lastPt == null || lastPt.batteryPct != batteryPct) {
                     activeChargingPoints.add(com.nobg.app.data.ChargingPoint(batteryPct, now))
                 }
             }
         } else {
             if (activeChargingPoints.size >= 2) {
                 val startPt = activeChargingPoints.first()
-                val endPt = activeChargingPoints.last()
-                val durationSec = (endPt.timestampMs - startPt.timestampMs) / 1000L
+                val effectiveEndPt = activeChargingPoints.firstOrNull { it.batteryPct >= 100 } ?: activeChargingPoints.last()
+                val durationSec = (effectiveEndPt.timestampMs - startPt.timestampMs) / 1000L
 
-                if (endPt.batteryPct > startPt.batteryPct && durationSec >= 60L) {
+                if (effectiveEndPt.batteryPct > startPt.batteryPct && durationSec >= 30L) {
+                    val filteredPoints = activeChargingPoints.filter { it.timestampMs <= effectiveEndPt.timestampMs }
                     val session = com.nobg.app.data.ChargingSessionEntity(
                         startTimeMs = startPt.timestampMs,
-                        endTimeMs = endPt.timestampMs,
+                        endTimeMs = effectiveEndPt.timestampMs,
                         startLevel = startPt.batteryPct,
-                        endLevel = endPt.batteryPct,
+                        endLevel = effectiveEndPt.batteryPct,
                         totalDurationSeconds = durationSec,
-                        isCompletedToFull = endPt.batteryPct >= 99,
-                        pointsJson = com.nobg.app.data.ChargingPredictor.serializePointsJson(activeChargingPoints)
+                        isCompletedToFull = effectiveEndPt.batteryPct >= 99,
+                        pointsJson = com.nobg.app.data.ChargingPredictor.serializePointsJson(filteredPoints)
                     )
-                    repo.insertChargingSession(session)
+                    repo.insertChargingSessionDeduplicated(session)
                 }
             }
             activeChargingPoints.clear()
@@ -350,8 +354,8 @@ class MonitorService : Service() {
                         }
                         delay(POLL_INTERVAL_MS)
                     } else {
-                        // Screen is OFF: sleep for 30 seconds to allow CPU Deep Sleep (Doze Mode)
-                        delay(30_000L)
+                        // Screen is OFF: sleep for 5 minutes (300,000ms) to allow CPU Deep Sleep (Doze Mode)
+                        delay(300_000L)
                     }
                 } catch (_: Exception) {
                     delay(POLL_INTERVAL_MS)

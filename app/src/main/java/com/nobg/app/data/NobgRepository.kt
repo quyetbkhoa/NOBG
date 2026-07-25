@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.nobg.app.shizuku.AppOps
 import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.json.JSONObject
 
 class NobgRepository(context: Context) {
@@ -185,11 +186,28 @@ class NobgRepository(context: Context) {
 
     // ---- Charging Session methods ----
 
-    fun observeChargingSessions(): Flow<List<ChargingSessionEntity>> = chargingSessionDao.observeAll()
+    fun observeChargingSessions(): Flow<List<ChargingSessionEntity>> = chargingSessionDao.observeAll().map { list ->
+        list.distinctBy { "${it.startLevel}_${it.endLevel}_${it.startTimeMs / 120000L}" }
+    }
 
-    suspend fun getAllChargingSessions(): List<ChargingSessionEntity> = chargingSessionDao.getAll()
+    suspend fun getAllChargingSessions(): List<ChargingSessionEntity> {
+        val list = chargingSessionDao.getAll()
+        // Deduplicate in-memory by distinct startLevel, endLevel, and startTimeMs bucket
+        return list.distinctBy { "${it.startLevel}_${it.endLevel}_${it.startTimeMs / 120000L}" }
+    }
 
     suspend fun insertChargingSession(session: ChargingSessionEntity): Long = chargingSessionDao.insert(session)
+
+    suspend fun insertChargingSessionDeduplicated(session: ChargingSessionEntity) {
+        val existing = chargingSessionDao.getAll()
+        val isDuplicate = existing.any {
+            Math.abs(it.startTimeMs - session.startTimeMs) < 60_000L ||
+            (it.startLevel == session.startLevel && it.endLevel == session.endLevel && Math.abs(it.endTimeMs - session.endTimeMs) < 180_000L)
+        }
+        if (!isDuplicate) {
+            chargingSessionDao.insert(session)
+        }
+    }
 
     suspend fun deleteChargingSession(id: Long) = chargingSessionDao.delete(id)
 
@@ -251,24 +269,6 @@ class NobgRepository(context: Context) {
     }
 
     // --- ADVANCED HIDDEN TWEAKS ---
-    fun isForcedRefreshRateEnabled(): Boolean = prefs.getBoolean("forced_refresh_rate_enabled", false)
-    fun getForcedRefreshRateValue(): Float = prefs.getFloat("forced_refresh_rate_value", 120.0f)
-
-    suspend fun setForcedRefreshRate(enabled: Boolean, hz: Float) {
-        prefs.edit().putBoolean("forced_refresh_rate_enabled", enabled).putFloat("forced_refresh_rate_value", hz).apply()
-        if (enabled) {
-            val hzStr = String.format(java.util.Locale.US, "%.1f", hz)
-            val hzInt = hz.toInt()
-            ShizukuManager.exec("settings put global min_refresh_rate $hzStr")
-            ShizukuManager.exec("settings put global peak_refresh_rate $hzStr")
-            ShizukuManager.exec("settings put global user_refresh_rate $hzInt")
-        } else {
-            ShizukuManager.exec("settings put global min_refresh_rate 0.0")
-            ShizukuManager.exec("settings put global peak_refresh_rate 0.0")
-            ShizukuManager.exec("settings put global user_refresh_rate 0")
-        }
-    }
-
     fun isForceFreeformEnabled(): Boolean = prefs.getBoolean("force_freeform_enabled", false)
 
     suspend fun setForceResizableAndFreeform(enabled: Boolean) {
@@ -279,12 +279,23 @@ class NobgRepository(context: Context) {
         ShizukuManager.exec("settings put global force_resizable_activities $valStr")
         ShizukuManager.exec("settings put global enable_freeform_support $valStr")
         ShizukuManager.exec("settings put global force_allow_on_external $valStr")
+        ShizukuManager.exec("settings put system force_resizable_activities $valStr")
+        ShizukuManager.exec("settings put secure force_resizable_activities $valStr")
 
         // Oppo Find N3 / ColorOS / OxygenOS Custom Keys
         ShizukuManager.exec("settings put global oppo_force_resizable $valStr")
         ShizukuManager.exec("settings put secure oppo_force_resizable $valStr")
         ShizukuManager.exec("settings put system oppo_force_resizable $valStr")
         ShizukuManager.exec("settings put global coloros_force_freeform $valStr")
+        ShizukuManager.exec("settings put system coloros_force_freeform $valStr")
+        ShizukuManager.exec("settings put secure coloros_force_freeform $valStr")
+        ShizukuManager.exec("settings put global coloros_force_desktop_mode $valStr")
+        ShizukuManager.exec("settings put global coloros_app_split_screen $valStr")
+        ShizukuManager.exec("settings put system coloros_app_split_screen $valStr")
+        ShizukuManager.exec("settings put secure coloros_app_split_screen $valStr")
+        ShizukuManager.exec("settings put global oppo_multi_window_support $valStr")
+        ShizukuManager.exec("settings put system oppo_multi_window_support $valStr")
+        ShizukuManager.exec("settings put global force_desktop_mode $valStr")
     }
 
     fun isDisableSafeVolumeEnabled(): Boolean = prefs.getBoolean("disable_safe_volume_enabled", false)
@@ -301,47 +312,6 @@ class NobgRepository(context: Context) {
         prefs.edit().putBoolean("disable_cellular_always_on_enabled", enabled).apply()
         val valStr = if (enabled) "0" else "1"
         ShizukuManager.exec("settings put global mobile_data_always_on $valStr")
-    }
-
-    fun isShowRefreshRateOverlayEnabled(): Boolean = prefs.getBoolean("show_refresh_rate_overlay_enabled", false)
-
-    suspend fun setShowRefreshRateOverlay(enabled: Boolean, context: android.content.Context) {
-        prefs.edit().putBoolean("show_refresh_rate_overlay_enabled", enabled).apply()
-        val valStr = if (enabled) "1" else "0"
-        val valInt = if (enabled) 1 else 0
-
-        // 1. Direct SurfaceFlinger & Vivo OriginOS IPC calls
-        ShizukuManager.exec("service call SurfaceFlinger 1034 i32 $valInt")
-        ShizukuManager.exec("service call SurfaceFlinger 1035 i32 $valInt")
-        ShizukuManager.exec("service call SurfaceFlinger 1029 i32 $valInt")
-        ShizukuManager.exec("service call SurfaceFlinger 1030 i32 $valInt")
-
-        // 2. Settings across global, system, secure, surface_flinger + Vivo custom keys
-        ShizukuManager.exec("settings put global show_fps $valStr")
-        ShizukuManager.exec("settings put system show_fps $valStr")
-        ShizukuManager.exec("settings put secure show_fps $valStr")
-        ShizukuManager.exec("settings put global show_refresh_rate $valStr")
-        ShizukuManager.exec("settings put system show_refresh_rate $valStr")
-        ShizukuManager.exec("settings put surface_flinger show_refresh_rate $valStr")
-        ShizukuManager.exec("settings put surface_flinger show_fps $valStr")
-
-        ShizukuManager.exec("settings put system vivo_show_refresh_rate $valStr")
-        ShizukuManager.exec("settings put global vivo_show_refresh_rate $valStr")
-        ShizukuManager.exec("settings put system vivo_fps_overlay $valStr")
-        ShizukuManager.exec("settings put system display_fps $valStr")
-
-        // 3. Setprop properties
-        ShizukuManager.exec("setprop debug.sf.showfps $valStr")
-        ShizukuManager.exec("setprop persist.sys.show_refresh_rate $valStr")
-        ShizukuManager.exec("setprop debug.vivo.fps.enable $valStr")
-
-        // 4. Start/Stop HzOverlayService floating green pill
-        val serviceIntent = android.content.Intent(context, com.nobg.app.service.HzOverlayService::class.java)
-        if (enabled) {
-            try { context.startService(serviceIntent) } catch (_: Exception) {}
-        } else {
-            try { context.stopService(serviceIntent) } catch (_: Exception) {}
-        }
     }
 
     // --- APP FREEZER SHELF (KỆ ĐÓNG BẰNG ỨNG DỤNG) ---

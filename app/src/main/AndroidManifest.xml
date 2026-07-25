@@ -92,9 +92,5 @@
                 android:value="Giam sat app theo yeu cau NOBG" />
         </service>
 
-        <service
-            android:name=".service.HzOverlayService"
-            android:exported="false" />
-
     </application>
 </manifest>

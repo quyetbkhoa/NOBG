@@ -86,11 +86,20 @@ class MainActivity : ComponentActivity() {
 
         val shouldShowOnboardingInitially = missingShizuku || missingNotification || missingBatteryOpt
 
+        val initialScreen = intent?.getStringExtra("open_screen") ?: "LIST"
+
         setContent {
             NobgTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    var currentScreen by remember { mutableStateOf("LIST") }
+                    var currentScreen by remember { mutableStateOf(initialScreen) }
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
+
+                    LaunchedEffect(intent) {
+                        val screenExtra = intent?.getStringExtra("open_screen")
+                        if (!screenExtra.isNullOrBlank()) {
+                            currentScreen = screenExtra
+                        }
+                    }
 
                     if (showOnboardingDialog) {
                         PermissionOnboardingDialog(
@@ -135,6 +144,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     override fun onResume() {

@@ -4,15 +4,18 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:background="#1E293B">
+    android:padding="12dp"
+    android:background="@drawable/bg_widget_white_translucent"
+    android:clickable="true"
+    android:focusable="true">
 
     <LinearLayout
+        android:id="@+id/widget_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="4dp">
+        android:paddingBottom="6dp">
 
         <TextView
             android:id="@+id/tv_widget_title"
@@ -20,7 +23,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="🧊 KỆ ĐÓNG BẰNG NOBG"
-            android:textColor="#38BDF8"
+            android:textColor="#0284C7"
             android:textStyle="bold"
             android:textSize="13sp" />
 
@@ -29,7 +32,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0 app"
-            android:textColor="#94A3B8"
+            android:textColor="#64748B"
+            android:textStyle="bold"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -38,8 +42,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center"
-        android:text="Chưa có app nào trên Kệ"
-        android:textColor="#94A3B8"
+        android:text="Chưa có app nào trên Kệ\nBấm để mở Kệ Đóng Bằng"
+        android:textColor="#64748B"
         android:textSize="12sp"
         android:visibility="gone" />
 
@@ -48,8 +52,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:numColumns="4"
-        android:verticalSpacing="4dp"
-        android:horizontalSpacing="4dp"
+        android:verticalSpacing="6dp"
+        android:horizontalSpacing="6dp"
         android:gravity="center" />
 
 </LinearLayout>
