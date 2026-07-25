@@ -2,77 +2,114 @@ package com.nobg.app.shizuku
 
 import java.util.regex.Pattern
 
+data class AppBatteryDetail(
+    val mah: Double = 0.0,
+    val userCpuMs: Long = 0L,
+    val systemCpuMs: Long = 0L,
+    val wakeupCount: Int = 0,
+    val totalWakelockMs: Long = 0L
+) {
+    val totalCpuMs: Long get() = userCpuMs + systemCpuMs
+}
+
 object BatteryDumpsysParser {
 
+    fun parseDumpsysDurationMs(timeStr: String): Long {
+        var totalMs = 0L
+        val parts = timeStr.trim().split("\\s+".toRegex())
+        for (part in parts) {
+            val p = part.trim()
+            when {
+                p.endsWith("ms") -> totalMs += p.removeSuffix("ms").toLongOrNull() ?: 0L
+                p.endsWith("h") -> totalMs += (p.removeSuffix("h").toLongOrNull() ?: 0L) * 3600000L
+                p.endsWith("m") && !p.endsWith("ms") -> totalMs += (p.removeSuffix("m").toLongOrNull() ?: 0L) * 60000L
+                p.endsWith("s") && !p.endsWith("ms") -> totalMs += (p.removeSuffix("s").toLongOrNull() ?: 0L) * 1000L
+            }
+        }
+        return totalMs
+    }
+
     /**
-     * Parse dumpsys batterystats --charged for exact kernel app battery usage (mAh).
-     * Returns a map of Uid/Package (String) to mAh (Double).
+     * Parse dumpsys batterystats for mAh, CPU time, Wakeup counts, and Wakelock duration.
+     * Returns a map keyed by Uid (String e.g. "10197") or Package Name.
      */
-    suspend fun getAppBatteryUsage(): Map<String, Double> {
-        val result = mutableMapOf<String, Double>()
+    suspend fun getAppBatteryDetails(): Map<String, AppBatteryDetail> {
+        val resultMap = mutableMapOf<String, AppBatteryDetail>()
         if (!ShizukuManager.isShizukuRunning() || !ShizukuManager.hasPermission() || !ShizukuManager.isServiceBound()) {
-            return result
+            return resultMap
         }
 
         try {
-            // First try --charged for exact since-last-full-charge data, fallback to basic dumpsys batterystats
             var output = ShizukuManager.exec("dumpsys batterystats --charged")
             if (output.isBlank() || output.startsWith("ERROR")) {
                 output = ShizukuManager.exec("dumpsys batterystats")
             }
 
-            // Pattern 1: Match Uid lines like "  Uid u0a197: 204.5 ( cpu=164.0 ... )" or "  Uid 10197: 204.5"
-            val uidPattern = Pattern.compile("^\\s*(?:UID|Uid)\\s+(u0a\\d+|\\d+):\\s+([0-9.]+)", Pattern.MULTILINE)
-            val matcher1 = uidPattern.matcher(output)
-            while (matcher1.find()) {
-                var uidStr = matcher1.group(1) ?: continue
-                val mahStr = matcher1.group(2) ?: continue
+            val uidBlocks = output.split(Regex("\n(?=\\s*(?:UID|Uid)\\s+)"))
+            for (block in uidBlocks) {
+                val firstLine = block.lines().firstOrNull() ?: continue
+                if (!firstLine.trim().startsWith("Uid") && !firstLine.trim().startsWith("UID")) continue
 
-                if (uidStr.startsWith("u0a")) {
-                    val appIndex = uidStr.substring(3).toIntOrNull() ?: continue
-                    uidStr = (10000 + appIndex).toString()
+                val uidPattern = Pattern.compile("(?:UID|Uid)\\s+(u0a\\d+|\\d+):?\\s*([0-9.]+)?")
+                val matcher = uidPattern.matcher(firstLine)
+                if (!matcher.find()) continue
+
+                var idStr = matcher.group(1) ?: continue
+                if (idStr.startsWith("u0a")) {
+                    val appIndex = idStr.substring(3).toIntOrNull() ?: continue
+                    idStr = (10000 + appIndex).toString()
                 }
 
-                val mah = mahStr.toDoubleOrNull() ?: continue
-                if (mah > 0) {
-                    result[uidStr] = maxOf(result[uidStr] ?: 0.0, mah)
-                }
-            }
+                val mah = matcher.group(2)?.toDoubleOrNull() ?: 0.0
 
-            // Pattern 2: Match package lines like "  pkg com.example.app: 12.5"
-            val pkgPattern = Pattern.compile("^\\s*(?:pkg|package)\\s+([a-zA-Z0-9._]+):\\s+([0-9.]+)", Pattern.MULTILINE)
-            val matcher2 = pkgPattern.matcher(output)
-            while (matcher2.find()) {
-                val pkgName = matcher2.group(1) ?: continue
-                val mahStr = matcher2.group(2) ?: continue
-                val mah = mahStr.toDoubleOrNull() ?: continue
-                if (mah > 0) {
-                    result[pkgName] = maxOf(result[pkgName] ?: 0.0, mah)
-                }
-            }
+                var userCpuMs = 0L
+                var systemCpuMs = 0L
+                var wakeups = 0
+                var wakelockMs = 0L
 
-            // Pattern 3: Match "Estimated power use (mAh):" block
-            if (output.contains("Estimated power use (mAh):")) {
-                val section = output.substringAfter("Estimated power use (mAh):").substringBefore("Capacity:")
-                val sectionMatcher = Pattern.compile("^\\s*(?:Uid|UID|package|pkg|User|App)?\\s*([a-zA-Z0-9._]+):\\s+([0-9.]+)", Pattern.MULTILINE).matcher(section)
-                while (sectionMatcher.find()) {
-                    var idStr = sectionMatcher.group(1) ?: continue
-                    val mahStr = sectionMatcher.group(2) ?: continue
-
-                    if (idStr.startsWith("u0a")) {
-                        val appIndex = idStr.substring(3).toIntOrNull() ?: continue
-                        idStr = (10000 + appIndex).toString()
+                for (line in block.lines()) {
+                    val trimmed = line.trim()
+                    when {
+                        trimmed.contains("User cpu time:") -> {
+                            val userPart = trimmed.substringAfter("User cpu time:").substringBefore(",")
+                            userCpuMs += parseDumpsysDurationMs(userPart)
+                            if (trimmed.contains("System cpu time:")) {
+                                val sysPart = trimmed.substringAfter("System cpu time:")
+                                systemCpuMs += parseDumpsysDurationMs(sysPart)
+                            }
+                        }
+                        trimmed.contains("Wakeups:") -> {
+                            val countStr = trimmed.substringAfter("Wakeups:").trim().substringBefore(" ").substringBefore("(")
+                            wakeups += (countStr.toIntOrNull() ?: 0)
+                        }
+                        trimmed.contains("Wake lock") -> {
+                            val lockTimeStr = trimmed.substringAfter(":").trim().substringBefore("(")
+                            wakelockMs += parseDumpsysDurationMs(lockTimeStr)
+                        }
                     }
+                }
 
-                    val mah = mahStr.toDoubleOrNull() ?: continue
-                    if (mah > 0) {
-                        result[idStr] = maxOf(result[idStr] ?: 0.0, mah)
-                    }
+                val currentDetail = resultMap[idStr]
+                if (currentDetail == null) {
+                    resultMap[idStr] = AppBatteryDetail(mah, userCpuMs, systemCpuMs, wakeups, wakelockMs)
+                } else {
+                    resultMap[idStr] = AppBatteryDetail(
+                        maxOf(currentDetail.mah, mah),
+                        currentDetail.userCpuMs + userCpuMs,
+                        currentDetail.systemCpuMs + systemCpuMs,
+                        currentDetail.wakeupCount + wakeups,
+                        currentDetail.totalWakelockMs + wakelockMs
+                    )
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return result
+        return resultMap
+    }
+
+    suspend fun getAppBatteryUsage(): Map<String, Double> {
+        val details = getAppBatteryDetails()
+        return details.mapValues { it.value.mah }
     }
 }

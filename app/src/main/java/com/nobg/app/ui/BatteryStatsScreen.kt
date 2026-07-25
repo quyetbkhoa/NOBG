@@ -179,29 +179,31 @@ private fun AppUsageRow(item: UsageItem, maxMah: Double) {
             ) {
                 Text(item.label, fontWeight = FontWeight.SemiBold, maxLines = 1, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Text(
-                    "Dùng: ${formatDurationShort(item.totalTimeInForeground)}",
+                    "Màn hình: ${formatDurationShort(item.totalTimeInForeground)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(Modifier.height(4.dp))
-            // Battery bar
+            // Battery bar & CPU stats
             val fraction = (item.batteryMah / maxMah.coerceAtLeast(1.0)).toFloat().coerceIn(0.01f, 1f)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "Pin: ${String.format("%.1f", item.batteryMah)} mAh",
+                    "Pin: ${String.format("%.1f", item.batteryMah)} mAh (${String.format("%.1f", item.batteryPct)}%)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    "${String.format("%.1f", item.batteryPct)}% tổng dùng",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (item.wakeupCount > 0 || item.totalCpuMs > 0) {
+                    Text(
+                        "⏰ ${item.wakeupCount} wakeups | ⚡ CPU: ${formatDurationShort(item.totalCpuMs)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(
@@ -461,7 +463,7 @@ private fun lerp(a: Color, b: Color, t: Float): Color {
     )
 }
 
-private fun formatDurationShort(millis: Long): String {
+fun formatDurationShort(millis: Long): String {
     val h = TimeUnit.MILLISECONDS.toHours(millis)
     val m = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
     return if (h > 0) "${h}h ${m}m" else "${m}m"

@@ -254,6 +254,75 @@ fun AppManagementDialog(
                     }
                 }
 
+                // APP CPU & WAKEUP STATS CARD
+                var appDetailStats by remember { mutableStateOf<com.nobg.app.shizuku.AppBatteryDetail?>(null) }
+                LaunchedEffect(appModel.packageName) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val allDetails = com.nobg.app.shizuku.BatteryDumpsysParser.getAppBatteryDetails()
+                        val ai = try { context.packageManager.getApplicationInfo(appModel.packageName, 0) } catch (_: Exception) { null }
+                        val uid = ai?.uid?.toString() ?: ""
+                        appDetailStats = allDetails[uid] ?: allDetails[appModel.packageName]
+                    }
+                }
+
+                if (appDetailStats != null && (appDetailStats!!.totalCpuMs > 0 || appDetailStats!!.wakeupCount > 0 || appDetailStats!!.totalWakelockMs > 0)) {
+                    Text(
+                        text = "📊 THỐNG KÊ CPU & ĐÁNH THỨC",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("⚡ Thời gian CPU sử dụng:", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    formatDurationShort(appDetailStats!!.totalCpuMs),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("⏰ Số lần đánh thức (Wakeups):", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    "${appDetailStats!!.wakeupCount} lần",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (appDetailStats!!.wakeupCount > 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (appDetailStats!!.totalWakelockMs > 0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🔒 Giữ CPU ngầm (Wakelock):", style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        formatDurationShort(appDetailStats!!.totalWakelockMs),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // SECTION 1: BACKGROUND POWER MODE (NO DETAILED DESCRIPTIONS)
                 Text(
                     text = "🔋 CHẾ ĐỘ TIẾT KIỆM PIN HỆ THỐNG",

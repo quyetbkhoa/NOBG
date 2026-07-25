@@ -136,6 +136,21 @@ fun AppListScreen(
                     }
                 )
 
+                // Quick Filter: App chưa tối ưu bao giờ
+                val isNeverConfiguredSelected = NobgStateFilterOption.NEVER_CONFIGURED in nobgStateFilters
+                FilterChip(
+                    selected = isNeverConfiguredSelected,
+                    onClick = {
+                        val current = viewModel.nobgStateFilters.value
+                        viewModel.nobgStateFilters.value = if (isNeverConfiguredSelected) {
+                            current - NobgStateFilterOption.NEVER_CONFIGURED
+                        } else {
+                            current + NobgStateFilterOption.NEVER_CONFIGURED
+                        }
+                    },
+                    label = { Text("✨ Chưa tối ưu bao giờ") }
+                )
+
                 // Render ONLY ACTIVE Filters
                 userSystemFilters.forEach { opt ->
                     InputChip(

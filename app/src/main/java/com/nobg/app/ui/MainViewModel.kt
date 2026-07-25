@@ -51,7 +51,8 @@ enum class PowerStateFilterOption(val label: String) {
 
 enum class NobgStateFilterOption(val label: String) {
     ENABLED_ONLY("Chỉ Đang bật NOBG"),
-    DISABLED_ONLY("Chỉ Tắt NOBG")
+    DISABLED_ONLY("Chỉ Tắt NOBG"),
+    NEVER_CONFIGURED("✨ Chưa cài đặt/tối ưu lần nào")
 }
 
 enum class HiddenFilterOption(val label: String) {
@@ -151,7 +152,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
                 val matchesNobg = if (nobgF.isEmpty()) true else {
                     (NobgStateFilterOption.ENABLED_ONLY in nobgF && model.config?.enabled == true) ||
-                    (NobgStateFilterOption.DISABLED_ONLY in nobgF && model.config?.enabled != true)
+                    (NobgStateFilterOption.DISABLED_ONLY in nobgF && model.config?.enabled != true) ||
+                    (NobgStateFilterOption.NEVER_CONFIGURED in nobgF && model.config == null)
                 }
 
                 matchesHidden && matchesPower && matchesNobg

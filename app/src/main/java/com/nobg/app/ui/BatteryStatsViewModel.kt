@@ -25,7 +25,10 @@ data class UsageItem(
     val totalTimeInForeground: Long,
     val lastTimeUsed: Long,
     val batteryMah: Double = 0.0,
-    val batteryPct: Double = 0.0
+    val batteryPct: Double = 0.0,
+    val totalCpuMs: Long = 0L,
+    val wakeupCount: Int = 0,
+    val totalWakelockMs: Long = 0L
 )
 
 enum class StatsInterval(val label: String) {
@@ -108,7 +111,7 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
             _anchorTimeMs.value = startTime
 
             val statsMap = usm.queryAndAggregateUsageStats(startTime, endTime)
-            val batteryUsageMap = BatteryDumpsysParser.getAppBatteryUsage()
+            val batteryDetailsMap = BatteryDumpsysParser.getAppBatteryDetails()
 
             var totalCalculatedMah = 0.0
 
@@ -128,9 +131,8 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                         category = ai.category
                     } catch (e: PackageManager.NameNotFoundException) { }
 
-                    var usedMah = batteryUsageMap[uid.toString()]
-                        ?: batteryUsageMap[stat.packageName]
-                        ?: 0.0
+                    val detail = batteryDetailsMap[uid.toString()] ?: batteryDetailsMap[stat.packageName]
+                    var usedMah = detail?.mah ?: 0.0
 
                     // Smart Fallback Estimation if dumpsys omitted mAh
                     if (usedMah <= 0.0 && stat.totalTimeInForeground > 0) {
@@ -153,7 +155,10 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                         totalTimeInForeground = stat.totalTimeInForeground,
                         lastTimeUsed = stat.lastTimeUsed,
                         batteryMah = usedMah,
-                        batteryPct = 0.0
+                        batteryPct = 0.0,
+                        totalCpuMs = detail?.totalCpuMs ?: 0L,
+                        wakeupCount = detail?.wakeupCount ?: 0,
+                        totalWakelockMs = detail?.totalWakelockMs ?: 0L
                     )
                 }
 
