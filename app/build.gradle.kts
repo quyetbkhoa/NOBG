@@ -43,7 +43,7 @@ android {
 
     signingConfigs {
         val keystorePath = localProperties.getProperty("keystore.path")
-        if (keystorePath != null && keystorePath.isNotBlank()) {
+        if (keystorePath != null && keystorePath.isNotBlank() && file(keystorePath).exists()) {
             create("release") {
                 storeFile = file(keystorePath)
                 storePassword = localProperties.getProperty("keystore.password")
@@ -57,8 +57,10 @@ android {
         release {
             isMinifyEnabled = false
             val keystorePath = localProperties.getProperty("keystore.path")
-            if (keystorePath != null && keystorePath.isNotBlank()) {
+            if (keystorePath != null && keystorePath.isNotBlank() && file(keystorePath).exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
