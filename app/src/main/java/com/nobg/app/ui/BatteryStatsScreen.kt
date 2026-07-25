@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -393,15 +395,33 @@ private fun StatMetricCard(
 @Composable
 private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+
+    val labelPaint = remember(onSurfaceVariantColor) {
+        android.graphics.Paint().apply {
+            color = onSurfaceVariantColor.toArgb()
+            textSize = 22f
+            isAntiAlias = true
+        }
+    }
+
+    val axisPaint = remember(primaryColor) {
+        android.graphics.Paint().apply {
+            color = primaryColor.toArgb()
+            textSize = 22f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+    }
 
     Canvas(modifier = modifier) {
         if (curve.isEmpty()) return@Canvas
 
-        val padLeft = 40.dp.toPx()
-        val padBottom = 24.dp.toPx()
-        val padTop = 8.dp.toPx()
-        val padRight = 8.dp.toPx()
+        val padLeft = 60.dp.toPx()
+        val padBottom = 28.dp.toPx()
+        val padTop = 15.dp.toPx()
+        val padRight = 15.dp.toPx()
 
         val chartW = size.width - padLeft - padRight
         val chartH = size.height - padTop - padBottom
@@ -411,10 +431,31 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         val maxPct = curve.maxOf { it.batteryPct }
         val pctRange = (maxPct - minPct).coerceAtLeast(1)
 
+        // Draw Oy & Ox Axis lines
+        drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop), Offset(padLeft, padTop + chartH), strokeWidth = 2.dp.toPx())
+        drawLine(primaryColor.copy(alpha = 0.7f), Offset(padLeft, padTop + chartH), Offset(padLeft + chartW, padTop + chartH), strokeWidth = 2.dp.toPx())
+
+        // Oy Axis (Giây / 1% pin) Ticks & Labels
         for (i in 0..4) {
-            val y = padTop + chartH * (1f - i / 4f)
-            drawLine(surfaceVariant, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
+            val ratio = i / 4f
+            val y = padTop + chartH * (1f - ratio)
+            val secVal = (maxSeconds * ratio).toInt()
+            drawLine(gridColor, Offset(padLeft, y), Offset(padLeft + chartW, y), strokeWidth = 1.dp.toPx())
+            drawContext.canvas.nativeCanvas.drawText("${secVal}s", 8f, y + 6f, labelPaint)
         }
+
+        // Ox Axis (% Pin) Ticks & Labels
+        val stepPct = pctRange / 4.coerceAtLeast(1)
+        for (i in 0..4) {
+            val pctVal = minPct + (stepPct * i).coerceAtMost(maxPct - minPct)
+            val x = padLeft + ((pctVal - minPct).toFloat() / pctRange) * chartW
+            drawLine(primaryColor.copy(alpha = 0.5f), Offset(x, padTop + chartH), Offset(x, padTop + chartH + 5.dp.toPx()), strokeWidth = 1.5.dp.toPx())
+            drawContext.canvas.nativeCanvas.drawText("$pctVal%", x - 15f, size.height - 4f, labelPaint)
+        }
+
+        // Axis Titles
+        drawContext.canvas.nativeCanvas.drawText("Oy: Giây/%", 5f, padTop - 2f, axisPaint)
+        drawContext.canvas.nativeCanvas.drawText("Ox: % Pin", padLeft + chartW - 55.dp.toPx(), size.height - 4f, axisPaint)
 
         val path = Path()
         curve.forEachIndexed { idx, point ->
@@ -444,19 +485,6 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
             val y = padTop + chartH * (1f - point.secondsPerPct / maxSeconds)
             drawCircle(primaryColor, radius = 3.dp.toPx(), center = Offset(x, y))
         }
-
-        drawLine(
-            color = surfaceVariant.copy(alpha = 0.8f),
-            start = Offset(padLeft, padTop),
-            end = Offset(padLeft, padTop + chartH),
-            strokeWidth = 1.5.dp.toPx()
-        )
-        drawLine(
-            color = surfaceVariant.copy(alpha = 0.8f),
-            start = Offset(padLeft, padTop + chartH),
-            end = Offset(padLeft + chartW, padTop + chartH),
-            strokeWidth = 1.5.dp.toPx()
-        )
     }
 }
 

@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nobg.app.data.CpuLogEntity
@@ -311,55 +313,106 @@ private fun CpuClockLineChart(
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
+    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val underclockColor = Color(0xFF00E676)
     val defaultColor = Color(0xFFFF5252)
 
+    val labelPaint = remember(onSurfaceVariantColor) {
+        android.graphics.Paint().apply {
+            color = onSurfaceVariantColor.toArgb()
+            textSize = 24f
+            isAntiAlias = true
+        }
+    }
+
+    val axisPaint = remember(primaryColor) {
+        android.graphics.Paint().apply {
+            color = primaryColor.toArgb()
+            textSize = 24f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+    }
+
     Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
+        val padLeft = 65.dp.toPx()
+        val padBottom = 30.dp.toPx()
+        val padTop = 15.dp.toPx()
+        val padRight = 20.dp.toPx()
+
+        val chartWidth = size.width - padLeft - padRight
+        val chartHeight = size.height - padTop - padBottom
 
         val minMhz = 400f
         val maxMhz = 3000f
 
-        // Grid lines
-        val lines = 4
-        for (i in 0..lines) {
-            val y = height - (i * (height / lines))
+        // Draw Oy & Ox Axis lines
+        drawLine(
+            color = primaryColor.copy(alpha = 0.7f),
+            start = Offset(padLeft, padTop),
+            end = Offset(padLeft, padTop + chartHeight),
+            strokeWidth = 2.dp.toPx()
+        )
+        drawLine(
+            color = primaryColor.copy(alpha = 0.7f),
+            start = Offset(padLeft, padTop + chartHeight),
+            end = Offset(padLeft + chartWidth, padTop + chartHeight),
+            strokeWidth = 2.dp.toPx()
+        )
+
+        // Oy Axis Ticks & Grid Lines (3.0G, 2.0G, 1.0G, 0.4G)
+        val oyTicks = listOf(3000 to "3.0G", 2000 to "2.0G", 1000 to "1.0G", 400 to "0.4G")
+        oyTicks.forEach { (mhz, label) ->
+            val y = padTop + chartHeight - ((mhz.toFloat() - minMhz) / (maxMhz - minMhz) * chartHeight)
             drawLine(
-                color = Color.Gray.copy(alpha = 0.2f),
-                start = Offset(0f, y),
-                end = Offset(width, y),
+                color = Color.Gray.copy(alpha = 0.25f),
+                start = Offset(padLeft, y),
+                end = Offset(padLeft + chartWidth, y),
                 strokeWidth = 1.dp.toPx()
             )
+            drawContext.canvas.nativeCanvas.drawText(label, 10f, y + 8f, labelPaint)
         }
 
+        // Ox Axis Ticks (-120m, -90m, -60m, -30m, Hiện tại)
+        val oxLabels = listOf("-120m", "-90m", "-60m", "-30m", "Hiện tại")
+        oxLabels.forEachIndexed { idx, label ->
+            val x = padLeft + (idx * (chartWidth / (oxLabels.size - 1)))
+            drawLine(
+                color = primaryColor.copy(alpha = 0.5f),
+                start = Offset(x, padTop + chartHeight),
+                end = Offset(x, padTop + chartHeight + 6.dp.toPx()),
+                strokeWidth = 1.5.dp.toPx()
+            )
+            drawContext.canvas.nativeCanvas.drawText(label, x - 22f, size.height - 4f, labelPaint)
+        }
+
+        // Axis Titles
+        drawContext.canvas.nativeCanvas.drawText("Oy: GHz", 5f, padTop - 2f, axisPaint)
+
         if (logs.size < 2) {
-            // Render baseline sample line if logs are empty
-            val path = Path()
-            val yNorm = height - ((1600f - minMhz) / (maxMhz - minMhz) * height)
-            path.moveTo(0f, yNorm)
-            path.lineTo(width, yNorm)
-            drawPath(path, color = primaryColor, style = Stroke(width = 3.dp.toPx()))
+            val yNorm = padTop + chartHeight - ((1600f - minMhz) / (maxMhz - minMhz) * chartHeight)
+            drawLine(
+                color = primaryColor,
+                start = Offset(padLeft, yNorm),
+                end = Offset(padLeft + chartWidth, yNorm),
+                strokeWidth = 3.dp.toPx()
+            )
             return@Canvas
         }
 
-        val stepX = width / (logs.size - 1).coerceAtLeast(1)
+        val stepX = chartWidth / (logs.size - 1).coerceAtLeast(1)
         val path = Path()
 
         logs.forEachIndexed { i, log ->
-            val x = i * stepX
-            val normY = height - ((log.freqMhz.toFloat() - minMhz) / (maxMhz - minMhz) * height).coerceIn(0f, height)
+            val x = padLeft + (i * stepX)
+            val normY = padTop + chartHeight - ((log.freqMhz.toFloat() - minMhz) / (maxMhz - minMhz) * chartHeight).coerceIn(0f, chartHeight)
 
-            if (i == 0) {
-                path.moveTo(x, normY)
-            } else {
-                path.lineTo(x, normY)
-            }
+            if (i == 0) path.moveTo(x, normY) else path.lineTo(x, normY)
 
             val circleColor = if (log.isUnderclockOn) underclockColor else defaultColor
             drawCircle(
                 color = circleColor,
-                radius = 4.dp.toPx(),
+                radius = 3.5.dp.toPx(),
                 center = Offset(x, normY)
             )
         }
@@ -367,7 +420,7 @@ private fun CpuClockLineChart(
         drawPath(
             path = path,
             color = primaryColor,
-            style = Stroke(width = 3.dp.toPx())
+            style = Stroke(width = 2.5.dp.toPx())
         )
     }
 }
