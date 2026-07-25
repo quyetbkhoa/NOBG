@@ -46,3 +46,21 @@ jobs:
           files: app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send APK to Telegram Bot
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            echo "Sending APK to Telegram..."
+            curl -s -F chat_id="$TELEGRAM_CHAT_ID" \
+                 -F document=@app/build/outputs/apk/release/app-release.apk \
+                 -F caption="🚀 *NOBG Release APK mới nhất!*%0A📌 *Commit:* `${GITHUB_SHA:0:7}`%0A📝 *Nội dung:* ${{ github.event.head_commit.message }}" \
+                 -F parse_mode="Markdown" \
+                 https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument
+          else
+            echo "Chưa cấu hình TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID trong Secrets. Bỏ qua gửi Telegram."
+          fi
+
