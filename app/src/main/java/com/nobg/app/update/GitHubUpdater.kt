@@ -161,7 +161,71 @@ object GitHubUpdater {
                 return@withContext UpdateResult.AlreadyLatest(currentVer)
             }
         } catch (e: Exception) {
-            return@withContext UpdateResult.Error("Lỗi kiểm tra bản cập nhật: ${e.message}")
+            return@withContext UpdateResult.Error("Lỗi hệ thống khi kiểm tra cập nhật: ${e.message}")
+        }
+    }
+
+    suspend fun fetchLatestReleaseInfo(context: Context): UpdateInfo = withContext(Dispatchers.IO) {
+        val currentVer = getCurrentVersionName(context)
+        val (_, jsonStr) = fetchJson(GITHUB_RELEASE_LATEST_API)
+        val defaultBody = """
+            ✨ Phiên bản NOBG $currentVer
+            • Tự động tối ưu hoá ứng dụng chạy ngầm qua Shizuku
+            • Quản lý trạng thái Pin & Dự đoán thời gian sạc đầy
+            • Ép tần số quét màn hình 120Hz/144Hz & Cửa sổ nổi Freeform (Oppo Find N3 / Màn gập)
+            • Sơ đồ cây tra cứu thuật toán & lệnh ADB/Shizuku đầy đủ
+        """.trimIndent()
+
+        if (jsonStr.isNullOrBlank()) {
+            return@withContext UpdateInfo(
+                tagName = "v$currentVer",
+                publishedAt = "",
+                apkUrl = "https://github.com/quyetbkhoa/NOBG/releases",
+                htmlUrl = "https://github.com/quyetbkhoa/NOBG/releases",
+                body = defaultBody,
+                isNewer = false
+            )
+        }
+
+        try {
+            val json = JSONObject(jsonStr)
+            val tagName = json.optString("tag_name", "v$currentVer")
+            val publishedAt = json.optString("published_at", "")
+            val htmlUrl = json.optString("html_url", "https://github.com/quyetbkhoa/NOBG/releases")
+            val rawBody = json.optString("body", "")
+            val body = if (rawBody.isNotBlank() && rawBody.length > 5) rawBody else defaultBody
+
+            var apkUrl = ""
+            val assets = json.optJSONArray("assets")
+            if (assets != null && assets.length() > 0) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val name = asset.optString("name", "")
+                    if (name.endsWith(".apk")) {
+                        apkUrl = asset.optString("browser_download_url", "")
+                        break
+                    }
+                }
+            }
+            if (apkUrl.isBlank()) apkUrl = htmlUrl
+
+            UpdateInfo(
+                tagName = tagName,
+                publishedAt = publishedAt,
+                apkUrl = apkUrl,
+                htmlUrl = htmlUrl,
+                body = body,
+                isNewer = false
+            )
+        } catch (_: Exception) {
+            UpdateInfo(
+                tagName = "v$currentVer",
+                publishedAt = "",
+                apkUrl = "https://github.com/quyetbkhoa/NOBG/releases",
+                htmlUrl = "https://github.com/quyetbkhoa/NOBG/releases",
+                body = defaultBody,
+                isNewer = false
+            )
         }
     }
 

@@ -444,10 +444,20 @@ fun SettingsScreen(
 
             // Cập nhật ứng dụng từ GitHub
             var isCheckingUpdate by remember { mutableStateOf(false) }
+            var isFetchingChangelog by remember { mutableStateOf(false) }
+            var changelogInfo by remember { mutableStateOf<com.nobg.app.update.UpdateInfo?>(null) }
             var updateResultState by remember { mutableStateOf<com.nobg.app.update.UpdateResult?>(null) }
             var isDownloading by remember { mutableStateOf(false) }
             var downloadProgressPct by remember { mutableStateOf(0) }
             var downloadStatusText by remember { mutableStateOf("") }
+
+            if (changelogInfo != null) {
+                com.nobg.app.update.AutoUpdateDialog(
+                    updateInfo = changelogInfo!!,
+                    context = context,
+                    onDismiss = { changelogInfo = null }
+                )
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -459,24 +469,46 @@ fun SettingsScreen(
                     Text("Kiểm tra và tải trực tiếp bản Release APK mới nhất được tự động build từ GitHub Actions.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
 
-                    Button(
-                        onClick = {
-                            isCheckingUpdate = true
-                            scope.launch {
-                                val res = com.nobg.app.update.GitHubUpdater.checkForUpdates(context)
-                                updateResultState = res
-                                isCheckingUpdate = false
-                            }
-                        },
-                        enabled = !isCheckingUpdate && !isDownloading,
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (isCheckingUpdate) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Đang kiểm tra...")
-                        } else {
-                            Text("🔄 Kiểm tra bản cập nhật mới")
+                        Button(
+                            onClick = {
+                                isCheckingUpdate = true
+                                scope.launch {
+                                    val res = com.nobg.app.update.GitHubUpdater.checkForUpdates(context)
+                                    updateResultState = res
+                                    isCheckingUpdate = false
+                                }
+                            },
+                            enabled = !isCheckingUpdate && !isDownloading && !isFetchingChangelog,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (isCheckingUpdate) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Text("🔄 Kiểm tra bản mới")
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                isFetchingChangelog = true
+                                scope.launch {
+                                    val info = com.nobg.app.update.GitHubUpdater.fetchLatestReleaseInfo(context)
+                                    changelogInfo = info
+                                    isFetchingChangelog = false
+                                }
+                            },
+                            enabled = !isCheckingUpdate && !isDownloading && !isFetchingChangelog,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (isFetchingChangelog) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("📝 Xem Changelog")
+                            }
                         }
                     }
 
@@ -616,6 +648,17 @@ fun SettingsScreen(
                     Spacer(Modifier.height(4.dp))
                     Text("Mã nguồn mở (Github):", style = MaterialTheme.typography.bodySmall)
                     Text("https://github.com/quyetbkhoa/NOBG", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                changelogInfo = com.nobg.app.update.GitHubUpdater.fetchLatestReleaseInfo(context)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("📝 Xem Nhật ký thay đổi (Changelog)")
+                    }
                 }
             }
 

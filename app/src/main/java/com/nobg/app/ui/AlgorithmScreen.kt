@@ -295,6 +295,16 @@ private fun getAppFlowTreeData(): List<TreeNode> {
                         "pm enable <package>"
                     ),
                     codeSnippet = "ShizukuManager.exec(\"pm disable-user --user 0 \$pkg\")"
+                ),
+                TreeLeafNode(
+                    title = "2.4 Quản Lý Hạn Chế Pin Hệ Thống (Unrestricted / Optimized / Restricted)",
+                    principle = "Can thiệp trực tiếp vào quản lý Pin của Android OS cho từng app:\n• 🟢 Unrestricted (Không hạn chế): Đưa app vào Whitelist Doze Mode, giữ app luôn nhận notification và không bị kill.\n• 🟡 Optimized (Tối ưu hóa): Trạng thái mặc định của Android tự điều phối theo tần suất dùng.\n• 🔴 Restricted (Hạn chế pin): Đưa app vào Standby Bucket restricted, cấm chạy ngầm và ngăn Alarm/WorkManager.",
+                    commands = listOf(
+                        "🟢 Unrestricted: dumpsys deviceidle whitelist +<package> | appops set <package> RUN_IN_BACKGROUND allow",
+                        "🟡 Optimized: appops set <package> RUN_IN_BACKGROUND default | am set-standby-bucket <package> working_set",
+                        "🔴 Restricted: dumpsys deviceidle whitelist -<package> | appops set <package> RUN_IN_BACKGROUND ignore | am set-standby-bucket <package> restricted"
+                    ),
+                    codeSnippet = "// Unrestricted\nShizukuManager.exec(\"dumpsys deviceidle whitelist +\$pkg\")\n\n// Restricted\nShizukuManager.exec(\"am set-standby-bucket \$pkg restricted\")"
                 )
             )
         ),
