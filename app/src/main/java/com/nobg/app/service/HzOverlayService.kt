@@ -23,10 +23,38 @@ class HzOverlayService : Service(), Choreographer.FrameCallback {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var isRunning: Boolean = true
+
+    private val screenReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    isRunning = false
+                    Choreographer.getInstance().removeFrameCallback(this@HzOverlayService)
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    if (!isRunning) {
+                        isRunning = true
+                        lastFpsCalcTime = 0L
+                        frameCount = 0
+                        Choreographer.getInstance().postFrameCallback(this@HzOverlayService)
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         createOverlayView()
+
+        val filter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(screenReceiver, filter)
+
         Choreographer.getInstance().postFrameCallback(this)
     }
 
@@ -91,6 +119,7 @@ class HzOverlayService : Service(), Choreographer.FrameCallback {
 
     override fun onDestroy() {
         super.onDestroy()
+        try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}
         Choreographer.getInstance().removeFrameCallback(this)
         if (tvHz != null) {
             try {

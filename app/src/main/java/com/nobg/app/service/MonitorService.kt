@@ -80,9 +80,15 @@ class MonitorService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 Intent.ACTION_POWER_CONNECTED,
-                Intent.ACTION_POWER_DISCONNECTED,
-                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_POWER_DISCONNECTED -> {
+                    logBatteryState(context, force = true)
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    isScreenInteractive = true
+                    logBatteryState(context, force = true)
+                }
                 Intent.ACTION_SCREEN_OFF -> {
+                    isScreenInteractive = false
                     logBatteryState(context, force = true)
                 }
             }
@@ -327,21 +333,29 @@ class MonitorService : Service() {
             .build()
     }
 
+    private var isScreenInteractive: Boolean = true
+
     private fun loop() {
         scope.launch {
             // make sure ShizukuManager service is bound in this process too
             ShizukuManager.bindUserService()
             while (isActive) {
                 try {
-                    pollForegroundApp()
-                    reconcileTickCounter++
-                    if (reconcileTickCounter >= RECONCILE_EVERY_TICKS) {
-                        reconcileTickCounter = 0
-                        reconcileAll()
+                    if (isScreenInteractive) {
+                        pollForegroundApp()
+                        reconcileTickCounter++
+                        if (reconcileTickCounter >= RECONCILE_EVERY_TICKS) {
+                            reconcileTickCounter = 0
+                            reconcileAll()
+                        }
+                        delay(POLL_INTERVAL_MS)
+                    } else {
+                        // Screen is OFF: sleep for 30 seconds to allow CPU Deep Sleep (Doze Mode)
+                        delay(30_000L)
                     }
                 } catch (_: Exception) {
+                    delay(POLL_INTERVAL_MS)
                 }
-                delay(POLL_INTERVAL_MS)
             }
         }
     }
