@@ -75,6 +75,7 @@ jobs:
           name: "NOBG Latest Release"
           body: "Tự động build bản Release APK mới nhất từ branch main."
           files: ${{ steps.apk.outputs.path }}
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -113,13 +114,15 @@ jobs:
               file_bytes = f.read()
 
           boundary = "---------------------------12345678901234567890"
-          body = []
-          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}".encode("utf-8"))
-          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}".encode("utf-8"))
-          body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"NOBG-v2.1.0-release.apk\"\r\nContent-Type: application/vnd.android.package-archive\r\n\r\n".encode("utf-8") + file_bytes)
-          body.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+          body = bytearray()
 
-          payload = b"\r\n".join(body)
+          body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}\r\n".encode("utf-8"))
+          body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}\r\n".encode("utf-8"))
+          body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"NOBG-v2.1.0-release.apk\"\r\nContent-Type: application/vnd.android.package-archive\r\n\r\n".encode("utf-8"))
+          body.extend(file_bytes)
+          body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+
+          payload = bytes(body)
 
           req = urllib.request.Request(
               url,
@@ -137,6 +140,7 @@ jobs:
                   print("Error details:", e.read().decode("utf-8"))
               sys.exit(1)
           '
+
 
 
 
