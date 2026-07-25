@@ -10,6 +10,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -192,6 +194,81 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             }
 
             var isCpuUnderclocked by remember { mutableStateOf(repo.isCpuUnderclockEnabled()) }
+
+            val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                if (uri != null) {
+                    scope.launch {
+                        try {
+                            val jsonStr = repo.exportConfigJson()
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                out.write(jsonStr.toByteArray(Charsets.UTF_8))
+                            }
+                            Toast.makeText(context, "📤 Đã xuất file cấu hình JSON thành công!", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi xuất file: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+
+            val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) {
+                    scope.launch {
+                        try {
+                            val jsonStr = context.contentResolver.openInputStream(uri)?.use { input ->
+                                input.bufferedReader().readText()
+                            }
+                            if (!jsonStr.isNullOrBlank()) {
+                                val (restored, total) = repo.importConfigJson(jsonStr)
+                                Toast.makeText(context, "📥 Đã đồng bộ cấu hình $restored/$total ứng dụng!", Toast.LENGTH_LONG).show()
+                                viewModel.reloadApps()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi nhập cấu hình: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+
+            // ☁️ SAO LƯU & ĐỒNG BỘ CẤU HÌNH ĐA THIẾT BỊ (JSON)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "☁️ SAO LƯU & ĐỒNG BỘ CẤU HÌNH ĐA THIẾT BỊ",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Xuất danh sách cài đặt ứng dụng thành file JSON linh hoạt để lưu trữ hoặc gửi sang điện thoại khác khôi phục lập tức.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { exportLauncher.launch("nobg_config_backup.json") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📤 Xuất file (JSON)")
+                        }
+                        Button(
+                            onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📥 Nhập cấu hình")
+                        }
+                    }
+                }
+            }
 
             // ⚡ ÉP ANDROID POWERHAL HẠ XUNG CPU (CHẾ ĐỘ TIẾT KIỆM PIN)
             Card(

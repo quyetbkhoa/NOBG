@@ -212,5 +212,55 @@ class NobgRepository(context: Context) {
             ShizukuManager.exec("settings put global low_power 0")
         }
     }
+
+    suspend fun exportConfigJson(): String {
+        val apps = appDao.getAll()
+        val root = JSONObject()
+        root.put("version", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+        val array = org.json.JSONArray()
+        for (app in apps) {
+            val item = JSONObject()
+            item.put("packageName", app.packageName)
+            item.put("mode", app.mode.name)
+            item.put("enabled", app.enabled)
+            item.put("delaySeconds", app.delaySeconds)
+            array.put(item)
+        }
+        root.put("apps", array)
+        return root.toString(2)
+    }
+
+    suspend fun importConfigJson(jsonStr: String): Pair<Int, Int> {
+        val root = JSONObject(jsonStr)
+        val array = root.optJSONArray("apps") ?: return 0 to 0
+        var restoredCount = 0
+        var totalCount = array.length()
+        for (i in 0 until array.length()) {
+            val item = array.getJSONObject(i)
+            val pkg = item.optString("packageName", "")
+            if (pkg.isBlank()) continue
+            val modeStr = item.optString("mode", "STANDARD")
+            val mode = try { NobgMode.valueOf(modeStr) } catch (_: Exception) { NobgMode.STANDARD }
+            val enabled = item.optBoolean("enabled", true)
+            val delaySeconds = item.optInt("delaySeconds", 30)
+
+            if (enabled) {
+                enableNobg(pkg, mode, delaySeconds)
+            } else {
+                appDao.upsert(
+                    AppEntity(
+                        packageName = pkg,
+                        mode = mode,
+                        enabled = false,
+                        delaySeconds = delaySeconds
+                    )
+                )
+            }
+            restoredCount++
+        }
+        return restoredCount to totalCount
+    }
 }
+
 
