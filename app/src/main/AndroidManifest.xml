@@ -43,7 +43,7 @@
         <activity
             android:name=".ui.UnfreezeAndLaunchActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver
             android:name=".widget.FrozenAppsWidgetProvider"

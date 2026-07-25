@@ -4,11 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import com.nobg.app.MainActivity
 import com.nobg.app.shell.PrivilegedShell
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class UnfreezeAndLaunchActivity : Activity() {
 
@@ -22,42 +24,54 @@ class UnfreezeAndLaunchActivity : Activity() {
 
         if (pkg.isNullOrBlank()) {
             // Clicked empty space in widget -> Open NOBG Freezer Shelf directly
-            val mainIntent = Intent(this, MainActivity::class.java).apply {
-                putExtra("open_screen", "FREEZER_SHELF")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(mainIntent)
-            finish()
-            try {
-                overridePendingTransition(0, 0)
-            } catch (_: Exception) {}
+            openFreezerShelfAndFinish()
             return
         }
 
-        // Clicked an actual app icon -> Find launch intent first (even if disabled)
-        val launchIntent = getLaunchIntentForPackageEvenIfDisabled(pkg)
-
-        // Asynchronously unfreeze package via PrivilegedShell
+        // Unfreeze first, THEN launch target app so Android OS accepts the launch intent on 1st click
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // 1. Enable package via PrivilegedShell (Shizuku/ADB)
                 PrivilegedShell.exec("pm enable $pkg")
+
+                // 2. Resolve launch intent
+                val launchIntent = withContext(Dispatchers.Main) {
+                    getLaunchIntentForPackageEvenIfDisabled(pkg)
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (launchIntent != null) {
+                        try {
+                            startActivity(launchIntent)
+                        } catch (e: Exception) {
+                            Toast.makeText(applicationContext, "Không thể mở ứng dụng: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(applicationContext, "Không tìm thấy launcher cho $pkg", Toast.LENGTH_SHORT).show()
+                    }
+                    finish()
+                    try {
+                        overridePendingTransition(0, 0)
+                    } catch (_: Exception) {}
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(applicationContext, "Lỗi xả đóng băng: ${e.message}", Toast.LENGTH_SHORT).show()
+                    finish()
+                    try {
+                        overridePendingTransition(0, 0)
+                    } catch (_: Exception) {}
+                }
             }
         }
+    }
 
-        if (launchIntent != null) {
-            try {
-                startActivity(launchIntent)
-            } catch (e: Exception) {
-                fallbackUnfreezeAndLaunch(pkg)
-                return
-            }
-        } else {
-            fallbackUnfreezeAndLaunch(pkg)
-            return
+    private fun openFreezerShelfAndFinish() {
+        val mainIntent = Intent(this, MainActivity::class.java).apply {
+            putExtra("open_screen", "FREEZER_SHELF")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-
+        startActivity(mainIntent)
         finish()
         try {
             overridePendingTransition(0, 0)
@@ -89,25 +103,6 @@ class UnfreezeAndLaunchActivity : Activity() {
             } else null
         } catch (e: Exception) {
             null
-        }
-    }
-
-    private fun fallbackUnfreezeAndLaunch(pkg: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                PrivilegedShell.exec("pm enable $pkg")
-                kotlinx.coroutines.delay(150)
-                val intent = packageManager.getLaunchIntentForPackage(pkg)?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                }
-                if (intent != null) {
-                    startActivity(intent)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                finish()
-            }
         }
     }
 }
