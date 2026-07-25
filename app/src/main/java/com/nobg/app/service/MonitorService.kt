@@ -44,8 +44,8 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 15_000L // Polling thưa mỗi 15 giây để tiết kiệm pin tối đa
-        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
+        const val POLL_INTERVAL_MS = 120_000L // Polling thưa tối đa 2 phút 1 lần (120s)
+        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes (15 ticks)
     }
 
     override fun onCreate() {
