@@ -55,7 +55,8 @@ jobs:
         run: |
           VER=$(grep 'versionName =' app/build.gradle.kts | cut -d'"' -f2)
           if [ -z "$VER" ]; then VER="3.0.0"; fi
-          echo "APP_VER=v$VER" >> $GITHUB_ENV
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "APP_VER=v${VER}-${SHORT_SHA}" >> $GITHUB_ENV
           echo "VER_RAW=$VER" >> $GITHUB_ENV
 
       - name: Find APK and verify
@@ -80,8 +81,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.APP_VER }}
+          target_commitish: ${{ github.sha }}
           name: "NOBG ${{ env.APP_VER }} Release"
-          body: "Tự động build bản Release APK ${{ env.APP_VER }} mới nhất từ branch main."
+          body: "Tự động build bản Release APK ${{ env.APP_VER }} mới nhất từ commit ${{ github.sha }}."
           files: ${{ steps.apk.outputs.path }}
           make_latest: true
           overwrite: true
