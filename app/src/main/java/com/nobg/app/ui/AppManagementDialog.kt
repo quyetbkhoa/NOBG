@@ -227,7 +227,11 @@ fun AppManagementDialog(
                     }
                 }
 
-                if (isSystemWhitelisted) {
+    val isShizukuAvailable = remember {
+        ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission()
+    }
+
+    if (isShizukuAvailable && isSystemWhitelisted) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                         modifier = Modifier.fillMaxWidth()
@@ -276,7 +280,7 @@ fun AppManagementDialog(
                     }
                 }
 
-                if (appDetailStats != null && (appDetailStats!!.totalCpuMs > 0 || appDetailStats!!.wakeupCount > 0 || appDetailStats!!.totalWakelockMs > 0)) {
+                if (isShizukuAvailable && appDetailStats != null && (appDetailStats!!.totalCpuMs > 0 || appDetailStats!!.wakeupCount > 0 || appDetailStats!!.totalWakelockMs > 0)) {
                     Text(
                         text = "📊 THỐNG KÊ CPU & ĐÁNH THỨC",
                         style = MaterialTheme.typography.labelMedium,
@@ -462,10 +466,35 @@ fun AppManagementDialog(
                             )
                             Spacer(Modifier.height(4.dp))
 
-                            val modes = listOf(
-                                NobgMode.STANDARD to "Standard (Chặn ngầm/thông báo)",
-                                NobgMode.AGGRESSIVE to "Aggressive (Chặn & Ép diệt)"
-                            )
+                            val modes = if (isShizukuAvailable) {
+                                listOf(
+                                    NobgMode.STANDARD to "Standard (Chặn ngầm/thông báo)",
+                                    NobgMode.AGGRESSIVE to "Aggressive (Chặn & Ép diệt)"
+                                )
+                            } else {
+                                listOf(
+                                    NobgMode.STANDARD to "Standard (Chặn ngầm/thông báo)"
+                                )
+                            }
+
+                            if (!isShizukuAvailable) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "⚡ Cấp quyền Shizuku để mở khóa chế độ Ép dừng (Aggressive) & Đóng băng app.",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            }
 
                             modes.forEach { (mode, label) ->
                                 Row(

@@ -22,9 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.core.content.ContextCompat
 import com.nobg.app.shizuku.ShizukuManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +83,24 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
     BackHandler(onBack = onBack)
 
+    var selfStats by remember { mutableStateOf<com.nobg.app.data.NobgSelfStats?>(null) }
+    var isSelfStatsLoading by remember { mutableStateOf(false) }
+
+    fun refreshSelfStats() {
+        isSelfStatsLoading = true
+        scope.launch(Dispatchers.IO) {
+            val stats = com.nobg.app.data.NobgSelfStatsHelper.getNobgSelfStats(context)
+            withContext(Dispatchers.Main) {
+                selfStats = stats
+                isSelfStatsLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshSelfStats()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,6 +120,76 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            // NOBG SELF RESOURCE CONSUMPTION CARD
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "📊 TÀI NGUYÊN NOBG ĐANG SỬ DỤNG",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        IconButton(onClick = { refreshSelfStats() }) {
+                            if (isSelfStatsLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = "Làm mới", modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+
+                    Text(
+                        "Thống kê trực tiếp tài nguyên RAM, CPU và Pin ứng dụng NOBG đang tiêu thụ.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (selfStats != null) {
+                        val stats = selfStats!!
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("💾 Bộ nhớ RAM đang dùng:", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${String.format("%.1f", stats.ramMb)} MB",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("⚡ Tải CPU trung bình:", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${String.format("%.2f", stats.cpuPct)}% (${String.format("%.1f", stats.cpuTimeMs / 1000.0)}s CPU)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("🔋 Điện năng đã dùng:", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${String.format("%.1f", stats.batteryMah)} mAh (${String.format("%.2f", stats.batteryPct)}% pin)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
             Card(
