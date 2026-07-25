@@ -20,6 +20,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.nobg.app.shell.PrivilegedShell
+import com.nobg.app.shell.AdbDaemonInstaller
 
 data class AppUiModel(
     val packageName: String,
@@ -103,6 +105,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _powerStatesMap = MutableStateFlow<Map<String, BackgroundPowerState>>(emptyMap())
 
     val shizukuReady = MutableStateFlow(false)
+    val shellReady = MutableStateFlow(false)
+    val activeBackend = MutableStateFlow(PrivilegedShell.Backend.NONE)
 
     private val _enrichedApps: Flow<List<AppUiModel>> = combine(
         _installedApps, repo.observeApps(), _powerStatesMap, _hiddenPackages, _disabledPackages
@@ -246,7 +250,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshDisabledPackages() {
         viewModelScope.launch(Dispatchers.IO) {
-            if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()) {
+            if (PrivilegedShell.isReady()) {
                 val disabledSet = ShizukuManager.getDisabledPackages()
                 _disabledPackages.value = disabledSet
             }
@@ -255,7 +259,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun disableApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()) {
+            if (PrivilegedShell.isReady()) {
                 val (success, _) = ShizukuManager.disablePackageResult(packageName)
                 if (!success) {
                     val label = _installedApps.value.find { it.packageName == packageName }?.label ?: packageName
@@ -268,7 +272,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun enableAndLaunchApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()) {
+            if (PrivilegedShell.isReady()) {
                 ShizukuManager.enablePackage(packageName)
                 ShizukuManager.launchPackage(packageName)
                 refreshDisabledPackages()
@@ -286,7 +290,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshPowerStates() {
         viewModelScope.launch(Dispatchers.IO) {
-            val isShizukuAvailable = ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()
+            val isShizukuAvailable = PrivilegedShell.isReady()
             val currentApps = _installedApps.value
             val pkgList = currentApps.map { it.packageName }
 
@@ -307,7 +311,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadPowerStateForApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val isShizukuAvailable = ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()
+            val isShizukuAvailable = PrivilegedShell.isReady()
             val state = if (isShizukuAvailable) {
                 ShizukuManager.getPowerMode(packageName)
             } else {
@@ -322,7 +326,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // 1. Immediately update UI state
             _powerStatesMap.value = _powerStatesMap.value + (packageName to newState)
 
-            if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()) {
+            if (PrivilegedShell.isReady()) {
                 repo.backupIfNeeded(packageName)
                 ShizukuManager.setPowerMode(packageName, newState)
                 delay(250)
@@ -390,9 +394,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshShizukuStatus() {
-        shizukuReady.value = ShizukuManager.isShizukuRunning() &&
+        refreshShellStatus()
+    }
+
+    fun refreshShellStatus() {
+        val shizukuOk = ShizukuManager.isShizukuRunning() &&
             ShizukuManager.hasPermission() &&
             ShizukuManager.isServiceBound()
+        shizukuReady.value = shizukuOk
+        
+        if (!shizukuOk) {
+            PrivilegedShell.tryConnectAdb()
+        }
+        
+        shellReady.value = PrivilegedShell.isReady()
+        activeBackend.value = PrivilegedShell.activeBackend.value
         refreshPowerStates()
+    }
+
+    fun connectAdbDaemon() {
+        viewModelScope.launch(Dispatchers.IO) {
+            PrivilegedShell.tryConnectAdb()
+            shellReady.value = PrivilegedShell.isReady()
+            activeBackend.value = PrivilegedShell.activeBackend.value
+        }
     }
 }

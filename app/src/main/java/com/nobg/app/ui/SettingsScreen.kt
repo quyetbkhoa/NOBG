@@ -30,6 +30,8 @@ import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.nobg.app.shell.PrivilegedShell
+import com.nobg.app.shell.AdbDaemonInstaller
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,7 @@ fun SettingsScreen(
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
+    val activeBackend by viewModel.activeBackend.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repo = remember { com.nobg.app.data.NobgRepository(context) }
@@ -409,16 +412,21 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Chế độ hoạt động", style = MaterialTheme.typography.titleMedium)
+                    Text("Chế độ hoạt động", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(8.dp))
 
+                    val isNone = activeBackend == PrivilegedShell.Backend.NONE
+                    val isShizuku = activeBackend == PrivilegedShell.Backend.SHIZUKU
+                    val isAdb = activeBackend == PrivilegedShell.Backend.ADB
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = !shizukuReady, onClick = { /* Normal Mode is default fallback */ })
+                        RadioButton(selected = isNone, onClick = { /* Read only */ })
                         Text("Chế độ Thường (Chỉ theo dõi pin)")
                     }
+                    
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = shizukuReady, onClick = {
-                            if (!shizukuReady) {
+                        RadioButton(selected = isShizuku, onClick = {
+                            if (!isShizuku) {
                                 if (ShizukuManager.isShizukuRunning()) {
                                     ShizukuManager.requestPermission(1001)
                                     Toast.makeText(context, "Đã gửi yêu cầu quyền Shizuku", Toast.LENGTH_SHORT).show()
@@ -427,17 +435,87 @@ fun SettingsScreen(
                                 }
                             }
                         })
-                        Text("Chế độ Nâng cao (Shizuku)")
+                        Text("Chế độ Shizuku")
                     }
-                    if (shizukuReady) {
+                    
+                    if (isShizuku) {
                         Text("Shizuku đang hoạt động tốt!", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 48.dp))
-                    } else {
-                        Text(
-                            "Yêu cầu cấp quyền Shizuku để bật tính năng Ép dừng & Vô hiệu hóa ứng dụng ngầm.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(start = 48.dp)
-                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = isAdb, onClick = { /* Read only */ })
+                        Text("Chế độ ADB trực tiếp")
+                    }
+
+                    if (isAdb) {
+                        Text("ADB Daemon đang hoạt động tốt!", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 48.dp))
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text("Cấu hình ADB Daemon (Thay thế Shizuku)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    
+                    var daemonExtracted by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                AdbDaemonInstaller.extractDaemonScript(context)
+                                daemonExtracted = true
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isAdb) {
+                                    Text("🟢 Daemon đang chạy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Text("🔴 Daemon chưa khởi động", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            
+                            val wiredCmd = remember { AdbDaemonInstaller.getWiredAdbCommand(context) }
+                            Text("📋 Lệnh ADB (kết nối USB):", style = MaterialTheme.typography.labelSmall)
+                            Text(wiredCmd, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(vertical = 4.dp))
+                            
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NOBG ADB Command", wiredCmd))
+                                        Toast.makeText(context, "Đã sao chép lệnh!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Sao chép", style = MaterialTheme.typography.labelSmall)
+                                }
+                                
+                                Button(
+                                    onClick = { viewModel.connectAdbDaemon() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Kiểm tra kết nối", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+
+                            var showWireless by remember { mutableStateOf(false) }
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(onClick = { showWireless = !showWireless }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (showWireless) "Ẩn Hướng dẫn Wireless ADB (Android 11+)" else "Hiện Hướng dẫn Wireless ADB (Android 11+)", style = MaterialTheme.typography.labelSmall)
+                            }
+                            
+                            if (showWireless) {
+                                val wirelessInst = remember { AdbDaemonInstaller.getWirelessAdbPairInstructions() }
+                                Text(wirelessInst, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ import com.nobg.app.data.NobgMode
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.*
+import com.nobg.app.shell.PrivilegedShell
 
 class MonitorService : Service() {
 
@@ -317,7 +318,7 @@ class MonitorService : Service() {
         val appsText = if (enabledApps > 0) "Đang tối ưu $enabledApps ứng dụng" else "Đang bảo vệ thiết bị"
 
         val bigText = """
-            🛡️ Trạng thái: Đang bảo vệ & dọn app ngầm (Shizuku)
+            🛡️ Trạng thái: Đang bảo vệ & dọn app ngầm (${PrivilegedShell.getActiveBackendName()})
             📊 Ứng dụng đã tối ưu: $enabledApps app
             🔋 Trạng thái pin: $batteryText
         """.trimIndent()
@@ -341,8 +342,12 @@ class MonitorService : Service() {
 
     private fun loop() {
         scope.launch {
-            // make sure ShizukuManager service is bound in this process too
-            ShizukuManager.bindUserService()
+            // Try to connect whatever backend is available
+            if (!PrivilegedShell.isReady()) {
+                ShizukuManager.bindUserService()
+                // Also try ADB daemon
+                PrivilegedShell.tryConnectAdb()
+            }
             while (isActive) {
                 try {
                     if (isScreenInteractive) {

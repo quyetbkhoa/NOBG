@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.launch
+import com.nobg.app.shell.PrivilegedShell
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +37,7 @@ fun PermissionOnboardingDialog(
     val scope = rememberCoroutineScope()
 
     var isShizukuOk by remember {
-        mutableStateOf(ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound())
+        mutableStateOf(PrivilegedShell.isReady())
     }
     var isUsageStatsOk by remember { mutableStateOf(false) }
     var isNotificationOk by remember {
@@ -59,7 +60,8 @@ fun PermissionOnboardingDialog(
     }
 
     fun refreshAllStatus() {
-        isShizukuOk = ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission() && ShizukuManager.isServiceBound()
+        PrivilegedShell.tryConnectAdb()
+        isShizukuOk = PrivilegedShell.isReady()
         if (Build.VERSION.SDK_INT >= 33) {
             isNotificationOk = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         }
@@ -116,17 +118,17 @@ fun PermissionOnboardingDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Item 1: Shizuku
+                // Item 1: Shizuku / ADB
                 PermissionStatusCard(
-                    title = "1. Quyền đặc quyền Shizuku",
-                    description = "Cần thiết để Ép dừng, Vô hiệu hóa & Đổi chế độ pin ngầm không cần Root.",
+                    title = "1. Quyền đặc quyền hệ thống",
+                    description = "Cần Shizuku hoặc ADB để Ép dừng, Vô hiệu hóa & Đổi chế độ pin ngầm.",
                     isGranted = isShizukuOk,
-                    buttonLabel = "Cấp quyền Shizuku",
+                    buttonLabel = "Cấp quyền",
                     onAction = {
                         if (ShizukuManager.isShizukuRunning()) {
                             ShizukuManager.requestPermission(1001)
                         } else {
-                            android.widget.Toast.makeText(context, "Shizuku chưa chạy trên thiết bị!", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "Shizuku chưa chạy, vui lòng thiết lập ADB trong cài đặt!", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         refreshAllStatus()
                     }

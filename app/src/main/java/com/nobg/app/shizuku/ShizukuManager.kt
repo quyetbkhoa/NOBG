@@ -14,6 +14,7 @@ import rikka.shizuku.Shizuku
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 import kotlin.coroutines.resume
+import com.nobg.app.shell.PrivilegedShell
 
 object AppOps {
     const val RUN_IN_BACKGROUND = "RUN_IN_BACKGROUND"
@@ -43,11 +44,15 @@ object ShizukuManager {
             userService = if (binder != null && binder.pingBinder()) {
                 IUserService.Stub.asInterface(binder)
             } else null
+            if (userService != null) {
+                PrivilegedShell.setShizukuBackend(userService!!)
+            }
             binding = false
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             userService = null
+            PrivilegedShell.clearShizukuBackend()
         }
     }
 
@@ -98,19 +103,9 @@ object ShizukuManager {
 
     fun isServiceBound(): Boolean = userService != null
 
-    suspend fun exec(cmd: String): String = suspendCancellableCoroutine { cont ->
-        try {
-            val svc = userService
-            if (svc == null) {
-                cont.resume("ERROR: service not bound")
-                return@suspendCancellableCoroutine
-            }
-            val result = svc.exec(cmd)
-            cont.resume(result ?: "")
-        } catch (e: Exception) {
-            cont.resume("ERROR: ${e.message}")
-        }
-    }
+    internal fun getService(): IUserService? = userService
+
+    suspend fun exec(cmd: String): String = PrivilegedShell.exec(cmd)
 
     suspend fun forceStop(packageName: String) {
         exec("am force-stop $packageName")
