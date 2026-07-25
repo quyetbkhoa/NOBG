@@ -44,7 +44,7 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 120_000L // Polling strictly once every 2 minutes (120s)
+        const val POLL_INTERVAL_MS = 15_000L // Polling thưa mỗi 15 giây để tiết kiệm pin tối đa
         const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
     }
 
@@ -91,6 +91,9 @@ class MonitorService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenInteractive = false
                     logBatteryState(context, force = true)
+                    scope.launch {
+                        handleScreenOff()
+                    }
                 }
             }
         }
@@ -369,27 +372,39 @@ class MonitorService : Service() {
         }
     }
 
+    private suspend fun handleScreenOff() {
+        try {
+            pollForegroundApp()
+            val leftPkg = lastForegroundPkg
+            if (leftPkg != null) {
+                lastForegroundPkg = null
+                onAppLeftForeground(leftPkg)
+            }
+            reconcileAll()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private suspend fun pollForegroundApp() {
         val now = System.currentTimeMillis()
         val events = usm.queryEvents(lastEventTime, now)
-        var newForeground: String? = null
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                newForeground = event.packageName
+                val newForeground = event.packageName
+                if (newForeground != null && newForeground != lastForegroundPkg) {
+                    val leftPkg = lastForegroundPkg
+                    val enteredPkg = newForeground
+                    lastForegroundPkg = newForeground
+
+                    if (leftPkg != null) onAppLeftForeground(leftPkg)
+                    onAppEnteredForeground(enteredPkg)
+                }
             }
         }
         lastEventTime = now
-
-        if (newForeground != null && newForeground != lastForegroundPkg) {
-            val leftPkg = lastForegroundPkg
-            val enteredPkg = newForeground
-            lastForegroundPkg = newForeground
-
-            if (leftPkg != null) onAppLeftForeground(leftPkg)
-            onAppEnteredForeground(enteredPkg)
-        }
     }
 
     private suspend fun onAppLeftForeground(pkg: String) {
@@ -434,9 +449,13 @@ class MonitorService : Service() {
         pendingKills.remove(pkg)?.cancel()
     }
 
-    /** Safety-net sweep every ~2 minutes: re-enforce state for all enabled apps
+    /** Safety-net sweep: re-enforce state for all enabled apps and Freezer Shelf apps
      *  that are not currently the foreground app. */
     private suspend fun reconcileAll() {
+        if (!PrivilegedShell.isReady()) return
+
+        val disabledSet = ShizukuManager.getDisabledPackages()
+
         val enabledApps = repo.getEnabledApps()
         for (cfg in enabledApps) {
             if (cfg.packageName == lastForegroundPkg) continue
@@ -446,14 +465,28 @@ class MonitorService : Service() {
                     ShizukuManager.forceStop(cfg.packageName)
                 }
                 NobgMode.DISABLE_ENABLE -> {
-                    val disabled = ShizukuManager.isPackageDisabled(cfg.packageName)
-                    if (!disabled) {
+                    if (cfg.packageName !in disabledSet) {
                         ShizukuManager.forceStop(cfg.packageName)
                         ShizukuManager.disablePackage(cfg.packageName)
                     }
                 }
                 NobgMode.STANDARD -> { /* appops persistent, nothing to re-apply */ }
             }
+        }
+
+        // Reconcile Freezer Shelf (Kệ Đóng Băng) apps
+        val shelfApps = repo.getFrozenShelfApps()
+        var updatedWidget = false
+        for (app in shelfApps) {
+            if (app.packageName == lastForegroundPkg) continue
+            if (app.packageName !in disabledSet) {
+                ShizukuManager.forceStop(app.packageName)
+                ShizukuManager.disablePackage(app.packageName)
+                updatedWidget = true
+            }
+        }
+        if (updatedWidget) {
+            com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
         }
     }
 }
