@@ -14,6 +14,9 @@ interface AppDao {
     @Query("SELECT * FROM nobg_apps WHERE enabled = 1")
     suspend fun getAllEnabled(): List<AppEntity>
 
+    @Query("SELECT * FROM nobg_apps")
+    suspend fun getAll(): List<AppEntity>
+
     @Upsert
     suspend fun upsert(entity: AppEntity)
 

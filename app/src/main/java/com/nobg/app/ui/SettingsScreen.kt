@@ -38,6 +38,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val repo = remember { com.nobg.app.data.NobgRepository(context) }
 
     var isUsageStatsOk by remember { mutableStateOf(false) }
     var isNotificationOk by remember {
@@ -221,7 +222,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             if (!jsonStr.isNullOrBlank()) {
                                 val (restored, total) = repo.importConfigJson(jsonStr)
                                 Toast.makeText(context, "📥 Đã đồng bộ cấu hình $restored/$total ứng dụng!", Toast.LENGTH_LONG).show()
-                                viewModel.reloadApps()
+                                viewModel.reloadAllData()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Lỗi nhập cấu hình: ${e.message}", Toast.LENGTH_SHORT).show()
