@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nobg.app.data.NobgMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +37,8 @@ import com.nobg.app.data.NobgMode
 fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
-    onOpenBatteryStats: () -> Unit
+    onOpenBatteryStats: () -> Unit,
+    onOpenCpuUnderclock: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
@@ -93,6 +95,9 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("NOBG - Quản lý app") },
                 actions = {
+                    IconButton(onClick = onOpenCpuUnderclock) {
+                        Text("⚡", fontSize = 18.sp)
+                    }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin & App")
                     }

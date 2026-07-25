@@ -668,11 +668,12 @@ fun AppManagementDialog(
 
 @Composable
 fun PowerBadge(state: BackgroundPowerState) {
+    if (state == BackgroundPowerState.OPTIMIZED || state == BackgroundPowerState.UNKNOWN) return
+
     val (bgColor, textColor) = when (state) {
         BackgroundPowerState.RESTRICTED -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        BackgroundPowerState.OPTIMIZED -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         BackgroundPowerState.UNRESTRICTED -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        BackgroundPowerState.UNKNOWN -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> return
     }
 
     Surface(
@@ -691,42 +692,29 @@ fun PowerBadge(state: BackgroundPowerState) {
 
 @Composable
 fun NobgBadge(enabled: Boolean, mode: NobgMode, delaySeconds: Int) {
-    if (!enabled) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                text = "⚪ NOBG: Tắt",
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    } else {
-        val (text, color) = when (mode) {
-            NobgMode.STANDARD -> "🛡️ Standard" to MaterialTheme.colorScheme.primaryContainer
-            NobgMode.AGGRESSIVE -> "⚡ Aggressive (${delaySeconds}s)" to MaterialTheme.colorScheme.errorContainer
-            else -> "🛡️ Standard" to MaterialTheme.colorScheme.primaryContainer
-        }
-        val textColor = when (mode) {
-            NobgMode.STANDARD -> MaterialTheme.colorScheme.onPrimaryContainer
-            NobgMode.AGGRESSIVE -> MaterialTheme.colorScheme.onErrorContainer
-            else -> MaterialTheme.colorScheme.onPrimaryContainer
-        }
-        Surface(
-            color = color,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = textColor,
-                fontWeight = FontWeight.Bold
-            )
-        }
+    if (!enabled) return
+
+    val (text, color) = when (mode) {
+        NobgMode.STANDARD -> "🛡️ Standard" to MaterialTheme.colorScheme.primaryContainer
+        NobgMode.AGGRESSIVE -> "⚡ Aggressive (${delaySeconds}s)" to MaterialTheme.colorScheme.errorContainer
+        NobgMode.DISABLE_ENABLE -> "🧊 Disable-Enable" to MaterialTheme.colorScheme.secondaryContainer
+    }
+    val textColor = when (mode) {
+        NobgMode.STANDARD -> MaterialTheme.colorScheme.onPrimaryContainer
+        NobgMode.AGGRESSIVE -> MaterialTheme.colorScheme.onErrorContainer
+        NobgMode.DISABLE_ENABLE -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+    Surface(
+        color = color,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = textColor,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

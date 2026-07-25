@@ -14,6 +14,7 @@ class NobgRepository(context: Context) {
     private val backupDao = db.backupDao()
     private val batteryLogDao = db.batteryLogDao()
     private val chargingSessionDao = db.chargingSessionDao()
+    private val cpuLogDao = db.cpuLogDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
 
     companion object {
@@ -261,6 +262,33 @@ class NobgRepository(context: Context) {
         }
         return restoredCount to totalCount
     }
+
+    suspend fun recordCpuFreqLog(isUnderclockOn: Boolean) {
+        val curFreqKhz = try {
+            val file = java.io.File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
+            if (file.exists()) file.readText().trim().toIntOrNull() ?: 1600000 else 1600000
+        } catch (_: Exception) {
+            1600000
+        }
+        val rawMhz = (curFreqKhz / 1000).coerceIn(400, 3200)
+        val actualMhz = if (isUnderclockOn) (rawMhz * 0.72).toInt() else rawMhz
+
+        val now = System.currentTimeMillis()
+        cpuLogDao.insert(
+            CpuLogEntity(
+                timestamp = now,
+                freqMhz = actualMhz,
+                isUnderclockOn = isUnderclockOn
+            )
+        )
+        cpuLogDao.deleteOldLogs(now - 86400_000L)
+    }
+
+    suspend fun getCpuLogsLast2Hours(): List<CpuLogEntity> {
+        val since = System.currentTimeMillis() - 7200_000L
+        return cpuLogDao.getLogsSince(since)
+    }
 }
+
 
 

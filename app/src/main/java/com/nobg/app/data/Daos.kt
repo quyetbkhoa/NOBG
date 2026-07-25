@@ -81,3 +81,16 @@ interface ChargingSessionDao {
     suspend fun deleteAll()
 }
 
+@Dao
+interface CpuLogDao {
+    @Insert
+    suspend fun insert(log: CpuLogEntity)
+
+    @Query("SELECT * FROM cpu_freq_log WHERE timestamp >= :since ORDER BY timestamp ASC")
+    suspend fun getLogsSince(since: Long): List<CpuLogEntity>
+
+    @Query("DELETE FROM cpu_freq_log WHERE timestamp < :before")
+    suspend fun deleteOldLogs(before: Long)
+}
+
+

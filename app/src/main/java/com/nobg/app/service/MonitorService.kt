@@ -344,6 +344,7 @@ class MonitorService : Service() {
                     if (reconcileTickCounter >= RECONCILE_EVERY_TICKS) {
                         reconcileTickCounter = 0
                         reconcileAll()
+                        repo.recordCpuFreqLog(repo.isCpuUnderclockEnabled())
                     }
                 } catch (_: Exception) {
                 }

@@ -112,10 +112,14 @@ class MainActivity : ComponentActivity() {
                             viewModel = batteryStatsViewModel,
                             onBack = { currentScreen = "LIST" }
                         )
+                        "CPU_UNDERCLOCK" -> com.nobg.app.ui.CpuUnderclockScreen(
+                            onBack = { currentScreen = "LIST" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
-                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" }
+                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
+                            onOpenCpuUnderclock = { currentScreen = "CPU_UNDERCLOCK" }
                         )
                     }
                 }
