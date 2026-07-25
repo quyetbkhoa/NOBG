@@ -77,13 +77,8 @@ class UnfreezeAndLaunchActivity : Activity() {
                 addCategory(Intent.CATEGORY_LAUNCHER)
                 setPackage(pkg)
             }
-            val flags = if (android.os.Build.VERSION.SDK_INT >= 33) {
-                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DISABLED_COMPONENTS.toLong())
-            } else {
-                @Suppress("DEPRECATION")
-                PackageManager.MATCH_DISABLED_COMPONENTS
-            }
-            val resolveInfos = packageManager.queryIntentActivities(mainIntent, flags)
+            @Suppress("DEPRECATION")
+            val resolveInfos = packageManager.queryIntentActivities(mainIntent, PackageManager.MATCH_DISABLED_COMPONENTS)
             val activityInfo = resolveInfos.firstOrNull()?.activityInfo
             if (activityInfo != null) {
                 Intent(Intent.ACTION_MAIN).apply {
