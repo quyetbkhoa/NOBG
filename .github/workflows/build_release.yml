@@ -28,14 +28,45 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Setup Keystore from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding keystore..."
+            echo "$KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
+            echo "keystore.path=/tmp/keystore.jks" >> local.properties
+            echo "keystore.password=$KEYSTORE_PASSWORD" >> local.properties
+            echo "key.alias=$KEY_ALIAS" >> local.properties
+            echo "key.password=$KEY_PASSWORD" >> local.properties
+            echo "Keystore configured successfully."
+          else
+            echo "No keystore secret found, will use debug signing."
+          fi
+
       - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon -Dorg.gradle.java.home="$JAVA_HOME"
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Find APK and verify
+        id: apk
+        run: |
+          APK=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK found!"
+            exit 1
+          fi
+          echo "Found APK: $APK"
+          ls -lh "$APK"
+          echo "path=$APK" >> $GITHUB_OUTPUT
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: NOBG-Release-APK
-          path: app/build/outputs/apk/release/app-release.apk
+          path: ${{ steps.apk.outputs.path }}
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -43,7 +74,7 @@ jobs:
           tag_name: latest
           name: "NOBG Latest Release"
           body: "Tự động build bản Release APK mới nhất từ branch main."
-          files: app/build/outputs/apk/release/app-release.apk
+          files: ${{ steps.apk.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -54,21 +85,30 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           COMMIT_SHA: ${{ github.sha }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
+          APK_PATH: ${{ steps.apk.outputs.path }}
         run: |
-          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-            echo "Sending APK to Telegram..."
-            cp app/build/outputs/apk/release/app-release.apk /tmp/nobg.apk
-            ls -lh /tmp/nobg.apk
-            SHORT_SHA="${COMMIT_SHA:0:7}"
-            CLEAN_MSG=$(echo "$COMMIT_MSG" | head -n 1 | cut -c1-80)
-            curl -v \
-                 -F chat_id="$TELEGRAM_CHAT_ID" \
-                 -F document=@/tmp/nobg.apk \
-                 -F caption="NOBG APK - $SHORT_SHA - $CLEAN_MSG" \
-                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
-          else
-            echo "Thieu TELEGRAM_BOT_TOKEN hoac TELEGRAM_CHAT_ID. Bo qua."
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Thieu TELEGRAM secret. Bo qua."
+            exit 0
           fi
+          cp "$APK_PATH" /tmp/nobg_release.apk
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          CLEAN_MSG=$(printf '%s' "$COMMIT_MSG" | head -n 1 | cut -c1-100)
+          echo "Sending to Telegram chat: $TELEGRAM_CHAT_ID"
+          HTTP_CODE=$(curl -s -o /tmp/tg_response.json -w "%{http_code}" \
+               -F chat_id="$TELEGRAM_CHAT_ID" \
+               -F document=@/tmp/nobg_release.apk \
+               -F caption="NOBG New Release - $SHORT_SHA - $CLEAN_MSG" \
+               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument")
+          cat /tmp/tg_response.json
+          echo ""
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Telegram API returned non-200 status: $HTTP_CODE"
+            exit 1
+          fi
+          echo "APK sent to Telegram successfully!"
+
 
 
 
