@@ -8,8 +8,10 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PlayArrow
@@ -307,7 +310,8 @@ fun FreezerShelfScreen(
         )
     }
 }
-
+}
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ShelfAppGridItem(
     app: ShelfAppUiModel,
@@ -320,13 +324,31 @@ fun ShelfAppGridItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onLaunch() },
+            .combinedClickable(
+                onClick = { onLaunch() },
+                onLongClick = { showMenu = true }
+            ),
         colors = CardDefaults.cardColors(
             containerColor = if (app.isFrozen) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Box {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onRemoveFromShelf,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(28.dp)
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Xóa khỏi Kệ",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

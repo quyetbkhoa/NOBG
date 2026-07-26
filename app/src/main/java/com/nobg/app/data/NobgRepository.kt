@@ -222,15 +222,67 @@ class NobgRepository(private val context: Context) {
     suspend fun exportConfigJson(): String {
         val apps = appDao.getAll()
         val root = JSONObject()
-        root.put("version", 1)
+        root.put("version", 2)
         root.put("exportedAt", System.currentTimeMillis())
+
+        // 1. Global Preferences & Advanced Tweaks
+        val globalObj = JSONObject().apply {
+            put("fullBatterySoundEnabled", isFullBatterySoundEnabled())
+            put("forceFreeformEnabled", isForceFreeformEnabled())
+            put("disableSafeVolumeEnabled", isDisableSafeVolumeEnabled())
+            put("disableCellularAlwaysOnEnabled", isDisableCellularAlwaysOnEnabled())
+            put("lastActiveScreen", getLastActiveScreen())
+        }
+        root.put("globalSettings", globalObj)
+
+        // 2. Widget Customization Preferences
+        val widgetCfg = com.nobg.app.widget.WidgetConfigManager.getConfig(context)
+        val widgetObj = JSONObject().apply {
+            put("theme", widgetCfg.theme)
+            put("textColor", widgetCfg.textColor)
+            put("opacityPct", widgetCfg.opacityPct)
+            put("numColumns", widgetCfg.numColumns)
+            put("iconSizeDp", widgetCfg.iconSizeDp)
+            put("cornerRadiusDp", widgetCfg.cornerRadiusDp)
+        }
+        root.put("widgetSettings", widgetObj)
+
+        // 3. Apps Complete State List
+        val pm = context.packageManager
         val array = org.json.JSONArray()
         for (app in apps) {
-            val item = JSONObject()
-            item.put("packageName", app.packageName)
-            item.put("mode", app.mode.name)
-            item.put("enabled", app.enabled)
-            item.put("delaySeconds", app.delaySeconds)
+            val item = JSONObject().apply {
+                put("packageName", app.packageName)
+                put("mode", app.mode.name)
+                put("enabled", app.enabled)
+                put("delaySeconds", app.delaySeconds)
+                put("addedAt", app.addedAt)
+                put("blockedCount", app.blockedCount)
+                put("lastActionAt", app.lastActionAt)
+                put("isFrozenShelf", app.isFrozenShelf)
+
+                // Package disabled / frozen state
+                val isFrozen = try {
+                    val appInfo = pm.getApplicationInfo(app.packageName, 0)
+                    !appInfo.enabled
+                } catch (_: Exception) {
+                    false
+                }
+                put("isFrozen", isFrozen)
+
+                // Backup Entity (Original AppOps, Power Save Whitelist, etc.)
+                val backup = backupDao.get(app.packageName)
+                if (backup != null) {
+                    val backupObj = JSONObject().apply {
+                        put("originalEnabledState", backup.originalEnabledState)
+                        put("appOpsJson", backup.appOpsJson)
+                        put("isPowerWhitelisted", backup.isPowerWhitelisted)
+                        put("hasBackup", backup.hasBackup)
+                        put("backupTimestamp", backup.backupTimestamp)
+                    }
+                    put("backup", backupObj)
+                }
+            }
             array.put(item)
         }
         root.put("apps", array)
@@ -239,32 +291,110 @@ class NobgRepository(private val context: Context) {
 
     suspend fun importConfigJson(jsonStr: String): Pair<Int, Int> {
         val root = JSONObject(jsonStr)
+
+        // 1. Restore Global Settings if present
+        root.optJSONObject("globalSettings")?.let { global ->
+            if (global.has("fullBatterySoundEnabled")) {
+                setFullBatterySoundEnabled(global.optBoolean("fullBatterySoundEnabled", true))
+            }
+            if (global.has("forceFreeformEnabled")) {
+                setForceResizableAndFreeform(global.optBoolean("forceFreeformEnabled", false))
+            }
+            if (global.has("disableSafeVolumeEnabled")) {
+                setDisableSafeVolume(global.optBoolean("disableSafeVolumeEnabled", false))
+            }
+            if (global.has("disableCellularAlwaysOnEnabled")) {
+                setDisableCellularAlwaysOn(global.optBoolean("disableCellularAlwaysOnEnabled", false))
+            }
+            if (global.has("lastActiveScreen")) {
+                setLastActiveScreen(global.optString("lastActiveScreen", "LIST"))
+            }
+        }
+
+        // 2. Restore Widget Config if present
+        root.optJSONObject("widgetSettings")?.let { widgetObj ->
+            val wCfg = com.nobg.app.widget.WidgetConfig(
+                theme = widgetObj.optString("theme", "DARK"),
+                textColor = widgetObj.optString("textColor", "SYSTEM"),
+                opacityPct = widgetObj.optInt("opacityPct", 85),
+                numColumns = widgetObj.optInt("numColumns", 2),
+                iconSizeDp = widgetObj.optInt("iconSizeDp", 48),
+                cornerRadiusDp = widgetObj.optInt("cornerRadiusDp", 18)
+            )
+            com.nobg.app.widget.WidgetConfigManager.saveConfig(context, wCfg)
+        }
+
+        // 3. Restore Apps
         val array = root.optJSONArray("apps") ?: return 0 to 0
         var restoredCount = 0
-        var totalCount = array.length()
+        val totalCount = array.length()
+
         for (i in 0 until array.length()) {
             val item = array.getJSONObject(i)
             val pkg = item.optString("packageName", "")
             if (pkg.isBlank()) continue
+
             val modeStr = item.optString("mode", "STANDARD")
             val mode = try { NobgMode.valueOf(modeStr) } catch (_: Exception) { NobgMode.STANDARD }
             val enabled = item.optBoolean("enabled", true)
             val delaySeconds = item.optInt("delaySeconds", 30)
+            val addedAt = item.optLong("addedAt", System.currentTimeMillis())
+            val blockedCount = item.optInt("blockedCount", 0)
+            val lastActionAt = item.optLong("lastActionAt", 0L)
+            val isFrozenShelf = item.optBoolean("isFrozenShelf", false)
+            val isFrozen = item.optBoolean("isFrozen", false)
 
-            if (enabled) {
-                enableNobg(pkg, mode, delaySeconds)
-            } else {
-                appDao.upsert(
-                    AppEntity(
+            // Save Backup Entity if present
+            item.optJSONObject("backup")?.let { backupObj ->
+                backupDao.upsert(
+                    BackupEntity(
                         packageName = pkg,
-                        mode = mode,
-                        enabled = false,
-                        delaySeconds = delaySeconds
+                        originalEnabledState = backupObj.optInt("originalEnabledState", 0),
+                        appOpsJson = backupObj.optString("appOpsJson", "{}"),
+                        isPowerWhitelisted = backupObj.optBoolean("isPowerWhitelisted", false),
+                        hasBackup = backupObj.optBoolean("hasBackup", true),
+                        backupTimestamp = backupObj.optLong("backupTimestamp", System.currentTimeMillis())
                     )
                 )
+                // Restore Power save whitelist if applicable
+                val isPowerWhite = backupObj.optBoolean("isPowerWhitelisted", false)
+                if (isPowerWhite) {
+                    ShizukuManager.exec("dumpsys deviceidle whitelist +$pkg")
+                } else {
+                    ShizukuManager.exec("dumpsys deviceidle whitelist -$pkg")
+                }
             }
+
+            // Save App Entity
+            appDao.upsert(
+                AppEntity(
+                    packageName = pkg,
+                    mode = mode,
+                    enabled = enabled,
+                    delaySeconds = delaySeconds,
+                    addedAt = addedAt,
+                    blockedCount = blockedCount,
+                    lastActionAt = lastActionAt,
+                    isFrozenShelf = isFrozenShelf
+                )
+            )
+
+            // Restore NOBG Service config
+            if (enabled) {
+                enableNobg(pkg, mode, delaySeconds)
+            }
+
+            // Restore Freeze / Disable state
+            if (isFrozen) {
+                freezePackage(pkg)
+            } else {
+                unfreezePackage(pkg)
+            }
+
             restoredCount++
         }
+
+        com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
         return restoredCount to totalCount
     }
 
