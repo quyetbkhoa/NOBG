@@ -85,8 +85,16 @@ class FreezerWidgetFactory(
             views.setImageViewResource(R.id.iv_widget_app_icon, android.R.drawable.sym_def_app_icon)
         }
 
+        val isDeleteMode = WidgetConfigManager.isDeleteMode(context)
+        if (isDeleteMode) {
+            views.setViewVisibility(R.id.iv_widget_delete_badge, android.view.View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.iv_widget_delete_badge, android.view.View.GONE)
+        }
+
         val fillInIntent = Intent().apply {
             putExtra("pkg_to_launch", item.packageName)
+            putExtra("is_delete_mode", isDeleteMode)
         }
         views.setOnClickFillInIntent(R.id.widget_item_container, fillInIntent)
 

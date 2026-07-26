@@ -20,6 +20,8 @@ object WidgetConfigManager {
     private const val KEY_ICON_SIZE = "widget_icon_size"
     private const val KEY_CORNER_RADIUS = "widget_corner_radius"
 
+    private const val KEY_DELETE_MODE = "widget_delete_mode"
+
     fun getConfig(context: Context): WidgetConfig {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         return WidgetConfig(
@@ -30,6 +32,16 @@ object WidgetConfigManager {
             iconSizeDp = prefs.getInt(KEY_ICON_SIZE, 48),
             cornerRadiusDp = prefs.getInt(KEY_CORNER_RADIUS, 18)
         )
+    }
+
+    fun isDeleteMode(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_DELETE_MODE, false)
+    }
+
+    fun setDeleteMode(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_DELETE_MODE, enabled).apply()
     }
 
     fun saveConfig(context: Context, config: WidgetConfig) {

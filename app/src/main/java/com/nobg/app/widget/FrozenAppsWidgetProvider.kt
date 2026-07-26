@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import android.widget.Toast
+
 class FrozenAppsWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -28,7 +30,14 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         val action = intent.action
-        if (action == ACTION_REFRESH_WIDGET || action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
+        if (action == ACTION_TOGGLE_DELETE_MODE) {
+            val current = WidgetConfigManager.isDeleteMode(context)
+            val nextState = !current
+            WidgetConfigManager.setDeleteMode(context, nextState)
+            val msg = if (nextState) "🔴 Chế độ XÓA NHANH: Bấm vào app trên Widget để xóa khỏi Kệ" else "🟢 Đã tắt chế độ Xóa Nhanh"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            updateAllWidgets(context)
+        } else if (action == ACTION_REFRESH_WIDGET || action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, FrozenAppsWidgetProvider::class.java)
             val ids = appWidgetManager.getAppWidgetIds(componentName)
@@ -40,6 +49,7 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REFRESH_WIDGET = "com.nobg.app.action.REFRESH_WIDGET"
+        const val ACTION_TOGGLE_DELETE_MODE = "com.nobg.app.action.TOGGLE_DELETE_MODE"
 
         fun updateAllWidgets(context: Context) {
             val intent = Intent(context, FrozenAppsWidgetProvider::class.java).apply {
@@ -53,6 +63,7 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
 
             // Read customization config
             val config = WidgetConfigManager.getConfig(context)
+            val isDeleteMode = WidgetConfigManager.isDeleteMode(context)
 
             // Dynamic Background Color with Opacity
             val alphaInt = ((config.opacityPct / 100f) * 255).toInt().coerceIn(0, 255)
@@ -76,10 +87,13 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                 "ACCENT" -> if (config.theme == "DARK") android.graphics.Color.parseColor("#7DD3FC") else android.graphics.Color.parseColor("#0369A1")
                 else -> if (config.theme == "DARK") android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
             }
+            val minusColor = if (isDeleteMode) android.graphics.Color.parseColor("#EF4444") else countColor
+
             views.setTextColor(R.id.tv_widget_title, titleColor)
             views.setTextColor(R.id.tv_widget_count, countColor)
             views.setTextColor(R.id.tv_widget_empty, countColor)
             views.setInt(R.id.iv_widget_add, "setColorFilter", countColor)
+            views.setInt(R.id.iv_widget_minus, "setColorFilter", minusColor)
             views.setInt(R.id.iv_widget_settings, "setColorFilter", countColor)
 
             // Dynamic Grid Columns
@@ -99,6 +113,7 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.tv_widget_title, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_count, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_grid_view, openShelfPendingIntent)
 
             // Add '+' button click intent -> Open AddShelfAppActivity
             val addAppIntent = Intent(context, com.nobg.app.ui.AddShelfAppActivity::class.java).apply {
@@ -109,6 +124,16 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.iv_widget_add, addAppPendingIntent)
+
+            // Delete '-' button click intent -> Toggle quick delete mode
+            val toggleDeleteIntent = Intent(context, FrozenAppsWidgetProvider::class.java).apply {
+                action = ACTION_TOGGLE_DELETE_MODE
+            }
+            val toggleDeletePendingIntent = PendingIntent.getBroadcast(
+                context, appWidgetId + 4000, toggleDeleteIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.iv_widget_minus, toggleDeletePendingIntent)
 
             // Settings gear click intent -> Open WidgetConfigActivity
             val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {

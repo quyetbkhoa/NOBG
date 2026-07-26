@@ -431,6 +431,7 @@ fun ShelfAppGridItem(
 fun AddShelfAppDialog(
     context: Context,
     currentShelfPkgs: Set<String>,
+    onlyUserApps: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (Set<String>) -> Unit
 ) {
@@ -445,13 +446,16 @@ fun AddShelfAppDialog(
             val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
             val list = packages.mapNotNull { pkgInfo ->
                 val appInfo = pkgInfo.applicationInfo ?: return@mapNotNull null
+                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                if (onlyUserApps && isSystem) return@mapNotNull null
+
                 val label = pm.getApplicationLabel(appInfo).toString()
                 val icon = pm.getApplicationIcon(appInfo)
                 AppUiModelSelect(
                     packageName = pkgInfo.packageName,
                     appName = label,
                     icon = icon,
-                    isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                    isSystem = isSystem
                 )
             }.sortedBy { it.appName.lowercase() }
 

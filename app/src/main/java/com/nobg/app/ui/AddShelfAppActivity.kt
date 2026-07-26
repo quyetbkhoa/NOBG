@@ -48,6 +48,7 @@ class AddShelfAppActivity : ComponentActivity() {
                     AddShelfAppDialog(
                         context = this@AddShelfAppActivity,
                         currentShelfPkgs = currentShelfPkgs,
+                        onlyUserApps = true,
                         onDismiss = { finish() },
                         onConfirm = { addedPkgs ->
                             scope.launch(Dispatchers.IO) {

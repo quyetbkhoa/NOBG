@@ -21,10 +21,43 @@ class UnfreezeAndLaunchActivity : Activity() {
         } catch (_: Exception) {}
 
         val pkg = intent.getStringExtra("pkg_to_launch") ?: intent.data?.schemeSpecificPart
+        val isDeleteMode = intent.getBooleanExtra("is_delete_mode", false)
 
         if (pkg.isNullOrBlank()) {
             // Clicked empty space in widget -> Open NOBG Freezer Shelf directly
             openFreezerShelfAndFinish()
+            return
+        }
+
+        if (isDeleteMode) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val repo = com.nobg.app.data.NobgRepository(applicationContext)
+                    val appLabel = try {
+                        val appInfo = packageManager.getApplicationInfo(pkg, 0)
+                        packageManager.getApplicationLabel(appInfo).toString()
+                    } catch (_: Exception) {
+                        pkg
+                    }
+                    repo.toggleAppFrozenShelf(pkg, false)
+                    com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(applicationContext)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "❌ Đã xóa $appLabel khỏi Kệ đóng bằng", Toast.LENGTH_SHORT).show()
+                        finish()
+                        try {
+                            overridePendingTransition(0, 0)
+                        } catch (_: Exception) {}
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "Lỗi xóa app: ${e.message}", Toast.LENGTH_SHORT).show()
+                        finish()
+                        try {
+                            overridePendingTransition(0, 0)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
             return
         }
 
