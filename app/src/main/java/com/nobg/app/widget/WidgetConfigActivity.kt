@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nobg.app.ui.theme.NOBGTheme
+import com.nobg.app.ui.theme.NobgTheme
 
 class WidgetConfigActivity : ComponentActivity() {
 
@@ -52,7 +52,7 @@ class WidgetConfigActivity : ComponentActivity() {
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
 
         setContent {
-            NOBGTheme {
+            NobgTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
