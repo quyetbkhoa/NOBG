@@ -307,10 +307,9 @@ fun FreezerShelfScreen(
                     }
                 }
             }
-        )
     }
 }
-}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ShelfAppGridItem(
