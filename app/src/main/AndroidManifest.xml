@@ -64,6 +64,16 @@
             android:exported="false" />
 
         <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="true"
+            android:label="Tùy chỉnh Giao diện Widget"
+            android:theme="@style/Theme.NOBG">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"

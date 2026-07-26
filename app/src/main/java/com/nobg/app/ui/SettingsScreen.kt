@@ -291,6 +291,39 @@ fun SettingsScreen(
                 }
             }
 
+            // 🎨 TÙY CHỈNH GIAO DIỆN WIDGET KỆ ĐÓNG BĂNG
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "🎨 GIAO DIỆN WIDGET KỆ ĐÓNG BĂNG",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Tùy chỉnh chủ đề (đen/trắng), độ mờ nền, số cột, kích thước icon và bo góc avatar ứng dụng trên Widget.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, com.nobg.app.widget.WidgetConfigActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🎨 Mở menu Tùy chỉnh Giao diện Widget", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
             Card(
                 modifier = Modifier.fillMaxWidth(),

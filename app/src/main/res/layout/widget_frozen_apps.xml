@@ -22,7 +22,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🧊 KỆ ĐÓNG BẰNG NOBG"
+            android:text="NOBG"
             android:textColor="#0284C7"
             android:textStyle="bold"
             android:textSize="13sp" />
@@ -35,6 +35,14 @@
             android:textColor="#64748B"
             android:textStyle="bold"
             android:textSize="11sp" />
+
+        <ImageView
+            android:id="@+id/iv_widget_settings"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Tùy chỉnh Widget"
+            android:src="@android:drawable/ic_menu_preferences" />
     </LinearLayout>
 
     <TextView

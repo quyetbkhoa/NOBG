@@ -51,7 +51,29 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_frozen_apps)
 
-            // Blank area click intent -> Open NOBG directly to FREEZER_SHELF screen
+            // Read customization config
+            val config = WidgetConfigManager.getConfig(context)
+
+            // Dynamic Background Color with Opacity
+            val alphaInt = ((config.opacityPct / 100f) * 255).toInt().coerceIn(0, 255)
+            val bgColorInt = if (config.theme == "DARK") {
+                android.graphics.Color.argb(alphaInt, 15, 23, 42) // #0F172A Slate Dark
+            } else {
+                android.graphics.Color.argb(alphaInt, 255, 255, 255) // #FFFFFF White
+            }
+            views.setInt(R.id.widget_container, "setBackgroundColor", bgColorInt)
+
+            // Header Colors
+            val titleColor = if (config.theme == "DARK") android.graphics.Color.parseColor("#38BDF8") else android.graphics.Color.parseColor("#0284C7")
+            val countColor = if (config.theme == "DARK") android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+            views.setTextColor(R.id.tv_widget_title, titleColor)
+            views.setTextColor(R.id.tv_widget_count, countColor)
+            views.setTextColor(R.id.tv_widget_empty, countColor)
+
+            // Dynamic Grid Columns
+            views.setInt(R.id.widget_grid_view, "setNumColumns", config.numColumns)
+
+            // Header & Blank area click intent -> Open NOBG directly to FREEZER_SHELF screen
             val openShelfIntent = Intent(context, MainActivity::class.java).apply {
                 putExtra("open_screen", "FREEZER_SHELF")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -65,6 +87,17 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.tv_widget_title, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_count, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
+
+            // Settings gear click intent -> Open WidgetConfigActivity
+            val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val configPendingIntent = PendingIntent.getActivity(
+                context, appWidgetId + 2000, configIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.iv_widget_settings, configPendingIntent)
 
             // Individual app item click pending intent template
             val serviceIntent = Intent(context, FreezerWidgetService::class.java).apply {
