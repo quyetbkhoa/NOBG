@@ -5,6 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
@@ -119,11 +123,11 @@ class FreezerWidgetFactory(
         val output = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val rect = android.graphics.RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
+        val rect = RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
 
         if (radiusPx > 0) {
             canvas.drawRoundRect(rect, radiusPx.toFloat(), radiusPx.toFloat(), paint)
-            paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         }
         canvas.drawBitmap(src, null, rect, paint)
         return output
