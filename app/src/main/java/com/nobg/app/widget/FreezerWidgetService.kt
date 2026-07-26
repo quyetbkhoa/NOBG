@@ -71,7 +71,12 @@ class FreezerWidgetFactory(
         val item = items[position]
         views.setTextViewText(R.id.tv_widget_app_name, item.appName)
 
-        val textColor = if (currentConfig.theme == "DARK") android.graphics.Color.WHITE else android.graphics.Color.parseColor("#0F172A")
+        val textColor = when (currentConfig.textColor) {
+            "WHITE" -> android.graphics.Color.WHITE
+            "BLACK" -> android.graphics.Color.parseColor("#0F172A")
+            "ACCENT" -> if (currentConfig.theme == "DARK") android.graphics.Color.parseColor("#38BDF8") else android.graphics.Color.parseColor("#0284C7")
+            else -> if (currentConfig.theme == "DARK") android.graphics.Color.WHITE else android.graphics.Color.parseColor("#0F172A")
+        }
         views.setTextColor(R.id.tv_widget_app_name, textColor)
 
         if (item.iconBitmap != null) {

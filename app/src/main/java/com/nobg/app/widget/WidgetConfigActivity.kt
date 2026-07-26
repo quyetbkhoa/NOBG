@@ -85,6 +85,7 @@ fun WidgetConfigScreen(
     onBack: () -> Unit
 ) {
     var theme by remember { mutableStateOf(initialConfig.theme) }
+    var textColorSetting by remember { mutableStateOf(initialConfig.textColor) }
     var opacityPct by remember { mutableStateOf(initialConfig.opacityPct.toFloat()) }
     var numColumns by remember { mutableStateOf(initialConfig.numColumns) }
     var iconSizeDp by remember { mutableStateOf(initialConfig.iconSizeDp) }
@@ -116,6 +117,7 @@ fun WidgetConfigScreen(
                             onSave(
                                 WidgetConfig(
                                     theme = theme,
+                                    textColor = textColorSetting,
                                     opacityPct = opacityPct.toInt(),
                                     numColumns = numColumns,
                                     iconSizeDp = iconSizeDp,
@@ -160,9 +162,27 @@ fun WidgetConfigScreen(
             } else {
                 Color(255, 255, 255, (bgAlpha * 255).toInt())
             }
-            val titleColor = if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7)
-            val countColor = if (theme == "DARK") Color(0xFF94A3B8) else Color(0xFF64748B)
-            val textColor = if (theme == "DARK") Color.White else Color(0xFF0F172A)
+
+            val titleColor = when (textColorSetting) {
+                "WHITE" -> Color.White
+                "BLACK" -> Color(0xFF0F172A)
+                "ACCENT" -> if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7)
+                else -> if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7) // SYSTEM
+            }
+
+            val countColor = when (textColorSetting) {
+                "WHITE" -> Color.White.copy(alpha = 0.8f)
+                "BLACK" -> Color(0xFF475569)
+                "ACCENT" -> if (theme == "DARK") Color(0xFF7DD3FC) else Color(0xFF0369A1)
+                else -> if (theme == "DARK") Color(0xFF94A3B8) else Color(0xFF64748B) // SYSTEM
+            }
+
+            val appTextColor = when (textColorSetting) {
+                "WHITE" -> Color.White
+                "BLACK" -> Color(0xFF0F172A)
+                "ACCENT" -> if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7)
+                else -> if (theme == "DARK") Color.White else Color(0xFF0F172A) // SYSTEM
+            }
 
             Card(
                 modifier = Modifier
@@ -217,18 +237,16 @@ fun WidgetConfigScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.padding(4.dp)
                             ) {
-                                val radiusCornerPct = when (cornerRadiusDp) {
-                                    0 -> 0.dp
-                                    8 -> 8.dp
+                                val radiusCornerDp = when (cornerRadiusDp) {
                                     12 -> 12.dp
-                                    16 -> 16.dp
+                                    18 -> 18.dp
                                     else -> 28.dp // circle
                                 }
 
                                 Box(
                                     modifier = Modifier
                                         .size((iconSizeDp * 0.85f).dp)
-                                        .clip(RoundedCornerShape(radiusCornerPct))
+                                        .clip(RoundedCornerShape(radiusCornerDp))
                                         .background(
                                             when (i) {
                                                 0 -> Color(0xFF0068FF)
@@ -250,7 +268,7 @@ fun WidgetConfigScreen(
                                 Text(
                                     text = name,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = textColor,
+                                    color = appTextColor,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -288,13 +306,45 @@ fun WidgetConfigScreen(
                 }
             }
 
-            // 2. ĐỘ MỜ NỀN (OPACITY SLIDER)
+            // 2. MÀU CHỮ WIDGET (TEXT COLOR)
+            Text(
+                text = "2. MÀU CHỮ WIDGET (TEXT COLOR)",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    "SYSTEM" to "⚙️ Hệ thống",
+                    "WHITE" to "⚪ Trắng",
+                    "BLACK" to "⚫ Đen",
+                    "ACCENT" to "🔷 Xanh"
+                ).forEach { (tc, label) ->
+                    val selected = (textColorSetting == tc)
+                    OutlinedButton(
+                        onClick = { textColorSetting = tc },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+                        colors = if (selected) ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) else ButtonDefaults.outlinedButtonColors()
+                    ) {
+                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp)
+                    }
+                }
+            }
+
+            // 3. ĐỘ MỜ NỀN (OPACITY SLIDER)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "2. ĐỘ MỜ NỀN (OPACITY)",
+                    text = "3. ĐỘ MỜ NỀN (OPACITY)",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -313,9 +363,9 @@ fun WidgetConfigScreen(
                 steps = 19 // 5% increments
             )
 
-            // 3. SỐ CỘT (COLUMNS)
+            // 4. SỐ CỘT (COLUMNS)
             Text(
-                text = "3. SỐ CỘT HÀNG (COLUMNS)",
+                text = "4. SỐ CỘT HÀNG (COLUMNS)",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -339,9 +389,9 @@ fun WidgetConfigScreen(
                 }
             }
 
-            // 4. KÍCH THƯỚC ICON APP
+            // 5. KÍCH THƯỚC ICON APP
             Text(
-                text = "4. KÍCH THƯỚC ICON ỨNG DỤNG",
+                text = "5. KÍCH THƯỚC ICON ỨNG DỤNG",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -365,18 +415,18 @@ fun WidgetConfigScreen(
                 }
             }
 
-            // 5. BO GÓC AVATAR ỨNG DỤNG
+            // 6. BO GÓC AVATAR ỨNG DỤNG
             Text(
-                text = "5. BO GÓC AVATAR ỨNG DỤNG",
+                text = "6. BO GÓC AVATAR ỨNG DỤNG",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(0 to "Vuông", 8 to "Nhẹ", 12 to "Vừa", 24 to "Tròn").forEach { (rad, label) ->
+                listOf(12 to "Vừa (12dp)", 18 to "Bo Tròn (18dp)", 24 to "Tròn (Circle)").forEach { (rad, label) ->
                     val selected = (cornerRadiusDp == rad)
                     OutlinedButton(
                         onClick = { cornerRadiusDp = rad },
@@ -387,7 +437,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp)
+                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp)
                     }
                 }
             }

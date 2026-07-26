@@ -64,8 +64,18 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setInt(R.id.widget_container, "setBackgroundColor", bgColorInt)
 
             // Header Colors
-            val titleColor = if (config.theme == "DARK") android.graphics.Color.parseColor("#38BDF8") else android.graphics.Color.parseColor("#0284C7")
-            val countColor = if (config.theme == "DARK") android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+            val titleColor = when (config.textColor) {
+                "WHITE" -> android.graphics.Color.WHITE
+                "BLACK" -> android.graphics.Color.parseColor("#0F172A")
+                "ACCENT" -> if (config.theme == "DARK") android.graphics.Color.parseColor("#38BDF8") else android.graphics.Color.parseColor("#0284C7")
+                else -> if (config.theme == "DARK") android.graphics.Color.parseColor("#38BDF8") else android.graphics.Color.parseColor("#0284C7")
+            }
+            val countColor = when (config.textColor) {
+                "WHITE" -> android.graphics.Color.parseColor("#E2E8F0")
+                "BLACK" -> android.graphics.Color.parseColor("#475569")
+                "ACCENT" -> if (config.theme == "DARK") android.graphics.Color.parseColor("#7DD3FC") else android.graphics.Color.parseColor("#0369A1")
+                else -> if (config.theme == "DARK") android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+            }
             views.setTextColor(R.id.tv_widget_title, titleColor)
             views.setTextColor(R.id.tv_widget_count, countColor)
             views.setTextColor(R.id.tv_widget_empty, countColor)

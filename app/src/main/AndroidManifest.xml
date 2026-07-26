@@ -67,6 +67,9 @@
             android:name=".widget.WidgetConfigActivity"
             android:exported="true"
             android:label="Tùy chỉnh Giao diện Widget"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
             android:theme="@style/Theme.NOBG">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
