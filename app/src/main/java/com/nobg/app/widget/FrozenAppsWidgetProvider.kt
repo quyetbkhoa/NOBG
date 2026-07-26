@@ -113,7 +113,6 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.tv_widget_title, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_count, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
-            views.setOnClickPendingIntent(R.id.widget_grid_view, openShelfPendingIntent)
 
             // Add '+' button click intent -> Open AddShelfAppActivity
             val addAppIntent = Intent(context, com.nobg.app.ui.AddShelfAppActivity::class.java).apply {

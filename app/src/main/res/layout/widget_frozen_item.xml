@@ -24,7 +24,7 @@
             android:layout_height="16dp"
             android:layout_gravity="top|end"
             android:contentDescription="Xóa app khỏi Kệ"
-            android:src="@android:drawable/ic_delete"
+            android:src="@drawable/ic_delete_badge"
             android:visibility="gone" />
     </FrameLayout>
 

@@ -43,7 +43,7 @@
             android:layout_marginStart="8dp"
             android:padding="2dp"
             android:contentDescription="Thêm ứng dụng vào Kệ"
-            android:src="@android:drawable/ic_menu_add" />
+            android:src="@drawable/ic_add" />
 
         <ImageView
             android:id="@+id/iv_widget_minus"
@@ -61,7 +61,7 @@
             android:layout_marginStart="8dp"
             android:padding="2dp"
             android:contentDescription="Tùy chỉnh Widget"
-            android:src="@android:drawable/ic_menu_preferences" />
+            android:src="@drawable/ic_settings" />
     </LinearLayout>
 
     <TextView
