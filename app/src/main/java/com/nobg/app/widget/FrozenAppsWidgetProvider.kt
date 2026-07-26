@@ -79,6 +79,8 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.tv_widget_title, titleColor)
             views.setTextColor(R.id.tv_widget_count, countColor)
             views.setTextColor(R.id.tv_widget_empty, countColor)
+            views.setInt(R.id.iv_widget_add, "setColorFilter", countColor)
+            views.setInt(R.id.iv_widget_settings, "setColorFilter", countColor)
 
             // Dynamic Grid Columns
             views.setInt(R.id.widget_grid_view, "setNumColumns", config.numColumns)
@@ -97,6 +99,16 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.tv_widget_title, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_count, openShelfPendingIntent)
             views.setOnClickPendingIntent(R.id.tv_widget_empty, openShelfPendingIntent)
+
+            // Add '+' button click intent -> Open AddShelfAppActivity
+            val addAppIntent = Intent(context, com.nobg.app.ui.AddShelfAppActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val addAppPendingIntent = PendingIntent.getActivity(
+                context, appWidgetId + 3000, addAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.iv_widget_add, addAppPendingIntent)
 
             // Settings gear click intent -> Open WidgetConfigActivity
             val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {

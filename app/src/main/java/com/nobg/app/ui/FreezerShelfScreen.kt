@@ -249,6 +249,7 @@ fun FreezerShelfScreen(
                             onLaunch = {
                                 scope.launch(Dispatchers.IO) {
                                     val success = repo.unfreezeAndLaunch(context, app.packageName)
+                                    com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
                                     withContext(Dispatchers.Main) {
                                         if (!success) {
                                             Toast.makeText(context, "Không thể mở ứng dụng!", Toast.LENGTH_SHORT).show()
@@ -264,6 +265,7 @@ fun FreezerShelfScreen(
                                     } else {
                                         repo.freezePackage(app.packageName)
                                     }
+                                    com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
                                     withContext(Dispatchers.Main) {
                                         refreshShelfList()
                                     }

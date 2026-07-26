@@ -37,6 +37,14 @@
             android:textSize="11sp" />
 
         <ImageView
+            android:id="@+id/iv_widget_add"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Thêm ứng dụng vào Kệ"
+            android:src="@android:drawable/ic_menu_add" />
+
+        <ImageView
             android:id="@+id/iv_widget_settings"
             android:layout_width="20dp"
             android:layout_height="20dp"

@@ -45,6 +45,15 @@
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <activity
+            android:name=".ui.AddShelfAppActivity"
+            android:exported="true"
+            android:label="Thêm ứng dụng vào Kệ Đóng Bằng"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <receiver
             android:name=".widget.FrozenAppsWidgetProvider"
             android:exported="true"
