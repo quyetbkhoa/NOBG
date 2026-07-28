@@ -225,12 +225,9 @@ class NobgRepository(private val context: Context) {
         root.put("version", 2)
         root.put("exportedAt", System.currentTimeMillis())
 
-        // 1. Global Preferences & Advanced Tweaks
+        // 1. Global Preferences
         val globalObj = JSONObject().apply {
             put("fullBatterySoundEnabled", isFullBatterySoundEnabled())
-            put("forceFreeformEnabled", isForceFreeformEnabled())
-            put("disableSafeVolumeEnabled", isDisableSafeVolumeEnabled())
-            put("disableCellularAlwaysOnEnabled", isDisableCellularAlwaysOnEnabled())
             put("lastActiveScreen", getLastActiveScreen())
         }
         root.put("globalSettings", globalObj)
@@ -296,15 +293,6 @@ class NobgRepository(private val context: Context) {
         root.optJSONObject("globalSettings")?.let { global ->
             if (global.has("fullBatterySoundEnabled")) {
                 setFullBatterySoundEnabled(global.optBoolean("fullBatterySoundEnabled", true))
-            }
-            if (global.has("forceFreeformEnabled")) {
-                setForceResizableAndFreeform(global.optBoolean("forceFreeformEnabled", false))
-            }
-            if (global.has("disableSafeVolumeEnabled")) {
-                setDisableSafeVolume(global.optBoolean("disableSafeVolumeEnabled", false))
-            }
-            if (global.has("disableCellularAlwaysOnEnabled")) {
-                setDisableCellularAlwaysOn(global.optBoolean("disableCellularAlwaysOnEnabled", false))
             }
             if (global.has("lastActiveScreen")) {
                 setLastActiveScreen(global.optString("lastActiveScreen", "LIST"))
@@ -404,51 +392,7 @@ class NobgRepository(private val context: Context) {
         prefs.edit().putString("last_active_screen", screen).apply()
     }
 
-    // --- ADVANCED HIDDEN TWEAKS ---
-    fun isForceFreeformEnabled(): Boolean = prefs.getBoolean("force_freeform_enabled", false)
 
-    suspend fun setForceResizableAndFreeform(enabled: Boolean) {
-        prefs.edit().putBoolean("force_freeform_enabled", enabled).apply()
-        val valStr = if (enabled) "1" else "0"
-
-        // Standard Android & Foldable Freeform Keys
-        ShizukuManager.exec("settings put global force_resizable_activities $valStr")
-        ShizukuManager.exec("settings put global enable_freeform_support $valStr")
-        ShizukuManager.exec("settings put global force_allow_on_external $valStr")
-        ShizukuManager.exec("settings put system force_resizable_activities $valStr")
-        ShizukuManager.exec("settings put secure force_resizable_activities $valStr")
-
-        // Oppo Find N3 / ColorOS / OxygenOS Custom Keys
-        ShizukuManager.exec("settings put global oppo_force_resizable $valStr")
-        ShizukuManager.exec("settings put secure oppo_force_resizable $valStr")
-        ShizukuManager.exec("settings put system oppo_force_resizable $valStr")
-        ShizukuManager.exec("settings put global coloros_force_freeform $valStr")
-        ShizukuManager.exec("settings put system coloros_force_freeform $valStr")
-        ShizukuManager.exec("settings put secure coloros_force_freeform $valStr")
-        ShizukuManager.exec("settings put global coloros_force_desktop_mode $valStr")
-        ShizukuManager.exec("settings put global coloros_app_split_screen $valStr")
-        ShizukuManager.exec("settings put system coloros_app_split_screen $valStr")
-        ShizukuManager.exec("settings put secure coloros_app_split_screen $valStr")
-        ShizukuManager.exec("settings put global oppo_multi_window_support $valStr")
-        ShizukuManager.exec("settings put system oppo_multi_window_support $valStr")
-        ShizukuManager.exec("settings put global force_desktop_mode $valStr")
-    }
-
-    fun isDisableSafeVolumeEnabled(): Boolean = prefs.getBoolean("disable_safe_volume_enabled", false)
-
-    suspend fun setDisableSafeVolume(enabled: Boolean) {
-        prefs.edit().putBoolean("disable_safe_volume_enabled", enabled).apply()
-        val valStr = if (enabled) "0" else "1"
-        ShizukuManager.exec("settings put global safe_media_volume_option $valStr")
-    }
-
-    fun isDisableCellularAlwaysOnEnabled(): Boolean = prefs.getBoolean("disable_cellular_always_on_enabled", false)
-
-    suspend fun setDisableCellularAlwaysOn(enabled: Boolean) {
-        prefs.edit().putBoolean("disable_cellular_always_on_enabled", enabled).apply()
-        val valStr = if (enabled) "0" else "1"
-        ShizukuManager.exec("settings put global mobile_data_always_on $valStr")
-    }
 
     // --- APP FREEZER SHELF (KỆ ĐÓNG BẰNG ỨNG DỤNG) ---
     val frozenShelfApps: kotlinx.coroutines.flow.Flow<List<AppEntity>> = appDao.observeFrozenShelf()

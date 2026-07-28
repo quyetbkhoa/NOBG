@@ -43,7 +43,6 @@ fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
-    onOpenAdvancedTweaks: () -> Unit,
     onOpenFreezerShelf: () -> Unit
 ) {
     val context = LocalContext.current
@@ -117,9 +116,6 @@ fun AppListScreen(
                 actions = {
                     IconButton(onClick = onOpenFreezerShelf) {
                         Text("🧊", fontSize = 18.sp)
-                    }
-                    IconButton(onClick = onOpenAdvancedTweaks) {
-                        Text("⚡", fontSize = 18.sp)
                     }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin")

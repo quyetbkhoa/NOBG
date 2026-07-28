@@ -129,10 +129,6 @@ class MainActivity : ComponentActivity() {
                             viewModel = batteryStatsViewModel,
                             onBack = { currentScreen = "LIST" }
                         )
-                        "ADVANCED_TWEAKS" -> com.nobg.app.ui.AdvancedTweaksScreen(
-                            repo = com.nobg.app.data.NobgRepository(applicationContext),
-                            onBack = { currentScreen = "LIST" }
-                        )
                         "FREEZER_SHELF" -> com.nobg.app.ui.FreezerShelfScreen(
                             repo = com.nobg.app.data.NobgRepository(applicationContext),
                             onBack = { currentScreen = "LIST" }
@@ -144,7 +140,6 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
-                            onOpenAdvancedTweaks = { currentScreen = "ADVANCED_TWEAKS" },
                             onOpenFreezerShelf = { currentScreen = "FREEZER_SHELF" }
                         )
                     }
