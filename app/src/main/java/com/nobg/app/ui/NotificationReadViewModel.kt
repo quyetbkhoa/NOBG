@@ -149,11 +149,21 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
 
                             val existing = appMap[pkg]
                             val cfg = configMap[pkg]
-                            val label = item.label?.toString() ?: pkg
+                            val rawLabel = item.label?.toString() ?: pkg
+
+                            val finalLabel = when {
+                                existing != null && isSecondary -> {
+                                    val cleanLabel = existing.label.replace(" (Không gian 2)", "").replace(" (Cả 2 không gian)", "")
+                                    "$cleanLabel (Cả 2 không gian)"
+                                }
+                                isSecondary -> "$rawLabel (Không gian 2)"
+                                existing != null -> existing.label
+                                else -> rawLabel
+                            }
 
                             appMap[pkg] = NotifReadAppUiModel(
                                 packageName = pkg,
-                                label = if (isSecondary) "$label (Không gian 2)" else label,
+                                label = finalLabel,
                                 icon = existing?.icon ?: try { item.getBadgedIcon(0) } catch (_: Exception) { null },
                                 isEnabled = cfg?.isEnabled ?: existing?.isEnabled ?: false,
                                 readMode = cfg?.readMode ?: existing?.readMode ?: NotificationReadMode.FULL_CONTENT,
