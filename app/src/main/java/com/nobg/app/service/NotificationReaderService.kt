@@ -8,20 +8,22 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.os.Build
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.nobg.app.data.NobgRepository
+import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
 import kotlinx.coroutines.*
 import java.util.Locale
 
 /**
  * Service lắng nghe thông báo hệ thống và tự động đọc bằng TTS.
- * Hỗ trợ lọc theo danh sách thiết bị Bluetooth được chọn.
+ * Hỗ trợ lọc theo danh sách thiết bị Bluetooth, trích xuất tên người gửi thông minh,
+ * lọc từ khóa tin nhắn và tùy chỉnh âm lượng giọng đọc.
  */
 class NotificationReaderService : NotificationListenerService() {
 
@@ -44,7 +46,6 @@ class NotificationReaderService : NotificationListenerService() {
 
         tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                // Try Vietnamese first, fallback to default
                 val viLocale = Locale("vi", "VN")
                 val result = tts?.setLanguage(viLocale)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -83,7 +84,10 @@ class NotificationReaderService : NotificationListenerService() {
                 val config = repo.getNotifReadConfig(sbn.packageName) ?: return@launch
                 if (!config.isEnabled) return@launch
 
-                val text = buildSpeechText(sbn, config.readMode)
+                // Kiểm tra bộ lọc từ khóa
+                if (!matchesKeywordFilter(sbn, config.keywordFilter)) return@launch
+
+                val text = buildSpeechText(sbn, config)
                 if (text.isNotBlank()) {
                     speakWithAudioFocus(text)
                     lastReadTimestamps[sbn.packageName] = System.currentTimeMillis()
@@ -94,50 +98,25 @@ class NotificationReaderService : NotificationListenerService() {
         }
     }
 
-    /**
-     * Kiểm tra tất cả điều kiện trước khi đọc thông báo:
-     * 1. Công tắc tổng bật
-     * 2. TTS sẵn sàng
-     * 3. Không bị DND
-     * 4. Debounce (chống spam)
-     * 5. Kiểm tra Bluetooth nếu bật lọc BT
-     */
     private suspend fun shouldRead(sbn: StatusBarNotification): Boolean {
-        // 1. Công tắc tổng
         if (!repo.isNotifReadGlobalEnabled()) return false
-
-        // 2. TTS ready
         if (!isTtsReady) return false
-
-        // 3. DND check
         if (isDndActive()) return false
-
-        // 4. Debounce
         if (isDebounced(sbn.packageName)) return false
-
-        // 5. Bluetooth filter
         if (repo.isNotifReadOnlySelectedBt() && !isSelectedBluetoothConnected()) return false
-
         return true
     }
 
-    /** Kiểm tra chế độ Không làm phiền (DND) */
     private fun isDndActive(): Boolean {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         return nm?.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
     }
 
-    /** Debounce: chặn đọc lại cùng 1 package trong vòng DEBOUNCE_MS */
     private fun isDebounced(pkg: String): Boolean {
         val lastTime = lastReadTimestamps[pkg] ?: return false
         return (System.currentTimeMillis() - lastTime) < DEBOUNCE_MS
     }
 
-    /**
-     * Kiểm tra xem thiết bị Bluetooth đang kết nối có nằm trong
-     * danh sách thiết bị được chọn hay không.
-     * Kiểm tra cả profile A2DP (media audio) và HEADSET (call audio).
-     */
     @Suppress("MissingPermission")
     private suspend fun isSelectedBluetoothConnected(): Boolean {
         try {
@@ -152,13 +131,11 @@ class NotificationReaderService : NotificationListenerService() {
 
             val connectedAddresses = mutableSetOf<String>()
 
-            // Check A2DP profile (media audio)
             try {
                 val a2dpDevices = btManager.getConnectedDevices(BluetoothProfile.A2DP)
                 connectedAddresses.addAll(a2dpDevices.map { it.address })
             } catch (_: Exception) {}
 
-            // Check HEADSET profile (call audio)
             try {
                 val headsetDevices = btManager.getConnectedDevices(BluetoothProfile.HEADSET)
                 connectedAddresses.addAll(headsetDevices.map { it.address })
@@ -171,26 +148,91 @@ class NotificationReaderService : NotificationListenerService() {
         }
     }
 
+    /** Kiểm tra xem thông báo có khớp với từ khóa đã đặt hay không */
+    private fun matchesKeywordFilter(sbn: StatusBarNotification, filter: String): Boolean {
+        if (filter.isBlank()) return true // Không đặt từ khóa => Đọc tất cả
+
+        val extras = sbn.notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
+        val combinedContent = "$title $text $bigText".lowercase()
+
+        val keywords = filter.split(",", ";").map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        if (keywords.isEmpty()) return true
+
+        return keywords.any { combinedContent.contains(it) }
+    }
+
+    /** Trích xuất tên người gửi thông minh từ Notification */
+    private fun extractSenderName(sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras ?: return ""
+        val appName = getAppLabel(sbn.packageName)
+
+        // 1. Lấy từ conversation title hoặc title
+        var title = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim()
+        if (title.isNullOrBlank()) {
+            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+        }
+
+        if (title.isNullOrBlank()) return ""
+
+        // Bỏ qua nếu title chính là tên app hoặc chuỗi mặc định
+        if (title.equals(appName, ignoreCase = true) ||
+            title.equals("Zalo", ignoreCase = true) ||
+            title.equals("Messenger", ignoreCase = true) ||
+            title.contains("tin nhắn mới", ignoreCase = true) ||
+            title.contains("new message", ignoreCase = true)
+        ) {
+            return ""
+        }
+
+        // Loại bỏ phần đếm số tin nhắn ví dụ "Nguyễn Văn A (3)" -> "Nguyễn Văn A"
+        return title.replace(Regex("\\(\\d+\\)$"), "").trim()
+    }
+
     /** Tạo chuỗi text để đọc dựa trên chế độ */
-    private fun buildSpeechText(sbn: StatusBarNotification, mode: NotificationReadMode): String {
+    private fun buildSpeechText(sbn: StatusBarNotification, config: NotificationReadConfigEntity): String {
         val appName = getAppLabel(sbn.packageName)
         val extras = sbn.notification.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
         val content = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+        val sender = extractSenderName(sbn)
 
-        return when (mode) {
+        return when (config.readMode) {
             NotificationReadMode.APP_NAME_ONLY ->
                 "Thông báo từ $appName"
+
             NotificationReadMode.FULL_CONTENT -> {
                 val parts = mutableListOf("Thông báo từ $appName")
                 if (title.isNotBlank()) parts.add(title)
                 if (content.isNotBlank()) parts.add(content)
                 parts.joinToString(". ")
             }
+
+            NotificationReadMode.SMART_CHAT -> {
+                if (sender.isNotBlank()) {
+                    val parts = mutableListOf("Tin nhắn từ $sender trên $appName")
+                    if (content.isNotBlank()) parts.add(content)
+                    parts.joinToString(". ")
+                } else {
+                    val parts = mutableListOf("Thông báo từ $appName")
+                    if (title.isNotBlank()) parts.add(title)
+                    if (content.isNotBlank()) parts.add(content)
+                    parts.joinToString(". ")
+                }
+            }
+
+            NotificationReadMode.SENDER_ONLY -> {
+                if (sender.isNotBlank()) {
+                    "Tin nhắn từ $sender"
+                } else {
+                    "Thông báo từ $appName"
+                }
+            }
         }
     }
 
-    /** Lấy tên ứng dụng từ PackageManager */
     private fun getAppLabel(packageName: String): String {
         return try {
             val pm = applicationContext.packageManager
@@ -201,9 +243,8 @@ class NotificationReaderService : NotificationListenerService() {
         }
     }
 
-    /** Phát TTS với Audio Focus Ducking (giảm volume nhạc nền tạm thời) */
+    /** Phát TTS với Audio Focus Ducking và âm lượng tùy chỉnh */
     private fun speakWithAudioFocus(text: String) {
-        // Refresh speech rate from prefs
         tts?.setSpeechRate(repo.getTtsSpeechRate())
 
         val audioAttributes = AudioAttributes.Builder()
@@ -219,6 +260,11 @@ class NotificationReaderService : NotificationListenerService() {
 
         val utteranceId = "notif_${System.currentTimeMillis()}"
 
+        // Thiết lập âm lượng TTS từ preference (0.0f đến 1.0f)
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, repo.getTtsVolume())
+        }
+
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
             override fun onDone(id: String?) {
@@ -229,6 +275,6 @@ class NotificationReaderService : NotificationListenerService() {
             }
         })
 
-        tts?.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
+        tts?.speak(text, TextToSpeech.QUEUE_ADD, params, utteranceId)
     }
 }

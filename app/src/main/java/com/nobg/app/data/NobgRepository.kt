@@ -27,6 +27,7 @@ class NobgRepository(private val context: Context) {
         private const val KEY_NOTIF_READ_GLOBAL_ENABLED = "notif_read_global_enabled"
         private const val KEY_NOTIF_READ_ONLY_BT = "notif_read_only_selected_bt"
         private const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
+        private const val KEY_TTS_VOLUME = "tts_volume"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -462,8 +463,20 @@ class NobgRepository(private val context: Context) {
 
     suspend fun getAllEnabledNotifRead(): List<NotificationReadConfigEntity> = notificationReadDao.getAllEnabled()
 
-    suspend fun setNotifReadConfig(pkg: String, isEnabled: Boolean, readMode: NotificationReadMode) {
-        notificationReadDao.upsert(NotificationReadConfigEntity(packageName = pkg, isEnabled = isEnabled, readMode = readMode))
+    suspend fun setNotifReadConfig(
+        pkg: String,
+        isEnabled: Boolean,
+        readMode: NotificationReadMode,
+        keywordFilter: String = ""
+    ) {
+        notificationReadDao.upsert(
+            NotificationReadConfigEntity(
+                packageName = pkg,
+                isEnabled = isEnabled,
+                readMode = readMode,
+                keywordFilter = keywordFilter
+            )
+        )
     }
 
     suspend fun deleteNotifReadConfig(pkg: String) = notificationReadDao.delete(pkg)
@@ -514,5 +527,11 @@ class NobgRepository(private val context: Context) {
 
     fun setTtsSpeechRate(rate: Float) {
         prefs.edit().putFloat(KEY_TTS_SPEECH_RATE, rate.coerceIn(0.5f, 2.0f)).apply()
+    }
+
+    fun getTtsVolume(): Float = prefs.getFloat(KEY_TTS_VOLUME, 1.0f)
+
+    fun setTtsVolume(volume: Float) {
+        prefs.edit().putFloat(KEY_TTS_VOLUME, volume.coerceIn(0.0f, 1.0f)).apply()
     }
 }
