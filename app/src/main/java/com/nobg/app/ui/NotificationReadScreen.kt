@@ -48,9 +48,6 @@ fun NotificationReadScreen(
     val ttsPitch by viewModel.ttsPitch.collectAsState()
     val isNotifListenerEnabled by viewModel.isNotifListenerEnabled.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val isDuckingEnabled by viewModel.isDuckingEnabled.collectAsState()
-    val ttsPan by viewModel.ttsPan.collectAsState()
-    val ttsPitch by viewModel.ttsPitch.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -284,7 +281,7 @@ fun NotificationReadScreen(
                             value = ttsPitch,
                             onValueChange = { viewModel.setTtsPitch(it) },
                             valueRange = 0.8f..1.4f,
-                            steps = 11,
+                            steps = 5,
                             modifier = Modifier.fillMaxWidth()
                         )
 
