@@ -16,12 +16,17 @@ class NobgRepository(private val context: Context) {
     private val batteryLogDao = db.batteryLogDao()
     private val chargingSessionDao = db.chargingSessionDao()
     private val cpuLogDao = db.cpuLogDao()
+    private val notificationReadDao = db.notificationReadDao()
+    private val bluetoothDeviceDao = db.bluetoothDeviceDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
 
     companion object {
         private const val KEY_BATTERY_RESET_TIME = "battery_reset_time"
         private const val KEY_USAGE_RESET_TIME = "usage_reset_time"
         private const val KEY_FULL_BATTERY_SOUND = "full_battery_sound_enabled"
+        private const val KEY_NOTIF_READ_GLOBAL_ENABLED = "notif_read_global_enabled"
+        private const val KEY_NOTIF_READ_ONLY_BT = "notif_read_only_selected_bt"
+        private const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -449,7 +454,65 @@ class NobgRepository(private val context: Context) {
         }
         com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
     }
+
+    // --- NOTIFICATION READ CONFIG ---
+    fun observeNotifReadConfigs(): kotlinx.coroutines.flow.Flow<List<NotificationReadConfigEntity>> = notificationReadDao.observeAll()
+
+    suspend fun getNotifReadConfig(pkg: String): NotificationReadConfigEntity? = notificationReadDao.get(pkg)
+
+    suspend fun getAllEnabledNotifRead(): List<NotificationReadConfigEntity> = notificationReadDao.getAllEnabled()
+
+    suspend fun setNotifReadConfig(pkg: String, isEnabled: Boolean, readMode: NotificationReadMode) {
+        notificationReadDao.upsert(NotificationReadConfigEntity(packageName = pkg, isEnabled = isEnabled, readMode = readMode))
+    }
+
+    suspend fun deleteNotifReadConfig(pkg: String) = notificationReadDao.delete(pkg)
+
+    suspend fun setAllNotifRead(enabled: Boolean) {
+        val all = notificationReadDao.getAll()
+        for (cfg in all) {
+            notificationReadDao.upsert(cfg.copy(isEnabled = enabled))
+        }
+    }
+
+    suspend fun setAllNotifReadMode(mode: NotificationReadMode) {
+        val all = notificationReadDao.getAll()
+        for (cfg in all) {
+            notificationReadDao.upsert(cfg.copy(readMode = mode))
+        }
+    }
+
+    // --- SELECTED BLUETOOTH DEVICES ---
+    fun observeSelectedBtDevices(): kotlinx.coroutines.flow.Flow<List<SelectedBluetoothDeviceEntity>> = bluetoothDeviceDao.observeAll()
+
+    suspend fun getSelectedBtDevices(): List<SelectedBluetoothDeviceEntity> = bluetoothDeviceDao.getSelected()
+
+    suspend fun getAllBtDevices(): List<SelectedBluetoothDeviceEntity> = bluetoothDeviceDao.getAll()
+
+    suspend fun upsertBtDevice(address: String, name: String, isSelected: Boolean) {
+        bluetoothDeviceDao.upsert(SelectedBluetoothDeviceEntity(address = address, name = name, isSelected = isSelected))
+    }
+
+    suspend fun deleteBtDevice(address: String) = bluetoothDeviceDao.delete(address)
+
+    suspend fun clearAllBtDevices() = bluetoothDeviceDao.deleteAll()
+
+    // --- NOTIFICATION READ PREFS ---
+    fun isNotifReadGlobalEnabled(): Boolean = prefs.getBoolean(KEY_NOTIF_READ_GLOBAL_ENABLED, false)
+
+    fun setNotifReadGlobalEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIF_READ_GLOBAL_ENABLED, enabled).apply()
+    }
+
+    fun isNotifReadOnlySelectedBt(): Boolean = prefs.getBoolean(KEY_NOTIF_READ_ONLY_BT, false)
+
+    fun setNotifReadOnlySelectedBt(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIF_READ_ONLY_BT, enabled).apply()
+    }
+
+    fun getTtsSpeechRate(): Float = prefs.getFloat(KEY_TTS_SPEECH_RATE, 1.0f)
+
+    fun setTtsSpeechRate(rate: Float) {
+        prefs.edit().putFloat(KEY_TTS_SPEECH_RATE, rate.coerceIn(0.5f, 2.0f)).apply()
+    }
 }
-
-
-

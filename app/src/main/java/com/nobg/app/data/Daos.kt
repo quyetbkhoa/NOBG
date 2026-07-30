@@ -102,4 +102,50 @@ interface CpuLogDao {
     suspend fun deleteOldLogs(before: Long)
 }
 
+@Dao
+interface NotificationReadDao {
+    @Query("SELECT * FROM notification_read_config")
+    fun observeAll(): Flow<List<NotificationReadConfigEntity>>
 
+    @Query("SELECT * FROM notification_read_config")
+    suspend fun getAll(): List<NotificationReadConfigEntity>
+
+    @Query("SELECT * FROM notification_read_config WHERE packageName = :pkg")
+    suspend fun get(pkg: String): NotificationReadConfigEntity?
+
+    @Query("SELECT * FROM notification_read_config WHERE isEnabled = 1")
+    suspend fun getAllEnabled(): List<NotificationReadConfigEntity>
+
+    @Upsert
+    suspend fun upsert(entity: NotificationReadConfigEntity)
+
+    @Query("DELETE FROM notification_read_config WHERE packageName = :pkg")
+    suspend fun delete(pkg: String)
+
+    @Query("DELETE FROM notification_read_config")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface BluetoothDeviceDao {
+    @Query("SELECT * FROM selected_bluetooth_devices")
+    fun observeAll(): Flow<List<SelectedBluetoothDeviceEntity>>
+
+    @Query("SELECT * FROM selected_bluetooth_devices")
+    suspend fun getAll(): List<SelectedBluetoothDeviceEntity>
+
+    @Query("SELECT * FROM selected_bluetooth_devices WHERE address = :addr")
+    suspend fun get(addr: String): SelectedBluetoothDeviceEntity?
+
+    @Query("SELECT * FROM selected_bluetooth_devices WHERE isSelected = 1")
+    suspend fun getSelected(): List<SelectedBluetoothDeviceEntity>
+
+    @Upsert
+    suspend fun upsert(entity: SelectedBluetoothDeviceEntity)
+
+    @Query("DELETE FROM selected_bluetooth_devices WHERE address = :addr")
+    suspend fun delete(addr: String)
+
+    @Query("DELETE FROM selected_bluetooth_devices")
+    suspend fun deleteAll()
+}

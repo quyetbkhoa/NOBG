@@ -25,6 +25,8 @@ import com.nobg.app.ui.BatteryStatsScreen
 import com.nobg.app.ui.BatteryStatsViewModel
 import com.nobg.app.ui.MainViewModel
 import com.nobg.app.ui.PermissionOnboardingDialog
+import com.nobg.app.ui.NotificationReadScreen
+import com.nobg.app.ui.NotificationReadViewModel
 import com.nobg.app.ui.SettingsScreen
 import com.nobg.app.ui.theme.NobgTheme
 import kotlinx.coroutines.flow.collectLatest
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
     private val batteryStatsViewModel: BatteryStatsViewModel by viewModels()
+    private val notifReadViewModel: NotificationReadViewModel by viewModels()
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -123,7 +126,8 @@ class MainActivity : ComponentActivity() {
                         "SETTINGS" -> SettingsScreen(
                             viewModel = viewModel,
                             onBack = { currentScreen = "LIST" },
-                            onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" }
+                            onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" },
+                            onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" }
                         )
                         "BATTERY_STATS" -> BatteryStatsScreen(
                             viewModel = batteryStatsViewModel,
@@ -134,6 +138,10 @@ class MainActivity : ComponentActivity() {
                             onBack = { currentScreen = "LIST" }
                         )
                         "ALGORITHM" -> com.nobg.app.ui.AlgorithmScreen(
+                            onBack = { currentScreen = "SETTINGS" }
+                        )
+                        "NOTIFICATION_READ" -> NotificationReadScreen(
+                            viewModel = notifReadViewModel,
                             onBack = { currentScreen = "SETTINGS" }
                         )
                         else -> AppListScreen(

@@ -38,7 +38,8 @@ import com.nobg.app.shell.AdbDaemonInstaller
 fun SettingsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
-    onOpenAlgorithmScreen: () -> Unit
+    onOpenAlgorithmScreen: () -> Unit,
+    onOpenNotificationRead: () -> Unit = {}
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
@@ -320,6 +321,39 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("🎨 Mở menu Tùy chỉnh Giao diện Widget", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // 🔊 ĐỌC THÔNG BÁO (NOTIFICATION READER)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "🔊 ĐỌC THÔNG BÁO (BUDS STYLE)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Tự động đọc tên ứng dụng hoặc nội dung thông báo khi kết nối tai nghe Bluetooth. Hỗ trợ chọn thiết bị BT cụ thể.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = onOpenNotificationRead,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Text("🔊 Mở cài đặt Đọc thông báo")
                     }
                 }
             }
