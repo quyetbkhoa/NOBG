@@ -39,7 +39,8 @@ fun SettingsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
     onOpenAlgorithmScreen: () -> Unit,
-    onOpenNotificationRead: () -> Unit = {}
+    onOpenNotificationRead: () -> Unit = {},
+    onOpenSmartTimer: () -> Unit = {}
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
@@ -354,6 +355,39 @@ fun SettingsScreen(
                         )
                     ) {
                         Text("🔊 Mở cài đặt Đọc thông báo")
+                    }
+                }
+            }
+
+            // ⏱️ ĐẾM GIỜ THÔNG MINH (SMART TIMER)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "⏱️ ĐẾM GIỜ THÔNG MINH & HẸN GIỜ TẮT MÁY",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Đọc giờ/thời gian định kỳ ngầm khi tắt màn hình bằng TTS tiếng Việt. Hỗ trợ hẹn giờ tự động tắt máy.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = onOpenSmartTimer,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        )
+                    ) {
+                        Text("⏱️ Mở Đếm giờ thông minh")
                     }
                 }
             }

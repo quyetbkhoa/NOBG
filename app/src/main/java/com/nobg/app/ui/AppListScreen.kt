@@ -43,7 +43,8 @@ fun AppListScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
-    onOpenFreezerShelf: () -> Unit
+    onOpenFreezerShelf: () -> Unit,
+    onOpenSmartTimer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val apps by viewModel.appList.collectAsState()
@@ -114,6 +115,9 @@ fun AppListScreen(
             TopAppBar(
                 title = { Text("⚡ NOBG — Anti-Background", fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onOpenSmartTimer) {
+                        Text("⏱️", fontSize = 18.sp)
+                    }
                     IconButton(onClick = onOpenFreezerShelf) {
                         Text("🧊", fontSize = 18.sp)
                     }

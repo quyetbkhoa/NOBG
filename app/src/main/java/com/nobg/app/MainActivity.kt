@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val batteryStatsViewModel: BatteryStatsViewModel by viewModels()
     private val notifReadViewModel: NotificationReadViewModel by viewModels()
+    private val smartTimerViewModel: com.nobg.app.ui.SmartTimerViewModel by viewModels()
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -127,7 +128,8 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onBack = { currentScreen = "LIST" },
                             onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" },
-                            onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" }
+                            onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" },
+                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" }
                         )
                         "BATTERY_STATS" -> BatteryStatsScreen(
                             viewModel = batteryStatsViewModel,
@@ -144,11 +146,16 @@ class MainActivity : ComponentActivity() {
                             viewModel = notifReadViewModel,
                             onBack = { currentScreen = "SETTINGS" }
                         )
+                        "SMART_TIMER" -> com.nobg.app.ui.SmartTimerScreen(
+                            viewModel = smartTimerViewModel,
+                            onBack = { currentScreen = "LIST" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
-                            onOpenFreezerShelf = { currentScreen = "FREEZER_SHELF" }
+                            onOpenFreezerShelf = { currentScreen = "FREEZER_SHELF" },
+                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" }
                         )
                     }
                 }

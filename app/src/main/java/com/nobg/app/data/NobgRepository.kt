@@ -555,4 +555,36 @@ class NobgRepository(private val context: Context) {
     fun setTtsPitch(pitch: Float) {
         prefs.edit().putFloat(KEY_TTS_PITCH, pitch.coerceIn(0.5f, 2.0f)).apply()
     }
+
+    fun getSmartTimerConfig(): SmartTimerConfig {
+        val modeStr = prefs.getString("smart_timer_mode", SmartTimerMode.ELAPSED_TIME.name)
+        val mode = try { SmartTimerMode.valueOf(modeStr ?: SmartTimerMode.ELAPSED_TIME.name) } catch (_: Exception) { SmartTimerMode.ELAPSED_TIME }
+        return SmartTimerConfig(
+            isRunning = prefs.getBoolean("smart_timer_running", false),
+            mode = mode,
+            intervalMinutes = prefs.getInt("smart_timer_interval", 1),
+            durationMinutes = prefs.getInt("smart_timer_duration", 60),
+            autoShutdown = prefs.getBoolean("smart_timer_auto_shutdown", false),
+            volume = prefs.getFloat("smart_timer_volume", 1.0f),
+            audioDucking = prefs.getBoolean("smart_timer_ducking", true),
+            speechRate = prefs.getFloat("smart_timer_speech_rate", 1.1f),
+            startTimeMillis = prefs.getLong("smart_timer_start_time", 0L),
+            endTimeMillis = prefs.getLong("smart_timer_end_time", 0L)
+        )
+    }
+
+    fun saveSmartTimerConfig(config: SmartTimerConfig) {
+        prefs.edit()
+            .putBoolean("smart_timer_running", config.isRunning)
+            .putString("smart_timer_mode", config.mode.name)
+            .putInt("smart_timer_interval", config.intervalMinutes)
+            .putInt("smart_timer_duration", config.durationMinutes)
+            .putBoolean("smart_timer_auto_shutdown", config.autoShutdown)
+            .putFloat("smart_timer_volume", config.volume)
+            .putBoolean("smart_timer_ducking", config.audioDucking)
+            .putFloat("smart_timer_speech_rate", config.speechRate)
+            .putLong("smart_timer_start_time", config.startTimeMillis)
+            .putLong("smart_timer_end_time", config.endTimeMillis)
+            .apply()
+    }
 }
