@@ -43,8 +43,14 @@ fun NotificationReadScreen(
     val speechRate by viewModel.speechRate.collectAsState()
     val ttsVolume by viewModel.ttsVolume.collectAsState()
     val includeSystemApps by viewModel.includeSystemApps.collectAsState()
+    val isDuckingEnabled by viewModel.isDuckingEnabled.collectAsState()
+    val ttsPan by viewModel.ttsPan.collectAsState()
+    val ttsPitch by viewModel.ttsPitch.collectAsState()
     val isNotifListenerEnabled by viewModel.isNotifListenerEnabled.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val isDuckingEnabled by viewModel.isDuckingEnabled.collectAsState()
+    val ttsPan by viewModel.ttsPan.collectAsState()
+    val ttsPitch by viewModel.ttsPitch.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -205,13 +211,56 @@ fun NotificationReadScreen(
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                        // Audio Ducking
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Tự động thu nhỏ nhạc nền khi đọc (Audio Ducking)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Tự giảm âm lượng ứng dụng khác khi đọc. Tắt đi để nhạc nền giữ nguyên 100% âm lượng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = isDuckingEnabled,
+                                onCheckedChange = { viewModel.toggleDuckingEnabled(it) }
+                            )
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                        // Spatial Audio
+                        Text("Vị trí Không Gian giọng đọc (Spatial Audio)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = ttsPan == -0.5f,
+                                onClick = { viewModel.setTtsPan(-0.5f) },
+                                label = { Text("👈 Tai Trái (-0.5f)", style = MaterialTheme.typography.labelSmall) }
+                            )
+                            FilterChip(
+                                selected = ttsPan == 0.0f,
+                                onClick = { viewModel.setTtsPan(0.0f) },
+                                label = { Text("🎧 Chính Giữa (0.0f)", style = MaterialTheme.typography.labelSmall) }
+                            )
+                            FilterChip(
+                                selected = ttsPan == 0.5f,
+                                onClick = { viewModel.setTtsPan(0.5f) },
+                                label = { Text("👉 Tai Phải (+0.5f)", style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
                         // Âm lượng phát giọng nói
                         Text("🔊 Âm lượng giọng đọc: ${(ttsVolume * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         Slider(
                             value = ttsVolume,
                             onValueChange = { viewModel.setTtsVolume(it) },
                             valueRange = 0.0f..1.0f,
-                            steps = 19, // 5% increments
+                            steps = 19,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -227,6 +276,18 @@ fun NotificationReadScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        Spacer(Modifier.height(4.dp))
+
+                        // Độ bổng
+                        Text("🎵 Độ bổng giọng đọc (Pitch): ${"%.1f".format(ttsPitch)}x", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Slider(
+                            value = ttsPitch,
+                            onValueChange = { viewModel.setTtsPitch(it) },
+                            valueRange = 0.8f..1.4f,
+                            steps = 11,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         Spacer(Modifier.height(8.dp))
 
                         // Nút test TTS
@@ -236,7 +297,7 @@ fun NotificationReadScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("🔊 Thử giọng đọc & âm lượng (Test TTS)")
+                            Text("🔊 Thử giọng đọc & hiệu ứng (Test TTS)")
                         }
                     }
                 }

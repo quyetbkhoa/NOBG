@@ -74,6 +74,15 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     private val _ttsVolume = MutableStateFlow(1.0f)
     val ttsVolume: StateFlow<Float> = _ttsVolume.asStateFlow()
 
+    private val _isDuckingEnabled = MutableStateFlow(true)
+    val isDuckingEnabled: StateFlow<Boolean> = _isDuckingEnabled.asStateFlow()
+
+    private val _ttsPan = MutableStateFlow(0.0f)
+    val ttsPan: StateFlow<Float> = _ttsPan.asStateFlow()
+
+    private val _ttsPitch = MutableStateFlow(1.0f)
+    val ttsPitch: StateFlow<Float> = _ttsPitch.asStateFlow()
+
     private val _isNotifListenerEnabled = MutableStateFlow(false)
     val isNotifListenerEnabled: StateFlow<Boolean> = _isNotifListenerEnabled.asStateFlow()
 
@@ -82,6 +91,9 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         _isOnlySelectedBt.value = repo.isNotifReadOnlySelectedBt()
         _speechRate.value = repo.getTtsSpeechRate()
         _ttsVolume.value = repo.getTtsVolume()
+        _isDuckingEnabled.value = repo.isNotifReadDuckingEnabled()
+        _ttsPan.value = repo.getTtsPan()
+        _ttsPitch.value = repo.getTtsPitch()
         checkNotifListenerPermission()
         loadUserApps()
         loadBluetoothDevices()
@@ -293,6 +305,21 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         _ttsVolume.value = volume
     }
 
+    fun toggleDuckingEnabled(enabled: Boolean) {
+        repo.setNotifReadDuckingEnabled(enabled)
+        _isDuckingEnabled.value = enabled
+    }
+
+    fun setTtsPan(pan: Float) {
+        repo.setTtsPan(pan)
+        _ttsPan.value = pan
+    }
+
+    fun setTtsPitch(pitch: Float) {
+        repo.setTtsPitch(pitch)
+        _ttsPitch.value = pitch
+    }
+
     fun toggleBtDeviceSelected(addr: String, name: String, selected: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             repo.upsertBtDevice(addr, name, selected)
@@ -349,8 +376,10 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                     testTts?.setLanguage(Locale.getDefault())
                 }
                 testTts?.setSpeechRate(_speechRate.value)
+                testTts?.setPitch(_ttsPitch.value)
                 val params = android.os.Bundle().apply {
                     putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, _ttsVolume.value)
+                    putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, _ttsPan.value)
                 }
                 val speechContent = if (text.isNotBlank()) text else "Nguyễn Đức Quyết trên Messenger. Hồi nữa gặp nhau nhé!"
                 testTts?.speak(speechContent, TextToSpeech.QUEUE_FLUSH, params, "test_tts")

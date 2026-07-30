@@ -28,6 +28,9 @@ class NobgRepository(private val context: Context) {
         private const val KEY_NOTIF_READ_ONLY_BT = "notif_read_only_selected_bt"
         private const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
         private const val KEY_TTS_VOLUME = "tts_volume"
+        private const val KEY_NOTIF_READ_DUCKING = "notif_read_ducking"
+        private const val KEY_TTS_PAN = "tts_pan"
+        private const val KEY_TTS_PITCH = "tts_pitch"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -533,5 +536,23 @@ class NobgRepository(private val context: Context) {
 
     fun setTtsVolume(volume: Float) {
         prefs.edit().putFloat(KEY_TTS_VOLUME, volume.coerceIn(0.0f, 1.0f)).apply()
+    }
+
+    fun isNotifReadDuckingEnabled(): Boolean = prefs.getBoolean(KEY_NOTIF_READ_DUCKING, true)
+
+    fun setNotifReadDuckingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIF_READ_DUCKING, enabled).apply()
+    }
+
+    fun getTtsPan(): Float = prefs.getFloat(KEY_TTS_PAN, 0.0f)
+
+    fun setTtsPan(pan: Float) {
+        prefs.edit().putFloat(KEY_TTS_PAN, pan.coerceIn(-1.0f, 1.0f)).apply()
+    }
+
+    fun getTtsPitch(): Float = prefs.getFloat(KEY_TTS_PITCH, 1.0f)
+
+    fun setTtsPitch(pitch: Float) {
+        prefs.edit().putFloat(KEY_TTS_PITCH, pitch.coerceIn(0.5f, 2.0f)).apply()
     }
 }

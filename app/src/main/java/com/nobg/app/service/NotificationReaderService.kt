@@ -246,6 +246,7 @@ class NotificationReaderService : NotificationListenerService() {
     /** Phát TTS với Audio Focus Ducking và âm lượng tùy chỉnh */
     private fun speakWithAudioFocus(text: String) {
         tts?.setSpeechRate(repo.getTtsSpeechRate())
+        tts?.setPitch(repo.getTtsPitch())
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_NOTIFICATION)
@@ -256,22 +257,30 @@ class NotificationReaderService : NotificationListenerService() {
             .setAudioAttributes(audioAttributes)
             .build()
 
-        audioManager.requestAudioFocus(focusRequest)
+        val duckingEnabled = repo.isNotifReadDuckingEnabled()
+        if (duckingEnabled) {
+            audioManager.requestAudioFocus(focusRequest)
+        }
 
         val utteranceId = "notif_${System.currentTimeMillis()}"
 
         // Thiết lập âm lượng TTS từ preference (0.0f đến 1.0f)
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, repo.getTtsVolume())
+            putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, repo.getTtsPan())
         }
 
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
             override fun onDone(id: String?) {
-                audioManager.abandonAudioFocusRequest(focusRequest)
+                if (duckingEnabled) {
+                    audioManager.abandonAudioFocusRequest(focusRequest)
+                }
             }
             override fun onError(id: String?) {
-                audioManager.abandonAudioFocusRequest(focusRequest)
+                if (duckingEnabled) {
+                    audioManager.abandonAudioFocusRequest(focusRequest)
+                }
             }
         })
 
