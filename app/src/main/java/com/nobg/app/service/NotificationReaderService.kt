@@ -201,23 +201,23 @@ class NotificationReaderService : NotificationListenerService() {
 
         return when (config.readMode) {
             NotificationReadMode.APP_NAME_ONLY ->
-                "Thông báo từ $appName"
+                appName
 
             NotificationReadMode.FULL_CONTENT -> {
-                val parts = mutableListOf("Thông báo từ $appName")
-                if (title.isNotBlank()) parts.add(title)
+                val parts = mutableListOf(appName)
+                if (title.isNotBlank() && !title.equals(appName, ignoreCase = true)) parts.add(title)
                 if (content.isNotBlank()) parts.add(content)
                 parts.joinToString(". ")
             }
 
             NotificationReadMode.SMART_CHAT -> {
                 if (sender.isNotBlank()) {
-                    val parts = mutableListOf("Tin nhắn từ $sender trên $appName")
+                    val parts = mutableListOf("$sender trên $appName")
                     if (content.isNotBlank()) parts.add(content)
                     parts.joinToString(". ")
                 } else {
-                    val parts = mutableListOf("Thông báo từ $appName")
-                    if (title.isNotBlank()) parts.add(title)
+                    val parts = mutableListOf(appName)
+                    if (title.isNotBlank() && !title.equals(appName, ignoreCase = true)) parts.add(title)
                     if (content.isNotBlank()) parts.add(content)
                     parts.joinToString(". ")
                 }
@@ -225,9 +225,9 @@ class NotificationReaderService : NotificationListenerService() {
 
             NotificationReadMode.SENDER_ONLY -> {
                 if (sender.isNotBlank()) {
-                    "Tin nhắn từ $sender"
+                    sender
                 } else {
-                    "Thông báo từ $appName"
+                    appName
                 }
             }
         }

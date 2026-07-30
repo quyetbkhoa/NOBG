@@ -352,7 +352,8 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 val params = android.os.Bundle().apply {
                     putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, _ttsVolume.value)
                 }
-                testTts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "test_tts")
+                val speechContent = if (text.isNotBlank()) text else "Nguyễn Đức Quyết trên Messenger. Hồi nữa gặp nhau nhé!"
+                testTts?.speak(speechContent, TextToSpeech.QUEUE_FLUSH, params, "test_tts")
             }
         }
     }

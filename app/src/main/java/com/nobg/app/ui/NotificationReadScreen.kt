@@ -232,7 +232,7 @@ fun NotificationReadScreen(
                         // Nút test TTS
                         OutlinedButton(
                             onClick = {
-                                viewModel.testTts("Đây là giọng đọc thử nghiệm từ NOBG. Tin nhắn từ Nguyễn Văn A trên Zalo: Hồi nữa gặp nhau nhé!")
+                                viewModel.testTts("Nguyễn Đức Quyết trên Messenger. Hồi nữa gặp nhau nhé!")
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
