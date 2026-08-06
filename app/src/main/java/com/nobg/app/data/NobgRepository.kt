@@ -462,7 +462,11 @@ class NobgRepository(private val context: Context) {
     // --- NOTIFICATION READ CONFIG ---
     fun observeNotifReadConfigs(): kotlinx.coroutines.flow.Flow<List<NotificationReadConfigEntity>> = notificationReadDao.observeAll()
 
-    suspend fun getNotifReadConfig(pkg: String): NotificationReadConfigEntity? = notificationReadDao.get(pkg)
+    suspend fun getNotifReadConfig(pkg: String, userId: Int = 0): NotificationReadConfigEntity? =
+        notificationReadDao.get(pkg, userId)
+
+    suspend fun getNotifReadConfigById(id: String): NotificationReadConfigEntity? =
+        notificationReadDao.getById(id)
 
     suspend fun getAllEnabledNotifRead(): List<NotificationReadConfigEntity> = notificationReadDao.getAllEnabled()
 
@@ -470,11 +474,14 @@ class NobgRepository(private val context: Context) {
         pkg: String,
         isEnabled: Boolean,
         readMode: NotificationReadMode,
-        keywordFilter: String = ""
+        keywordFilter: String = "",
+        userId: Int = 0
     ) {
         notificationReadDao.upsert(
             NotificationReadConfigEntity(
+                id = NotificationReadConfigEntity.makeId(pkg, userId),
                 packageName = pkg,
+                userId = userId,
                 isEnabled = isEnabled,
                 readMode = readMode,
                 keywordFilter = keywordFilter
@@ -482,7 +489,8 @@ class NobgRepository(private val context: Context) {
         )
     }
 
-    suspend fun deleteNotifReadConfig(pkg: String) = notificationReadDao.delete(pkg)
+    suspend fun deleteNotifReadConfig(pkg: String, userId: Int = 0) =
+        notificationReadDao.delete(NotificationReadConfigEntity.makeId(pkg, userId))
 
     suspend fun setAllNotifRead(enabled: Boolean) {
         val all = notificationReadDao.getAll()

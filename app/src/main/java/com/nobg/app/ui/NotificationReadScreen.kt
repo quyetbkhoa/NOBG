@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -461,12 +463,12 @@ fun NotificationReadScreen(
             }
 
             // ===== Danh sách App =====
-            items(apps, key = { it.packageName }) { app ->
+            items(apps, key = { it.id }) { app ->
                 NotificationReadAppItem(
                     app = app,
-                    onToggleEnabled = { viewModel.toggleAppEnabled(app.packageName, it) },
-                    onSetReadMode = { viewModel.setAppReadMode(app.packageName, it) },
-                    onSetKeywordFilter = { viewModel.setAppKeywordFilter(app.packageName, it) }
+                    onToggleEnabled = { viewModel.toggleAppEnabled(app.id, it) },
+                    onSetReadMode = { viewModel.setAppReadMode(app.id, it) },
+                    onSetKeywordFilter = { viewModel.setAppKeywordFilter(app.id, it) }
                 )
             }
 
@@ -520,6 +522,21 @@ private fun NotificationReadAppItem(
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
+                        if (app.isSecondarySpace) {
+                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    "Không gian 2",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                     }
                     Text(
                         app.packageName,

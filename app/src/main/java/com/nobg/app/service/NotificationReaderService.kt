@@ -14,6 +14,7 @@ import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import androidx.core.text.isDigitsOnly
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
@@ -29,7 +30,7 @@ class NotificationReaderService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "NotifReaderService"
-        private const val DEBOUNCE_MS = 3000L // Cooldown 3 giây cho mỗi package
+        private const val DEBOUNCE_MS = 1500L // Cooldown 1.5 giây cho mỗi package
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -81,7 +82,15 @@ class NotificationReaderService : NotificationListenerService() {
             try {
                 if (!shouldRead(sbn)) return@launch
 
-                val config = repo.getNotifReadConfig(sbn.packageName) ?: return@launch
+                // Lấy cấu hình theo không gian người dùng (Không gian 2 có userId riêng),
+                // fallback về cấu hình của user chính nếu chưa cấu hình riêng
+                // Lưu ý: UserHandle.identifier bị @hide, nên dùng hashCode() (AOSP: hashCode() == identifier)
+                val userId = sbn.user.hashCode()
+                var config = repo.getNotifReadConfig(sbn.packageName, userId)
+                if (config == null && userId != 0) {
+                    config = repo.getNotifReadConfig(sbn.packageName, 0)
+                }
+                if (config == null) return@launch
                 if (!config.isEnabled) return@launch
 
                 // Kiểm tra bộ lọc từ khóa
@@ -156,12 +165,32 @@ class NotificationReaderService : NotificationListenerService() {
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
-        val combinedContent = "$title $text $bigText".lowercase()
+        val textLines = extractTextLines(extras)
+        val combinedContent = "$title $text $bigText ${textLines.joinToString(" ")}".lowercase()
 
         val keywords = filter.split(",", ";").map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         if (keywords.isEmpty()) return true
 
         return keywords.any { combinedContent.contains(it) }
+    }
+
+    /** Lấy toàn bộ các dòng văn bản (chat apps hay dùng EXTRA_TEXT_LINES) */
+    private fun extractTextLines(extras: Bundle?): List<String> {
+        val lines = extras?.getCharSequenceArray(Notification.EXTRA_TEXT_LINES) ?: return emptyList()
+        return lines.filterNotNull().map { it.toString() }
+    }
+
+    /** Lấy nội dung đầy đủ nhất có thể từ Notification (kể cả tin nhắn dài) */
+    private fun extractContent(extras: Bundle?): String {
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+        val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
+        val lines = extractTextLines(extras)
+
+        val parts = mutableListOf<String>()
+        if (text.isNotBlank()) parts.add(text)
+        if (bigText.isNotBlank() && bigText != text) parts.add(bigText)
+        parts.addAll(lines.filter { it.isNotBlank() && it != text && it != bigText })
+        return parts.joinToString(". ")
     }
 
     /** Trích xuất tên người gửi thông minh từ Notification */
@@ -174,6 +203,9 @@ class NotificationReaderService : NotificationListenerService() {
         if (title.isNullOrBlank()) {
             title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
         }
+        if (title.isNullOrBlank()) {
+            title = extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim()
+        }
 
         if (title.isNullOrBlank()) return ""
 
@@ -182,7 +214,8 @@ class NotificationReaderService : NotificationListenerService() {
             title.equals("Zalo", ignoreCase = true) ||
             title.equals("Messenger", ignoreCase = true) ||
             title.contains("tin nhắn mới", ignoreCase = true) ||
-            title.contains("new message", ignoreCase = true)
+            title.contains("new message", ignoreCase = true) ||
+            title.isDigitsOnly()
         ) {
             return ""
         }
@@ -196,7 +229,7 @@ class NotificationReaderService : NotificationListenerService() {
         val appName = getAppLabel(sbn.packageName)
         val extras = sbn.notification.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
-        val content = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+        val content = extractContent(extras)
         val sender = extractSenderName(sbn)
 
         return when (config.readMode) {
@@ -205,7 +238,9 @@ class NotificationReaderService : NotificationListenerService() {
 
             NotificationReadMode.FULL_CONTENT -> {
                 val parts = mutableListOf(appName)
-                if (title.isNotBlank() && !title.equals(appName, ignoreCase = true)) parts.add(title)
+                if (title.isNotBlank() && !title.equals(appName, ignoreCase = true) &&
+                    !title.isDigitsOnly()
+                ) parts.add(title)
                 if (content.isNotBlank()) parts.add(content)
                 parts.joinToString(". ")
             }
@@ -217,7 +252,9 @@ class NotificationReaderService : NotificationListenerService() {
                     parts.joinToString(". ")
                 } else {
                     val parts = mutableListOf(appName)
-                    if (title.isNotBlank() && !title.equals(appName, ignoreCase = true)) parts.add(title)
+                    if (title.isNotBlank() && !title.equals(appName, ignoreCase = true) &&
+                        !title.isDigitsOnly()
+                    ) parts.add(title)
                     if (content.isNotBlank()) parts.add(content)
                     parts.joinToString(". ")
                 }
@@ -253,14 +290,19 @@ class NotificationReaderService : NotificationListenerService() {
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
 
-        val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        val duckingEnabled = repo.isNotifReadDuckingEnabled()
+
+        val focusRequest = AudioFocusRequest.Builder(
+            if (duckingEnabled) AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            else AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+        )
             .setAudioAttributes(audioAttributes)
             .build()
 
-        val duckingEnabled = repo.isNotifReadDuckingEnabled()
-        if (duckingEnabled) {
-            audioManager.requestAudioFocus(focusRequest)
-        }
+        // Luôn xin Audio Focus (kể cả khi tắt màn hình) để đảm bảo TTS được phát trên mọi ROM,
+        // ví dụ Vivo/Xiaomi thường chặn âm thanh nền nếu không có focus
+        val focusResult = audioManager.requestAudioFocus(focusRequest)
+        val hasFocus = focusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
 
         val utteranceId = "notif_${System.currentTimeMillis()}"
 
@@ -273,12 +315,12 @@ class NotificationReaderService : NotificationListenerService() {
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
             override fun onDone(id: String?) {
-                if (duckingEnabled) {
+                if (hasFocus) {
                     audioManager.abandonAudioFocusRequest(focusRequest)
                 }
             }
             override fun onError(id: String?) {
-                if (duckingEnabled) {
+                if (hasFocus) {
                     audioManager.abandonAudioFocusRequest(focusRequest)
                 }
             }

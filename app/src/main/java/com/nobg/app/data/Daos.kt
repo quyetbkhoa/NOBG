@@ -110,8 +110,11 @@ interface NotificationReadDao {
     @Query("SELECT * FROM notification_read_config")
     suspend fun getAll(): List<NotificationReadConfigEntity>
 
-    @Query("SELECT * FROM notification_read_config WHERE packageName = :pkg")
-    suspend fun get(pkg: String): NotificationReadConfigEntity?
+    @Query("SELECT * FROM notification_read_config WHERE packageName = :pkg AND userId = :userId")
+    suspend fun get(pkg: String, userId: Int): NotificationReadConfigEntity?
+
+    @Query("SELECT * FROM notification_read_config WHERE id = :id")
+    suspend fun getById(id: String): NotificationReadConfigEntity?
 
     @Query("SELECT * FROM notification_read_config WHERE isEnabled = 1")
     suspend fun getAllEnabled(): List<NotificationReadConfigEntity>
@@ -119,8 +122,8 @@ interface NotificationReadDao {
     @Upsert
     suspend fun upsert(entity: NotificationReadConfigEntity)
 
-    @Query("DELETE FROM notification_read_config WHERE packageName = :pkg")
-    suspend fun delete(pkg: String)
+    @Query("DELETE FROM notification_read_config WHERE id = :id")
+    suspend fun delete(id: String)
 
     @Query("DELETE FROM notification_read_config")
     suspend fun deleteAll()

@@ -41,7 +41,7 @@ class Converters {
         NotificationReadConfigEntity::class,
         SelectedBluetoothDeviceEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -84,6 +84,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Đổi khóa chính sang "packageName#userId" để tách app Không gian 2
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS notification_read_config_new (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        packageName TEXT NOT NULL,
+                        userId INTEGER NOT NULL DEFAULT 0,
+                        isEnabled INTEGER NOT NULL DEFAULT 1,
+                        readMode TEXT NOT NULL DEFAULT 'FULL_CONTENT',
+                        keywordFilter TEXT NOT NULL DEFAULT ''
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO notification_read_config_new (id, packageName, userId, isEnabled, readMode, keywordFilter)
+                    SELECT packageName || '#0', packageName, 0, isEnabled, readMode, keywordFilter
+                    FROM notification_read_config
+                """.trimIndent())
+                db.execSQL("DROP TABLE notification_read_config")
+                db.execSQL("ALTER TABLE notification_read_config_new RENAME TO notification_read_config")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -91,7 +114,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "nobg.db"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

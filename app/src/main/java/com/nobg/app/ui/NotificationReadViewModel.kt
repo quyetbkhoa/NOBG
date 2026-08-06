@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.nobg.app.data.NobgRepository
+import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -23,7 +24,9 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 data class NotifReadAppUiModel(
+    val id: String,
     val packageName: String,
+    val userId: Int,
     val label: String,
     val icon: Drawable?,
     val isEnabled: Boolean,
@@ -115,13 +118,14 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
             val ctx = getApplication<Application>()
             val pm = ctx.packageManager
             val showSystem = _includeSystemApps.value
+            // UserHandle.identifier bị @hide, dùng hashCode() (AOSP: hashCode() == identifier)
+            val myUserId = android.os.Process.myUserHandle().hashCode()
 
             val appMap = mutableMapOf<String, NotifReadAppUiModel>()
             val configs = repo.observeNotifReadConfigs().first()
-            val configMap = configs.associateBy { it.packageName }
+            val configMap = configs.associateBy { it.id }
 
-            // 1. Quét app mặc định
-
+            // 1. Quét app của chính không gian hiện tại
             val installedApps = pm.getInstalledApplications(0)
                 .filter { appInfo ->
                     if (appInfo.packageName == ctx.packageName) return@filter false
@@ -131,9 +135,12 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
             installedApps.forEach { appInfo ->
-                val cfg = configMap[appInfo.packageName]
-                appMap[appInfo.packageName] = NotifReadAppUiModel(
+                val id = NotificationReadConfigEntity.makeId(appInfo.packageName, myUserId)
+                val cfg = configMap[id]
+                appMap[id] = NotifReadAppUiModel(
+                    id = id,
                     packageName = appInfo.packageName,
+                    userId = myUserId,
                     label = pm.getApplicationLabel(appInfo).toString(),
                     icon = try { pm.getApplicationIcon(appInfo) } catch (_: Exception) { null },
                     isEnabled = cfg?.isEnabled ?: false,
@@ -144,43 +151,41 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             // 2. Quét Không gian thứ 2 / Dual Apps / Work Profiles bằng LauncherApps
+            // Mỗi profile người dùng là 1 mục RIÊNG (không gộp vào app chính)
             try {
                 val userManager = ctx.getSystemService(Context.USER_SERVICE) as? UserManager
                 val launcherApps = ctx.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
 
                 if (userManager != null && launcherApps != null) {
                     val profiles = userManager.userProfiles
-                    val myUserHandle = android.os.Process.myUserHandle()
 
                     for (profile in profiles) {
-                        val isSecondary = profile != myUserHandle
+                        // hashCode() của UserHandle == identifier (theo AOSP)
+                        if (profile.hashCode() == myUserId) continue
                         val activityList = launcherApps.getActivityList(null, profile)
                         for (item in activityList) {
                             val pkg = item.applicationInfo.packageName
                             if (pkg == ctx.packageName) continue
 
-                            val existing = appMap[pkg]
-                            val cfg = configMap[pkg]
+                            val id = NotificationReadConfigEntity.makeId(pkg, profile.hashCode())
+                            if (appMap.containsKey(id)) continue
+
+                            val cfg = configMap[id]
                             val rawLabel = item.label?.toString() ?: pkg
+                            val cleanLabel = rawLabel
+                                .replace(" (Không gian 2)", "")
+                                .replace(" (Cả 2 không gian)", "")
 
-                            val finalLabel = when {
-                                existing != null && isSecondary -> {
-                                    val cleanLabel = existing.label.replace(" (Không gian 2)", "").replace(" (Cả 2 không gian)", "")
-                                    "$cleanLabel (Cả 2 không gian)"
-                                }
-                                isSecondary -> "$rawLabel (Không gian 2)"
-                                existing != null -> existing.label
-                                else -> rawLabel
-                            }
-
-                            appMap[pkg] = NotifReadAppUiModel(
+                            appMap[id] = NotifReadAppUiModel(
+                                id = id,
                                 packageName = pkg,
-                                label = finalLabel,
-                                icon = existing?.icon ?: try { item.getBadgedIcon(0) } catch (_: Exception) { null },
-                                isEnabled = cfg?.isEnabled ?: existing?.isEnabled ?: false,
-                                readMode = cfg?.readMode ?: existing?.readMode ?: NotificationReadMode.FULL_CONTENT,
-                                keywordFilter = cfg?.keywordFilter ?: existing?.keywordFilter ?: "",
-                                isSecondarySpace = isSecondary || existing?.isSecondarySpace == true
+                                userId = profile.hashCode(),
+                                label = "$cleanLabel (Không gian 2)",
+                                icon = try { item.getBadgedIcon(0) } catch (_: Exception) { null },
+                                isEnabled = cfg?.isEnabled ?: false,
+                                readMode = cfg?.readMode ?: NotificationReadMode.FULL_CONTENT,
+                                keywordFilter = cfg?.keywordFilter ?: "",
+                                isSecondarySpace = true
                             )
                         }
                     }
@@ -242,40 +247,46 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         _searchQuery.value = query
     }
 
-    fun toggleAppEnabled(pkg: String, enabled: Boolean) {
+    fun toggleAppEnabled(id: String, enabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val existing = repo.getNotifReadConfig(pkg)
+            val existing = repo.getNotifReadConfigById(id)
             val mode = existing?.readMode ?: NotificationReadMode.FULL_CONTENT
             val filter = existing?.keywordFilter ?: ""
-            repo.setNotifReadConfig(pkg, enabled, mode, filter)
-            reloadAppConfig(pkg)
+            val pkg = id.substringBeforeLast("#")
+            val userId = id.substringAfterLast("#").toIntOrNull() ?: 0
+            repo.setNotifReadConfig(pkg, enabled, mode, filter, userId)
+            reloadAppConfig(id)
         }
     }
 
-    fun setAppReadMode(pkg: String, mode: NotificationReadMode) {
+    fun setAppReadMode(id: String, mode: NotificationReadMode) {
         viewModelScope.launch(Dispatchers.IO) {
-            val existing = repo.getNotifReadConfig(pkg)
+            val existing = repo.getNotifReadConfigById(id)
             val enabled = existing?.isEnabled ?: true
             val filter = existing?.keywordFilter ?: ""
-            repo.setNotifReadConfig(pkg, enabled, mode, filter)
-            reloadAppConfig(pkg)
+            val pkg = id.substringBeforeLast("#")
+            val userId = id.substringAfterLast("#").toIntOrNull() ?: 0
+            repo.setNotifReadConfig(pkg, enabled, mode, filter, userId)
+            reloadAppConfig(id)
         }
     }
 
-    fun setAppKeywordFilter(pkg: String, filter: String) {
+    fun setAppKeywordFilter(id: String, filter: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val existing = repo.getNotifReadConfig(pkg)
+            val existing = repo.getNotifReadConfigById(id)
             val enabled = existing?.isEnabled ?: true
             val mode = existing?.readMode ?: NotificationReadMode.FULL_CONTENT
-            repo.setNotifReadConfig(pkg, enabled, mode, filter)
-            reloadAppConfig(pkg)
+            val pkg = id.substringBeforeLast("#")
+            val userId = id.substringAfterLast("#").toIntOrNull() ?: 0
+            repo.setNotifReadConfig(pkg, enabled, mode, filter, userId)
+            reloadAppConfig(id)
         }
     }
 
-    private suspend fun reloadAppConfig(pkg: String) {
-        val cfg = repo.getNotifReadConfig(pkg)
+    private suspend fun reloadAppConfig(id: String) {
+        val cfg = repo.getNotifReadConfigById(id)
         _apps.value = _apps.value.map {
-            if (it.packageName == pkg) {
+            if (it.id == id) {
                 it.copy(
                     isEnabled = cfg?.isEnabled ?: false,
                     readMode = cfg?.readMode ?: NotificationReadMode.FULL_CONTENT,
@@ -332,10 +343,10 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     fun enableAllApps() {
         viewModelScope.launch(Dispatchers.IO) {
             for (app in _apps.value) {
-                val existing = repo.getNotifReadConfig(app.packageName)
+                val existing = repo.getNotifReadConfigById(app.id)
                 val mode = existing?.readMode ?: NotificationReadMode.FULL_CONTENT
                 val filter = existing?.keywordFilter ?: ""
-                repo.setNotifReadConfig(app.packageName, true, mode, filter)
+                repo.setNotifReadConfig(app.packageName, true, mode, filter, app.userId)
             }
             _apps.value = _apps.value.map { it.copy(isEnabled = true) }
         }
@@ -344,10 +355,10 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     fun disableAllApps() {
         viewModelScope.launch(Dispatchers.IO) {
             for (app in _apps.value) {
-                val existing = repo.getNotifReadConfig(app.packageName)
+                val existing = repo.getNotifReadConfigById(app.id)
                 val mode = existing?.readMode ?: NotificationReadMode.FULL_CONTENT
                 val filter = existing?.keywordFilter ?: ""
-                repo.setNotifReadConfig(app.packageName, false, mode, filter)
+                repo.setNotifReadConfig(app.packageName, false, mode, filter, app.userId)
             }
             _apps.value = _apps.value.map { it.copy(isEnabled = false) }
         }
@@ -356,10 +367,10 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     fun setAllReadMode(mode: NotificationReadMode) {
         viewModelScope.launch(Dispatchers.IO) {
             for (app in _apps.value) {
-                val existing = repo.getNotifReadConfig(app.packageName)
+                val existing = repo.getNotifReadConfigById(app.id)
                 val enabled = existing?.isEnabled ?: app.isEnabled
                 val filter = existing?.keywordFilter ?: ""
-                repo.setNotifReadConfig(app.packageName, enabled, mode, filter)
+                repo.setNotifReadConfig(app.packageName, enabled, mode, filter, app.userId)
             }
             _apps.value = _apps.value.map { it.copy(readMode = mode) }
         }
