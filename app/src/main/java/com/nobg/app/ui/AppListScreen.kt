@@ -30,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nobg.app.data.NobgMode
@@ -47,7 +46,6 @@ fun AppListScreen(
     onOpenFreezerShelf: () -> Unit,
     onOpenSmartTimer: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val apps by viewModel.appList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -63,7 +61,6 @@ fun AppListScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedAppForDialog by remember { mutableStateOf<AppUiModel?>(null) }
-    var autoUpdateInfo by remember { mutableStateOf<com.nobg.app.update.UpdateInfo?>(null) }
 
     val pullToRefreshState = rememberPullToRefreshState()
     if (pullToRefreshState.isRefreshing != isRefreshing) {
@@ -81,18 +78,6 @@ fun AppListScreen(
 
     LaunchedEffect(Unit) {
         viewModel.refreshShizukuStatus()
-        val result = com.nobg.app.update.GitHubUpdater.checkForUpdates(context)
-        if (result is com.nobg.app.update.UpdateResult.UpdateAvailable) {
-            autoUpdateInfo = result.info
-        }
-    }
-
-    if (autoUpdateInfo != null) {
-        com.nobg.app.update.AutoUpdateDialog(
-            updateInfo = autoUpdateInfo!!,
-            context = context,
-            onDismiss = { autoUpdateInfo = null }
-        )
     }
 
     if (showFilterSheet) {
