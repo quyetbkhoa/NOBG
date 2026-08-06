@@ -113,8 +113,9 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
         app.startService(intent)
     }
 
-    fun startQuickPreset(durationMins: Int, intervalMins: Int, autoShutdown: Boolean) {
+    fun applyPreset(mode: SmartTimerMode, durationMins: Int, intervalMins: Int, autoShutdown: Boolean) {
         val updated = _configState.value.copy(
+            mode = mode,
             durationMinutes = durationMins,
             intervalMinutes = intervalMins,
             autoShutdown = autoShutdown,

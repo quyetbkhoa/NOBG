@@ -33,7 +33,7 @@ class SmartTimerService : Service() {
 
         const val ACTION_START = "com.nobg.app.action.SMART_TIMER_START"
         const val ACTION_STOP = "com.nobg.app.action.SMART_TIMER_STOP"
-        const val ACTION_TOGGLE_QUICK_1H = "com.nobg.app.action.SMART_TIMER_TOGGLE_1H"
+        const val ACTION_TOGGLE_QUICK_DEFAULT = "com.nobg.app.action.SMART_TIMER_TOGGLE_DEFAULT"
         const val ACTION_TOGGLE_QUICK_15M = "com.nobg.app.action.SMART_TIMER_TOGGLE_15M"
 
         @Volatile
@@ -92,7 +92,7 @@ class SmartTimerService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_TOGGLE_QUICK_1H -> {
+            ACTION_TOGGLE_QUICK_DEFAULT -> {
                 if (currentConfig.isRunning) {
                     stopSmartTimer()
                     stopSelf()
@@ -100,7 +100,8 @@ class SmartTimerService : Service() {
                 } else {
                     val quickCfg = repo.getSmartTimerConfig().copy(
                         isRunning = true,
-                        intervalMinutes = 1,
+                        mode = SmartTimerMode.CLOCK_TIME,
+                        intervalMinutes = 2,
                         durationMinutes = 60,
                         startTimeMillis = System.currentTimeMillis()
                     )

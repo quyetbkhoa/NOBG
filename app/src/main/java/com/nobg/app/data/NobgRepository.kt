@@ -557,12 +557,12 @@ class NobgRepository(private val context: Context) {
     }
 
     fun getSmartTimerConfig(): SmartTimerConfig {
-        val modeStr = prefs.getString("smart_timer_mode", SmartTimerMode.ELAPSED_TIME.name)
-        val mode = try { SmartTimerMode.valueOf(modeStr ?: SmartTimerMode.ELAPSED_TIME.name) } catch (_: Exception) { SmartTimerMode.ELAPSED_TIME }
+        val modeStr = prefs.getString("smart_timer_mode", SmartTimerMode.CLOCK_TIME.name)
+        val mode = try { SmartTimerMode.valueOf(modeStr ?: SmartTimerMode.CLOCK_TIME.name) } catch (_: Exception) { SmartTimerMode.CLOCK_TIME }
         return SmartTimerConfig(
             isRunning = prefs.getBoolean("smart_timer_running", false),
             mode = mode,
-            intervalMinutes = prefs.getInt("smart_timer_interval", 1),
+            intervalMinutes = prefs.getInt("smart_timer_interval", 2),
             durationMinutes = prefs.getInt("smart_timer_duration", 60),
             autoShutdown = prefs.getBoolean("smart_timer_auto_shutdown", false),
             volume = prefs.getFloat("smart_timer_volume", 1.0f),

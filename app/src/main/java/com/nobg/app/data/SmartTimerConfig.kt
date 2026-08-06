@@ -7,8 +7,8 @@ enum class SmartTimerMode {
 
 data class SmartTimerConfig(
     val isRunning: Boolean = false,
-    val mode: SmartTimerMode = SmartTimerMode.ELAPSED_TIME,
-    val intervalMinutes: Int = 1,
+    val mode: SmartTimerMode = SmartTimerMode.CLOCK_TIME,
+    val intervalMinutes: Int = 2,
     val durationMinutes: Int = 60,
     val autoShutdown: Boolean = false,
     val volume: Float = 1.0f,

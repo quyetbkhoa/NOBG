@@ -65,13 +65,13 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_timer_widget_status, statusText)
                 views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#38BDF8"))
             } else {
-                views.setTextViewText(R.id.tv_timer_widget_status, "1h (1p/lần)")
+                views.setTextViewText(R.id.tv_timer_widget_status, "1h (2p/lần)")
                 views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#94A3B8"))
             }
 
-            // Click action: Toggle 1h - 1p/min Smart Timer
+            // Click action: Toggle the default preset (1h - 2p/min - real clock time)
             val toggleIntent = Intent(context, SmartTimerService::class.java).apply {
-                action = SmartTimerService.ACTION_TOGGLE_QUICK_1H
+                action = SmartTimerService.ACTION_TOGGLE_QUICK_DEFAULT
             }
             val pendingToggle = PendingIntent.getService(
                 context,
