@@ -142,15 +142,14 @@ fun NotificationReadScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "⚙️ CẤU HÌNH CHUNG & ÂM LƯỢNG",
+                            "⚙️ Cấu hình chung & âm lượng",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(12.dp))
 
@@ -306,7 +305,7 @@ fun NotificationReadScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -316,7 +315,7 @@ fun NotificationReadScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "🎧 THIẾT BỊ BLUETOOTH ĐƯỢC PHÉP ĐỌC",
+                                    "🎧 Thiết bị Bluetooth được phép đọc",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary
@@ -391,15 +390,14 @@ fun NotificationReadScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "⚡ THAO TÁC NHANH HÀNG LOẠT",
+                            "⚡ Thao tác nhanh hàng loạt",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(8.dp))
                         Row(

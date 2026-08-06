@@ -174,8 +174,8 @@ private fun EventTimelineCard(stats: AppDetailStats) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LegendItem(color = Color(0xFF8A9EFF), label = "Tiền cảnh")
-                LegendItem(color = Color(0xFFE08BB7), label = "Dịch vụ nền")
+                LegendItem(color = MaterialTheme.colorScheme.primary, label = "Tiền cảnh")
+                LegendItem(color = MaterialTheme.colorScheme.tertiary, label = "Dịch vụ nền")
             }
 
             // Timeline Canvas
@@ -257,8 +257,8 @@ private fun TimelineChart(
     modifier: Modifier = Modifier
 ) {
     val trackBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    val fgColor = Color(0xFF8A9EFF)
-    val serviceColor = Color(0xFFE08BB7)
+    val fgColor = MaterialTheme.colorScheme.primary
+    val serviceColor = MaterialTheme.colorScheme.tertiary
 
     Canvas(modifier = modifier.clip(RoundedCornerShape(12.dp))) {
         val totalMs = (endTimeMs - startTimeMs).toFloat().coerceAtLeast(1f)

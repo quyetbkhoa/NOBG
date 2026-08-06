@@ -12,12 +12,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -31,7 +33,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.nobg.app.data.NobgMode
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -113,13 +114,22 @@ fun AppListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("⚡ NOBG — Anti-Background", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("NOBG", fontWeight = FontWeight.Bold)
+                        Text(
+                            "  ·  Anti-Background",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onOpenSmartTimer) {
-                        Text("⏱️", fontSize = 18.sp)
+                        Icon(Icons.Filled.Timer, contentDescription = "Đếm giờ thông minh")
                     }
                     IconButton(onClick = onOpenFreezerShelf) {
-                        Text("🧊", fontSize = 18.sp)
+                        Icon(Icons.Filled.AcUnit, contentDescription = "Kệ Đóng Bằng")
                     }
                     IconButton(onClick = onOpenBatteryStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin")
@@ -141,7 +151,7 @@ fun AppListScreen(
                 onValueChange = viewModel::setSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text("Tìm ứng dụng...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
@@ -152,7 +162,7 @@ fun AppListScreen(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             )
 
             Row(
@@ -259,13 +269,16 @@ fun AppListScreen(
                     .fillMaxSize()
                     .nestedScroll(pullToRefreshState.nestedScrollConnection)
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     items(apps, key = { it.packageName }) { app ->
                         AppRow(
                             app = app,
                             onOpenDialog = { selectedAppForDialog = app }
                         )
-                        HorizontalDivider()
                     }
                 }
 
@@ -290,76 +303,88 @@ private fun AppRow(
     val formattedSize = remember(app.appSizeBytes) { formatAppSize(app.appSizeBytes) }
     val formattedDate = remember(app.installTimeMs) { formatInstallDate(app.installTimeMs) }
 
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpenDialog)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(onClick = onOpenDialog),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (enabled)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        )
     ) {
-        DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
-                if (formattedSize.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                    if (formattedSize.isNotEmpty()) {
+                        Text(
+                            formattedSize,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        formattedSize,
+                        app.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (formattedDate.isNotEmpty()) {
+                        Text(
+                            formattedDate,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    PowerBadge(state = app.powerState)
+                    NobgBadge(
+                        enabled = enabled,
+                        mode = config?.mode ?: NobgMode.STANDARD,
+                        delaySeconds = config?.delaySeconds ?: 30
+                    )
+                    if (app.isFrozenShelf) {
+                        FrozenShelfBadge()
+                    }
+                    if (app.isDisabled) {
+                        DisabledBadge()
+                    }
+                }
+                if (config != null && config.blockedCount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Đã chặn ${config.blockedCount} lần",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.SemiBold
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    app.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f)
-                )
-                if (formattedDate.isNotEmpty()) {
-                    Text(
-                        formattedDate,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PowerBadge(state = app.powerState)
-                NobgBadge(
-                    enabled = enabled,
-                    mode = config?.mode ?: NobgMode.STANDARD,
-                    delaySeconds = config?.delaySeconds ?: 30
-                )
-                if (app.isFrozenShelf) {
-                    FrozenShelfBadge()
-                }
-                if (app.isDisabled) {
-                    DisabledBadge()
-                }
-            }
-            if (config != null && config.blockedCount > 0) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Đã chặn ${config.blockedCount} lần",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
             }
         }
     }
@@ -368,15 +393,26 @@ private fun AppRow(
 @Composable
 private fun FrozenShelfBadge() {
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = MaterialTheme.shapes.extraSmall,
         color = MaterialTheme.colorScheme.tertiaryContainer
     ) {
-        Text(
-            text = "🧊 Kệ Đóng Bằng",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Icon(
+                Icons.Filled.AcUnit,
+                contentDescription = null,
+                modifier = Modifier.size(10.dp),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Text(
+                text = "Kệ Đóng Bằng",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        }
     }
 }
 

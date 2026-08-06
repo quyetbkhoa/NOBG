@@ -82,7 +82,7 @@ fun BatteryStatsScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab) {
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -289,7 +289,7 @@ private fun AppUsageRow(item: UsageItem, maxMah: Double, onClick: () -> Unit) {
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(50)),
-                color = lerp(Color(0xFF4CAF50), Color(0xFFF44336), fraction),
+                color = lerp(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.error, fraction),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
