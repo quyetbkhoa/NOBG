@@ -38,7 +38,7 @@ class GeminiApiClient(
         private const val RETRY_BASE_DELAY_MS = 500L
 
         val RETRYABLE_TYPES = setOf(
-            GeminiErrorType.RATE_LIMITED,
+            // KHÔNG retry 429: server đang từ chối do quota, retry chỉ làm tăng số request cháy thêm quota phút
             GeminiErrorType.SERVER_ERROR,
             GeminiErrorType.NETWORK,
             GeminiErrorType.TIMEOUT
@@ -214,7 +214,11 @@ class GeminiApiClient(
             404 -> GeminiResult.Error(GeminiErrorType.MODEL_NOT_FOUND, "Model không tồn tại (404): ${serverMessage ?: "kiểm tra tên model"}")
             429 -> GeminiResult.Error(
                 GeminiErrorType.RATE_LIMITED,
-                "Đã vượt giới hạn miễn phí (429). Đợi 1 phút rồi thử lại, hoặc kiểm tra quota tại Google AI Studio."
+                buildString {
+                    append("Đã vượt giới hạn miễn phí (429).")
+                    if (serverMessage != null) append("\nServer: $serverMessage")
+                    append("\nCách xử lý: tạo key MỚI từ aistudio.google.com/apikey (key từ Cloud Console có thể có quota = 0), đợi 1 phút rồi thử lại, hoặc kiểm tra quota tại Google AI Studio.")
+                }
             )
             in 500..599 -> GeminiResult.Error(GeminiErrorType.SERVER_ERROR, "Máy chủ Gemini đang lỗi ($code). Thử lại sau ít phút.")
             else -> GeminiResult.Error(GeminiErrorType.UNKNOWN, "Lỗi không xác định từ server ($code): ${serverMessage ?: ""}")
