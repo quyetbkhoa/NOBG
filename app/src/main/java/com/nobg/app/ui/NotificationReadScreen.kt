@@ -42,6 +42,7 @@ fun NotificationReadScreen(
     val btDevices by viewModel.btDevices.collectAsState()
     val isGlobalEnabled by viewModel.isGlobalEnabled.collectAsState()
     val isOnlySelectedBt by viewModel.isOnlySelectedBt.collectAsState()
+    val hasSelectedDeviceConnected by viewModel.hasSelectedDeviceConnected.collectAsState()
     val speechRate by viewModel.speechRate.collectAsState()
     val ttsVolume by viewModel.ttsVolume.collectAsState()
     val includeSystemApps by viewModel.includeSystemApps.collectAsState()
@@ -337,6 +338,30 @@ fun NotificationReadScreen(
                                 "Tích chọn thiết bị Bluetooth mà bạn muốn kích hoạt đọc thông báo.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(Modifier.height(12.dp))
+
+                            // Dòng trạng thái theo thời gian thực
+                            val hasAnySelected = btDevices.any { it.isSelected }
+                            val (statusText, statusColor) = when {
+                                !hasAnySelected -> Pair(
+                                    "⚠️ Chưa chọn thiết bị nào - sẽ KHÔNG đọc thông báo khi bật chế độ này",
+                                    MaterialTheme.colorScheme.error
+                                )
+                                hasSelectedDeviceConnected -> Pair(
+                                    "✅ Thiết bị được chọn đang kết nối - sẵn sàng đọc thông báo",
+                                    MaterialTheme.colorScheme.primary
+                                )
+                                else -> Pair(
+                                    "⏸️ Chưa kết nối thiết bị được chọn - đang tạm dừng đọc thông báo",
+                                    MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            Text(
+                                statusText,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = statusColor
                             )
                             Spacer(Modifier.height(12.dp))
 

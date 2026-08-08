@@ -8,6 +8,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -138,17 +139,21 @@ class NotificationReaderService : NotificationListenerService() {
             if (selectedDevices.isEmpty()) return false
             val selectedAddresses = selectedDevices.map { it.address }.toSet()
 
+            val profiles = mutableListOf(
+                BluetoothProfile.A2DP,
+                BluetoothProfile.HEADSET
+            )
+            // LE Audio (tai nghe TWS hiện đại kết nối LE Audio là chính) - Android 12+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                profiles.add(BluetoothProfile.LE_AUDIO)
+            }
+
             val connectedAddresses = mutableSetOf<String>()
-
-            try {
-                val a2dpDevices = btManager.getConnectedDevices(BluetoothProfile.A2DP)
-                connectedAddresses.addAll(a2dpDevices.map { it.address })
-            } catch (_: Exception) {}
-
-            try {
-                val headsetDevices = btManager.getConnectedDevices(BluetoothProfile.HEADSET)
-                connectedAddresses.addAll(headsetDevices.map { it.address })
-            } catch (_: Exception) {}
+            for (profile in profiles) {
+                try {
+                    btManager.getConnectedDevices(profile).forEach { connectedAddresses.add(it.address) }
+                } catch (_: Exception) {}
+            }
 
             return connectedAddresses.any { it in selectedAddresses }
         } catch (e: Exception) {

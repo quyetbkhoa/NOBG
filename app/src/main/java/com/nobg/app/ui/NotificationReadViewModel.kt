@@ -1,9 +1,14 @@
 package com.nobg.app.ui
 
 import android.app.Application
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
@@ -89,6 +94,15 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     private val _isNotifListenerEnabled = MutableStateFlow(false)
     val isNotifListenerEnabled: StateFlow<Boolean> = _isNotifListenerEnabled.asStateFlow()
 
+    private val _hasSelectedDeviceConnected = MutableStateFlow(false)
+    val hasSelectedDeviceConnected: StateFlow<Boolean> = _hasSelectedDeviceConnected.asStateFlow()
+
+    private val btStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            refreshBluetoothState()
+        }
+    }
+
     init {
         _isGlobalEnabled.value = repo.isNotifReadGlobalEnabled()
         _isOnlySelectedBt.value = repo.isNotifReadOnlySelectedBt()
@@ -99,6 +113,37 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         _ttsPitch.value = repo.getTtsPitch()
         checkNotifListenerPermission()
         loadUserApps()
+        loadBluetoothDevices()
+        registerBtStateReceiver()
+    }
+
+    override fun onCleared() {
+        try {
+            getApplication<Application>().unregisterReceiver(btStateReceiver)
+        } catch (_: Exception) {}
+        super.onCleared()
+    }
+
+    /** Lắng nghe kết nối/ngắt Bluetooth để cập nhật trạng thái theo thời gian thực */
+    private fun registerBtStateReceiver() {
+        val ctx = getApplication<Application>()
+        val filter = IntentFilter().apply {
+            addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ctx.registerReceiver(btStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                ctx.registerReceiver(btStateReceiver, filter)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun refreshBluetoothState() {
         loadBluetoothDevices()
     }
 
@@ -236,6 +281,7 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 }.sortedWith(compareByDescending<BluetoothDeviceUiModel> { it.isConnected }.thenBy { it.name })
 
                 _btDevices.value = models
+                _hasSelectedDeviceConnected.value = models.any { it.isSelected && it.isConnected }
             } catch (e: Exception) {
                 Log.e("NotifReadVM", "Error loading BT devices", e)
                 _btDevices.value = emptyList()
@@ -334,9 +380,11 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleBtDeviceSelected(addr: String, name: String, selected: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             repo.upsertBtDevice(addr, name, selected)
-            _btDevices.value = _btDevices.value.map {
+            val updated = _btDevices.value.map {
                 if (it.address == addr) it.copy(isSelected = selected) else it
             }
+            _btDevices.value = updated
+            _hasSelectedDeviceConnected.value = updated.any { it.isSelected && it.isConnected }
         }
     }
 
