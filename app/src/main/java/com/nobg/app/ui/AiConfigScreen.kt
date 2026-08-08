@@ -86,6 +86,10 @@ fun AiConfigScreen(
                         testResult = result.message
                         testIsSuccess = false
                     }
+                    is AiResult.ToolCall -> {
+                        testResult = "Kết nối thành công (AI yêu cầu gọi công cụ ${result.name} - bình thường khi chat)."
+                        testIsSuccess = true
+                    }
                 }
             } catch (e: Exception) {
                 testResult = "Lỗi không xác định: ${e.message ?: e.javaClass.simpleName}"
@@ -367,6 +371,12 @@ fun AiConfigScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Bật \"Tóm tắt bằng AI\" và \"Lọc thông báo rác\" tại màn hình 🔔 Đọc thông báo.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "🤖 Trong AI Chat, bạn có thể hỏi về thông tin THẬT trên máy (pin, RAM, dung lượng, thời gian dùng app, app đang cài...) — AI sẽ tự đọc dữ liệu thiết bị.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

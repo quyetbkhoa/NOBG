@@ -36,6 +36,7 @@ class GeminiApiClient(
         private const val MAX_TOKENS = 1024
         private const val RETRY_ATTEMPTS = 2
         private const val RETRY_BASE_DELAY_MS = 500L
+        private const val MAX_TOOL_ROUNDS = 3
 
         val RETRYABLE_TYPES = setOf(
             // KHÔNG retry 429: server đang từ chối do quota, retry chỉ làm tăng số request cháy thêm quota phút
@@ -57,12 +58,16 @@ class GeminiApiClient(
      * @param userPrompt nội dung người dùng
      * @param jsonMode yêu cầu server trả JSON thuần (responseMimeType)
      * @param timeoutMs thời gian tối đa cho toàn bộ lần gọi (bao gồm retry)
+     * @param tools danh sách công cụ (function calling) - null = tắt
+     * @param onToolCall thực thi công cụ cục bộ rồi gửi kết quả ngược cho Gemini
      */
     override suspend fun generateContent(
         systemPrompt: String?,
         userPrompt: String,
         jsonMode: Boolean,
-        timeoutMs: Long
+        timeoutMs: Long,
+        tools: List<AiToolDefinition>?,
+        onToolCall: (suspend (String, JSONObject) -> String)?
     ): AiResult = withContext(Dispatchers.IO) {
         val apiKey = apiKeyProvider().trim()
         if (apiKey.isEmpty()) {
@@ -73,25 +78,58 @@ class GeminiApiClient(
         }
 
         val model = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
-        var lastError: AiResult.Error? = null
+        val contents = JSONArray()
+        if (!systemPrompt.isNullOrBlank()) {
+            contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", systemPrompt))))
+            contents.put(JSONObject().put("role", "model").put("parts", JSONArray().put(JSONObject().put("text", "OK, tôi đã hiểu quy tắc."))))
+        }
+        contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", userPrompt))))
 
-        // Thử model chính, nếu 404 thì fallback model cũ
-        for (attempt in 0..RETRY_ATTEMPTS) {
-            val result = callOnce(systemPrompt, userPrompt, jsonMode, model, apiKey, timeoutMs)
+        var activeTools = tools
+        var lastError: AiResult.Error? = null
+        var toolRounds = 0
+
+        while (toolRounds <= MAX_TOOL_ROUNDS) {
+            val result = callWithRetry(contents, jsonMode, model, apiKey, timeoutMs, activeTools)
             when (result) {
                 is AiResult.Success -> return@withContext result
+                is AiToolCall -> {
+                    if (onToolCall == null) {
+                        return@withContext AiResult.Error(
+                            AiErrorType.UNKNOWN,
+                            "Gemini yêu cầu gọi công cụ \"${result.name}\" nhưng ứng dụng không hỗ trợ."
+                        )
+                    }
+                    // Thực thi công cụ cục bộ, gửi kết quả ngược lại cho Gemini
+                    val toolResult = try {
+                        onToolCall(result.name, result.args)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Tool ${result.name} crashed", e)
+                        "{\"error\": \"${e.message ?: e.javaClass.simpleName}\"}"
+                    }
+                    contents.put(
+                        JSONObject()
+                            .put("role", "user")
+                            .put(
+                                "parts",
+                                JSONArray().put(
+                                    JSONObject().put(
+                                        "functionResponse",
+                                        JSONObject()
+                                            .put("name", result.name)
+                                            .put("response", JSONObject().put("result", toolResult))
+                                    )
+                                )
+                            )
+                    )
+                    toolRounds++
+                }
                 is AiResult.Error -> {
-                    // Retry cho rate limit / server / network
-                    if (result.type in RETRYABLE_TYPES && attempt < RETRY_ATTEMPTS) {
-                        delay(RETRY_BASE_DELAY_MS * (attempt + 1))
+                    // Model không chấp nhận tools -> thử lại không tools
+                    if (result.type == AiErrorType.BAD_REQUEST && activeTools != null) {
+                        activeTools = null
                         lastError = result
                         continue
-                    }
-                    // Model không tồn tại -> fallback model cũ
-                    if (result.type == AiErrorType.MODEL_NOT_FOUND && model != FALLBACK_MODEL) {
-                        lastError = result
-                        val fallbackResult = callOnce(systemPrompt, userPrompt, jsonMode, FALLBACK_MODEL, apiKey, timeoutMs)
-                        if (fallbackResult is AiResult.Success) return@withContext fallbackResult
                     }
                     return@withContext result
                 }
@@ -100,16 +138,48 @@ class GeminiApiClient(
         lastError ?: AiResult.Error(AiErrorType.UNKNOWN, "Lỗi không xác định khi gọi Gemini.")
     }
 
-    private suspend fun callOnce(
-        systemPrompt: String?,
-        userPrompt: String,
+    private suspend fun callWithRetry(
+        contents: JSONArray,
         jsonMode: Boolean,
         model: String,
         apiKey: String,
-        timeoutMs: Long
+        timeoutMs: Long,
+        tools: List<AiToolDefinition>?
+    ): AiResult {
+        var lastError: AiResult.Error? = null
+        for (attempt in 0..RETRY_ATTEMPTS) {
+            val result = callOnce(contents, jsonMode, model, apiKey, timeoutMs, tools)
+            when (result) {
+                is AiResult.Success, is AiToolCall -> return result
+                is AiResult.Error -> {
+                    if (result.type in RETRYABLE_TYPES && attempt < RETRY_ATTEMPTS) {
+                        delay(RETRY_BASE_DELAY_MS * (attempt + 1))
+                        lastError = result
+                        continue
+                    }
+                    // Model không tồn tại -> fallback model cũ
+                    if (result.type == AiErrorType.MODEL_NOT_FOUND && model != FALLBACK_MODEL) {
+                        lastError = result
+                        val fallbackResult = callOnce(contents, jsonMode, FALLBACK_MODEL, apiKey, timeoutMs, tools)
+                        if (fallbackResult is AiResult.Success || fallbackResult is AiToolCall) return fallbackResult
+                    }
+                    return result
+                }
+            }
+        }
+        return lastError ?: AiResult.Error(AiErrorType.UNKNOWN, "Lỗi không xác định khi gọi Gemini.")
+    }
+
+    private suspend fun callOnce(
+        contents: JSONArray,
+        jsonMode: Boolean,
+        model: String,
+        apiKey: String,
+        timeoutMs: Long,
+        tools: List<AiToolDefinition>?
     ): AiResult {
         return try {
-            val body = buildRequestBody(systemPrompt, userPrompt, jsonMode)
+            val body = buildRequestBody(contents, jsonMode, tools)
             val request = Request.Builder()
                 .url("$BASE_URL/$model:generateContent?key=$apiKey")
                 .header("Content-Type", "application/json")
@@ -158,17 +228,10 @@ class GeminiApiClient(
     }
 
     private fun buildRequestBody(
-        systemPrompt: String?,
-        userPrompt: String,
-        jsonMode: Boolean
+        contents: JSONArray,
+        jsonMode: Boolean,
+        tools: List<AiToolDefinition>?
     ): String {
-        val contents = JSONArray()
-        if (!systemPrompt.isNullOrBlank()) {
-            contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", systemPrompt))))
-            contents.put(JSONObject().put("role", "model").put("parts", JSONArray().put(JSONObject().put("text", "OK, tôi đã hiểu quy tắc."))))
-        }
-        contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", userPrompt))))
-
         val generationConfig = JSONObject()
             .put("maxOutputTokens", MAX_TOKENS)
             .put("temperature", 0.4)
@@ -176,10 +239,22 @@ class GeminiApiClient(
             generationConfig.put("responseMimeType", "application/json")
         }
 
-        return JSONObject()
+        val body = JSONObject()
             .put("contents", contents)
             .put("generationConfig", generationConfig)
-            .toString()
+        if (!tools.isNullOrEmpty()) {
+            val functions = JSONArray()
+            tools.forEach { t ->
+                functions.put(
+                    JSONObject()
+                        .put("name", t.name)
+                        .put("description", t.description)
+                        .put("parameters", t.parameters)
+                )
+            }
+            body.put("tools", JSONArray().put(JSONObject().put("functionDeclarations", functions)))
+        }
+        return body.toString()
     }
 
     private fun handleHttpError(code: Int, body: String): AiResult.Error {
@@ -214,7 +289,7 @@ class GeminiApiClient(
         }
     }
 
-    /** Parse response chuẩn: candidates[0].content.parts[].text */
+    /** Parse response chuẩn: candidates[0].content.parts[].text / functionCall */
     private fun parseSuccess(body: String, elapsedMs: Long): AiResult {
         return try {
             val root = JSONObject(body)
@@ -247,6 +322,14 @@ class GeminiApiClient(
             }
 
             val parts = candidate?.optJSONObject("content")?.optJSONArray("parts") ?: JSONArray()
+            // Ưu tiên kiểm tra functionCall trước (Gemini có thể trả cả text lẫn functionCall)
+            for (i in 0 until parts.length()) {
+                val part = parts.optJSONObject(i) ?: continue
+                val fc = part.optJSONObject("functionCall") ?: continue
+                val name = fc.optString("name", "").trim()
+                if (name.isBlank()) continue
+                return AiToolCall(name, fc.optJSONObject("args") ?: JSONObject())
+            }
             val texts = mutableListOf<String>()
             for (i in 0 until parts.length()) {
                 val part = parts.optJSONObject(i) ?: continue

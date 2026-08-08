@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.nobg.app.data.AiClientFactory
 import com.nobg.app.data.AiProvider
 import com.nobg.app.data.AiResult
+import com.nobg.app.data.DeviceTools
 import com.nobg.app.data.NobgRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,26 +76,46 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
             val systemPrompt = "Bạn là trợ lý AI trong app NOBG (quản lý ứng dụng chạy ngầm, đóng băng app, " +
                 "ép dừng, thống kê pin, đọc thông báo, hẹn giờ tắt máy, widget). " +
-                "Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu. Nếu được hỏi về cách dùng app hãy hướng dẫn cụ thể."
+                "Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu. Nếu được hỏi về cách dùng app hãy hướng dẫn cụ thể. " +
+                "Bạn có thể đọc dữ liệu THẬT trên máy (thông tin máy, pin, thời gian dùng app, trạng thái NOBG, danh sách app) " +
+                "bằng cách gọi công cụ tương ứng. Hãy dùng công cụ khi người dùng hỏi về thông tin thiết bị của họ."
+
+            // Ghi nhận các công cụ AI đã dùng để hiển thị cho người dùng
+            val toolLabelsUsed = mutableListOf<String>()
 
             val result = aiClient.generateContent(
                 systemPrompt = systemPrompt,
                 userPrompt = history.joinToString("\n") { (role, t) ->
                     (if (role == AiChatRole.USER) "Người dùng: " else "Trợ lý: ") + t
                 },
-                timeoutMs = 20000L
+                timeoutMs = 20000L,
+                tools = DeviceTools.definitions,
+                onToolCall = { name, args ->
+                    toolLabelsUsed.add(DeviceTools.labelOf(name))
+                    DeviceTools.execute(name, args, getApplication(), repo)
+                }
             )
 
             val reply = when (result) {
-                is AiResult.Success -> AiChatMessage(
-                    id = ++nextId,
-                    role = AiChatRole.ASSISTANT,
-                    text = result.text.trim()
-                )
+                is AiResult.Success -> {
+                    val toolNote = if (toolLabelsUsed.isEmpty()) "" else
+                        "🔧 Đã đọc trên máy: ${toolLabelsUsed.joinToString(", ")}\n\n"
+                    AiChatMessage(
+                        id = ++nextId,
+                        role = AiChatRole.ASSISTANT,
+                        text = toolNote + result.text.trim()
+                    )
+                }
                 is AiResult.Error -> AiChatMessage(
                     id = ++nextId,
                     role = AiChatRole.ASSISTANT,
                     text = result.message,
+                    isError = true
+                )
+                is AiResult.ToolCall -> AiChatMessage(
+                    id = ++nextId,
+                    role = AiChatRole.ASSISTANT,
+                    text = "AI yêu cầu gọi công cụ ${result.name} nhưng bị gián đoạn. Vui lòng thử lại.",
                     isError = true
                 )
             }

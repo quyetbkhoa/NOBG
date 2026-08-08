@@ -1,10 +1,25 @@
 package com.nobg.app.data
 
+import org.json.JSONObject
+
 /** Kết quả gọi AI - không bao giờ ném exception ra ngoài */
 sealed interface AiResult {
     data class Success(val text: String) : AiResult
     data class Error(val type: AiErrorType, val message: String) : AiResult
+
+    /** AI yêu cầu gọi một công cụ cục bộ (function calling) */
+    data class ToolCall(val name: String, val args: JSONObject, val id: String = "") : AiResult
 }
+
+/** Alias cho AiResult.ToolCall (giữ tên cũ cho các nơi đang dùng) */
+typealias AiToolCall = AiResult.ToolCall
+
+/** Định nghĩa một "công cụ" AI có thể gọi để đọc dữ liệu trên máy (function calling) */
+data class AiToolDefinition(
+    val name: String,
+    val description: String,
+    val parameters: JSONObject
+)
 
 enum class AiErrorType {
     NO_API_KEY,        // Chưa nhập key
@@ -30,12 +45,16 @@ interface AiClient {
      * @param userPrompt nội dung người dùng
      * @param jsonMode yêu cầu server trả JSON thuần (nếu provider hỗ trợ)
      * @param timeoutMs thời gian tối đa cho toàn bộ lần gọi (bao gồm retry)
+     * @param tools danh sách công cụ AI có thể gọi (function calling) - null = tắt
+     * @param onToolCall callback thực thi công cụ cục bộ, trả về kết quả chuỗi cho AI
      */
     suspend fun generateContent(
         systemPrompt: String? = null,
         userPrompt: String,
         jsonMode: Boolean = false,
-        timeoutMs: Long = 15000L
+        timeoutMs: Long = 15000L,
+        tools: List<AiToolDefinition>? = null,
+        onToolCall: (suspend (String, JSONObject) -> String)? = null
     ): AiResult
 
     /** Kiểm tra kết nối + key + model (dùng cho nút "Kiểm tra kết nối" trong Cài đặt) */

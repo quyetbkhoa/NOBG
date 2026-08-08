@@ -239,6 +239,10 @@ class NotificationReaderService : NotificationListenerService() {
                 Log.w(TAG, "AI summarize failed: ${result.type} - ${result.message}")
                 null
             }
+            is com.nobg.app.data.AiResult.ToolCall -> {
+                Log.w(TAG, "AI summarize unexpected tool call: ${result.name}")
+                null
+            }
         }
     }
 
@@ -268,6 +272,10 @@ class NotificationReaderService : NotificationListenerService() {
             is com.nobg.app.data.AiResult.Error -> {
                 Log.w(TAG, "AI filter failed: ${result.type} - ${result.message}")
                 true // fail-open: lỗi thì vẫn đọc
+            }
+            is com.nobg.app.data.AiResult.ToolCall -> {
+                Log.w(TAG, "AI filter unexpected tool call: ${result.name}")
+                true // fail-open: vẫn đọc
             }
         }
     }
