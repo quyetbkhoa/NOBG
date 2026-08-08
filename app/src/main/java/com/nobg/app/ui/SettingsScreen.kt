@@ -958,6 +958,7 @@ fun SettingsScreen(
 }
 
 /** Card cấu hình AI Gemini trong Cài đặt */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AiSettingsCard(
     repo: com.nobg.app.data.NobgRepository,
@@ -1047,6 +1048,19 @@ private fun AiSettingsCard(
             if (aiEnabled) {
                 Spacer(Modifier.height(12.dp))
 
+                // ── 1. API KEY ──────────────────────────────────────────────
+                Text(
+                    "🔑 1. API Key",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Lấy miễn phí tại Google AI Studio (aistudio.google.com)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = apiKey,
                     onValueChange = {
@@ -1055,7 +1069,8 @@ private fun AiSettingsCard(
                         testResult = null
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("API Key (lấy miễn phí tại aistudio.google.com)") },
+                    label = { Text("Dán API Key vào đây (AIza…)") },
+                    placeholder = { Text("AIza…") },
                     singleLine = true,
                     visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
@@ -1067,26 +1082,143 @@ private fun AiSettingsCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = model,
-                    onValueChange = {
-                        model = it
-                        repo.setAiModel(it)
-                        testResult = null
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Model (mặc định: gemini-2.0-flash)") },
-                    singleLine = true
-                )
+                var showKeyGuide by remember { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = { showKeyGuide = !showKeyGuide },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (showKeyGuide) "🙈 Thu gọn hướng dẫn lấy API Key" else "📖 Hướng dẫn lấy API Key (4 bước)")
+                }
 
-                Spacer(Modifier.height(4.dp))
+                if (showKeyGuide) {
+                    Spacer(Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "1️⃣ Mở trang Google AI Studio: aistudio.google.com/apikey",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "2️⃣ Đăng nhập tài khoản Google của bạn.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "3️⃣ Bấm nút \"Create API key\" → chọn \"Create API key in new project\".",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "4️⃣ Sao chép chuỗi key bắt đầu bằng AIza… rồi dán vào ô bên trên.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Button(
+                                onClick = {
+                                    try {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://aistudio.google.com/apikey")
+                                            )
+                                        )
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "Không mở được trình duyệt", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("🌐 Mở trang lấy API Key")
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // ── 2. MODEL AI ─────────────────────────────────────────────
                 Text(
-                    "Lưu ý: free tier giới hạn ~15 request/phút. Key sai/quá hạn hoặc vượt quota sẽ báo rõ lỗi khi dùng.",
+                    "🧠 2. Model AI",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Chọn model Gemini sử dụng cho tóm tắt, lọc và chat.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+
+                var modelExpanded by remember { mutableStateOf(false) }
+                val modelOptions = buildList {
+                    addAll(listOf(
+                        "gemini-2.5-flash" to "⚡ Gemini 2.5 Flash (mới nhất, cân bằng)",
+                        "gemini-2.0-flash" to "🚀 Gemini 2.0 Flash (nhanh, khuyến nghị)",
+                        "gemini-1.5-flash" to "🕰️ Gemini 1.5 Flash (tương thích cũ)"
+                    ))
+                    if (model !in listOf("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")) {
+                        add(model to "✏️ Tùy chỉnh: $model")
+                    }
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = modelExpanded,
+                    onExpandedChange = { modelExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = modelOptions.firstOrNull { it.first == model }?.second ?: model,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        label = { Text("Model") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = modelExpanded,
+                        onDismissRequest = { modelExpanded = false }
+                    ) {
+                        modelOptions.forEach { (modelId, modelLabel) ->
+                            DropdownMenuItem(
+                                text = { Text(modelLabel, maxLines = 1) },
+                                onClick = {
+                                    model = modelId
+                                    repo.setAiModel(modelId)
+                                    testResult = null
+                                    modelExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Lưu ý: free tier giới hạn ~15 request/phút. Key sai/quá hạn hoặc vượt quota sẽ báo rõ lỗi khi dùng. Nếu model không tồn tại, ứng dụng tự chuyển sang Gemini 1.5 Flash.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(Modifier.height(12.dp))
+
+                // ── 3. KIỂM TRA & SỬ DỤNG ──────────────────────────────────
+                Text(
+                    "🧪 3. Kiểm tra & Sử dụng",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
 
                 Button(
                     onClick = { runTestConnection() },
@@ -1120,6 +1252,12 @@ private fun AiSettingsCard(
                 ) {
                     Text("💬 Mở AI Chat")
                 }
+
+                Text(
+                    "Bật \"Tóm tắt bằng AI\" và \"Lọc thông báo rác\" tại màn hình 🔔 Đọc thông báo.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

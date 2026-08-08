@@ -12,15 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -42,11 +39,7 @@ import java.util.Locale
 @Composable
 fun AppListScreen(
     viewModel: MainViewModel,
-    onOpenSettings: () -> Unit,
-    onOpenBatteryStats: () -> Unit,
-    onOpenFreezerShelf: () -> Unit,
-    onOpenSmartTimer: () -> Unit = {},
-    onOpenAiChat: () -> Unit = {}
+    onBack: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -102,30 +95,11 @@ fun AppListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("NOBG", fontWeight = FontWeight.Bold)
-                        Text(
-                            "  ·  Anti-Background",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text("Quản lý ứng dụng", fontWeight = FontWeight.Bold)
                 },
-                actions = {
-                    IconButton(onClick = onOpenAiChat) {
-                        Icon(Icons.Filled.SmartToy, contentDescription = "AI Chat")
-                    }
-                    IconButton(onClick = onOpenSmartTimer) {
-                        Icon(Icons.Filled.Timer, contentDescription = "Đếm giờ thông minh")
-                    }
-                    IconButton(onClick = onOpenFreezerShelf) {
-                        Icon(Icons.Filled.AcUnit, contentDescription = "Kệ Đóng Bằng")
-                    }
-                    IconButton(onClick = onOpenBatteryStats) {
-                        Icon(Icons.Filled.BarChart, contentDescription = "Thống kê Pin")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Cài đặt")
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 }
             )
