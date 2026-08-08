@@ -151,7 +151,8 @@ class MainActivity : ComponentActivity() {
                             onOpenSmartTimer = { currentScreen = "SMART_TIMER" },
                             onOpenAiChat = { currentScreen = "AI_CHAT" },
                             onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" },
-                            onOpenAlgorithm = { currentScreen = "ALGORITHM" }
+                            onOpenAlgorithm = { currentScreen = "ALGORITHM" },
+                            onOpenSystemLists = { currentScreen = "SYSTEM_LISTS" }
                         )
                         "SETTINGS" -> SettingsScreen(
                             viewModel = viewModel,
@@ -185,6 +186,9 @@ class MainActivity : ComponentActivity() {
                             onBack = { currentScreen = "DASHBOARD" }
                         )
                         "AI_CHAT" -> com.nobg.app.ui.ChatScreen(
+                            onBack = { currentScreen = "DASHBOARD" }
+                        )
+                        "SYSTEM_LISTS" -> com.nobg.app.ui.SystemListsScreen(
                             onBack = { currentScreen = "DASHBOARD" }
                         )
                         else -> AppListScreen(

@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
@@ -46,7 +47,8 @@ fun DashboardScreen(
     onOpenSmartTimer: () -> Unit,
     onOpenAiChat: () -> Unit,
     onOpenNotificationRead: () -> Unit,
-    onOpenAlgorithm: () -> Unit
+    onOpenAlgorithm: () -> Unit,
+    onOpenSystemLists: () -> Unit
 ) {
     val apps by viewModel.appList.collectAsState()
     val shizukuReady by viewModel.shizukuReady.collectAsState()
@@ -235,6 +237,13 @@ fun DashboardScreen(
                     Icons.Filled.Psychology,
                     onOpenAlgorithm,
                     MaterialTheme.colorScheme.primary
+                ),
+                FeatureEntry(
+                    "Danh sách hệ thống",
+                    "Whitelist, standby, appops",
+                    Icons.Filled.ListAlt,
+                    onOpenSystemLists,
+                    MaterialTheme.colorScheme.tertiary
                 ),
                 FeatureEntry(
                     "Cài đặt",
