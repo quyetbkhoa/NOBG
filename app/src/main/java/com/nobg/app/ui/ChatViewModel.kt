@@ -39,6 +39,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = NobgRepository(app)
     private val aiClient by lazy { AiClientFactory.create(repo) }
 
+    /** Số tin nhắn gần nhất gửi kèm cho AI mỗi lượt */
+    private val HISTORY_WINDOW = 20
+
+    /** Khi tổng tin (không lỗi) vượt ngưỡng này, tóm tắt phần đầu hội thoại bằng AI để giữ trí nhớ */
+    private val SUMMARY_TRIGGER = 36
+
     private val _messages = MutableStateFlow<List<AiChatMessage>>(emptyList())
     val messages: StateFlow<List<AiChatMessage>> = _messages.asStateFlow()
 
@@ -54,6 +60,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Yêu cầu xét duyệt của AI (thay đổi cài đặt) đang chờ người dùng quyết định */
     private val _pendingApproval = MutableStateFlow<PendingApproval?>(null)
     val pendingApproval: StateFlow<PendingApproval?> = _pendingApproval.asStateFlow()
+
+    /** Tóm tắt phần hội thoại cũ (do AI tạo khi chat dài) - giữ trí nhớ dài hạn không tốn quota */
+    private var conversationSummary: String? = null
+    private var summaryUpToCount = 0
+    private var summarizingInFlight = false
 
     private var nextId = 0L
 
@@ -110,25 +121,37 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         _isSending.value = true
 
         viewModelScope.launch {
-            // Gửi lịch sử 20 tin gần nhất để Gemini có ngữ cảnh
+            // Gửi lịch sử gần nhất để có ngữ cảnh; phần cũ hơn đã được tóm tắt (nếu có)
             val history = _messages.value
-                .takeLast(20)
+                .takeLast(HISTORY_WINDOW)
                 .filterNot { it.isError }
                 .map { it.role to it.text }
 
-            val systemPrompt = "Bạn là trợ lý AI thông minh trong app NOBG (quản lý app chạy ngầm, đóng băng app, " +
+// Zero-shot context: đọc sẵn tình trạng máy hiện tại (có cache 3s) để AI trả lời ngay
+            // mà không phải tốn 1-2 lượt gọi tool lặp đi lặp lại mỗi tin nhắn
+            val deviceContext = buildDeviceContext()
+            val summaryNote = conversationSummary
+                ?.takeIf { it.isNotBlank() }
+                ?.let { "TÓM TẮT CUỘC TRÒ CHUYỆN TRƯỚC ĐÂY (không cần hỏi lại những gì đã có ở đây):\n$it\n\n" }
+                ?: ""
+
+            val systemPrompt = summaryNote + "Bạn là trợ lý AI thông minh trong app NOBG (quản lý app chạy ngầm, đóng băng app, " +
                 "ép dừng, thống kê pin, đọc thông báo, hẹn giờ tắt máy, widget). Trả lời bằng tiếng Việt, ngắn gọn, tự nhiên, có trọng tâm. " +
                 "Nếu được hỏi về cách dùng app hãy hướng dẫn cụ thể từng bước. " +
                 "BẠN CÓ QUYỀN ĐỌC DỮ LIỆU THẬT TRÊN MÁY bằng các công cụ: " +
+                "get_overall_stats (TỔNG HỢP pin + RAM + bộ nhớ + app dùng nhiều nhất + trạng thái NOBG - ưu tiên dùng tool này cho câu hỏi tổng quan), " +
                 "get_device_info (hãng, model, Android, RAM, bộ nhớ trong, màn hình, thời gian bật máy), " +
                 "get_battery_info (phần trăm pin, nhiệt độ, điện áp, trạng thái sạc), " +
                 "get_app_usage_today (app dùng nhiều nhất hôm nay), " +
                 "get_nobg_status (số app quản lý/đóng băng, trạng thái shell), " +
                 "get_nobg_settings (toàn bộ cài đặt NOBG), " +
+                "get_battery_history (lịch sử pin 24h), get_charging_sessions (các phiên sạc), " +
+                "get_cpu_stats (thống kê CPU), " +
                 "get_installed_apps / get_app_info (danh sách và chi tiết app đã cài). " +
+                if (deviceContext.isNotBlank()) "NGỮ CẢNH HIỆN TẠI (số liệu thật vừa đọc xong, KHÔNG cần gọi tool lặp lại trừ khi người dùng cần số liệu mới hoặc chi tiết hơn):\n$deviceContext\n\n" else "" +
                 "LUẬT BẮT BUỘC: " +
                 "1. Khi người dùng hỏi về thông tin thiết bị (pin, RAM, dung lượng, nhiệt độ, sạc, app, thời gian dùng, cài đặt...), " +
-                "BẠN PHẢI gọi công cụ tương ứng TRƯỚC, rồi trả lời dựa trên kết quả thực tế. " +
+                "BẠN PHẢI gọi công cụ tương ứng TRƯỚC (nếu NGỮ CẢNH HIỆN TẠI chưa có), rồi trả lời dựa trên kết quả thực tế. " +
                 "2. TUYỆT ĐỐI KHÔNG nói những câu kiểu \"tôi không có quyền truy cập\", \"tôi không thể đọc dữ liệu\", " +
                 "\"tôi không có quyền xem pin/máy của bạn\" - bạn CÓ quyền đọc qua công cụ. Hãy gọi công cụ trước. " +
                 "3. Nếu công cụ báo lỗi quyền (ví dụ usage_access=false hoặc cần Shizuku/ADB), hãy nói rõ lỗi và HƯỚNG DẪN người dùng " +
@@ -184,11 +207,93 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
             _messages.value = _messages.value + reply
             _isSending.value = false
+            maybeSummarizeConversation()
+        }
+    }
+
+    /**
+     * Đọc tổng quan máy 1 lần (pin, RAM, bộ nhớ, app dùng nhiều, NOBG) để chèn vào system prompt.
+     * Nhờ cache 3s của DeviceTools nên mỗi lượt chat chỉ tốn 1 lần đọc thật, các lượt sau dùng cache.
+     */
+    private suspend fun buildDeviceContext(): String {
+        return try {
+            val json = JSONObject(
+                DeviceTools.execute("get_overall_stats", JSONObject(), getApplication(), repo)
+            )
+            val pin = json.optJSONObject("pin")
+            val ram = json.optJSONObject("ram")
+            val storage = json.optJSONObject("storage")
+            val nobg = json.optJSONObject("nobg")
+            val topApps = json.optJSONArray("top_apps_today")
+            buildString {
+                append("Pin: ")
+                pin?.let {
+                    append("${it.optString("percent")}%")
+                    val temp = it.optString("temp_c")
+                    if (temp.isNotBlank() && !it.isNull("temp_c") && temp != "-1.0") append(", ${temp}°C")
+                    val src = it.optString("source")
+                    if (src.isNotBlank() && src != "không xác định") append(", nguồn: $src")
+                }
+                append(" | RAM trống: ")
+                ram?.let { append("${it.optString("available_gb")}/${it.optString("total_gb")} GB") }
+                append(" | Bộ nhớ trống: ")
+                storage?.let { append("${it.optString("free_gb")}/${it.optString("total_gb")} GB") }
+                append(" | NOBG: ")
+                nobg?.let { append("quản lý ${it.optString("managed")} app, đóng băng ${it.optString("frozen")}") }
+                if (topApps != null && topApps.length() > 0) {
+                    append(" | Hôm nay dùng nhiều nhất: ")
+                    val labels = (0 until topApps.length()).map { i ->
+                        val o = topApps.optJSONObject(i) ?: return@map "?"
+                        o.optString("label").ifBlank { o.optString("package") }
+                    }
+                    append(labels.take(3).joinToString(", "))
+                }
+            }.toString()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    /** Khi hội thoại quá dài, dùng AI tóm tắt phần đầu để giữ "trí nhớ" lâu dài mà không tốn quota gửi kép */
+    private fun maybeSummarizeConversation() {
+        val total = _messages.value.count { !it.isError }
+        if (total < SUMMARY_TRIGGER) return
+        if (summarizingInFlight) return
+        if (total - summaryUpToCount < 10) return
+        summarizingInFlight = true
+        viewModelScope.launch {
+            try {
+                val oldPart = _messages.value
+                    .filterNot { it.isError }
+                    .dropLast(HISTORY_WINDOW)
+                if (oldPart.isEmpty()) return@launch
+                val text = oldPart.joinToString("\n") { msg ->
+                    (if (msg.role == AiChatRole.USER) "Người dùng: " else "Trợ lý: ") + msg.text
+                }
+                val client = AiClientFactory.create(repo)
+                val result = client.generateContent(
+                    systemPrompt = "Bạn là bộ ghi nhớ của trợ lý AI trong app NOBG. Hãy tóm tắt cuộc trò chuyện dưới đây bằng tiếng Việt, tối đa 120 từ: " +
+                        "giữ nguyên các yêu cầu của người dùng, thông tin thiết bị đã được báo cáo, và mọi điều quan trọng cần nhớ để trả lời tiếp. " +
+                        "Chỉ đưa nội dung tóm lược, không lặp lại câu hỏi.",
+                    userPrompt = text,
+                    timeoutMs = 15000L
+                )
+                if (result is AiResult.Success && result.text.trim().isNotBlank()) {
+                    conversationSummary = result.text.trim()
+                    summaryUpToCount = total
+                }
+            } catch (_: Exception) {
+                // Không làm hỏng chat khi tóm tắt lỗi
+            } finally {
+                summarizingInFlight = false
+            }
         }
     }
 
     fun clearChat() {
         _messages.value = emptyList()
+        conversationSummary = null
+        summaryUpToCount = 0
     }
 
     fun dismissConfigError() {

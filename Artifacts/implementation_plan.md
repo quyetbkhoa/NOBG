@@ -1,55 +1,45 @@
-# Implementation Plan: Tích hợp Gemini API (Free Tier) + Rà soát Error Handling
+# Implementation Plan: Nâng cấp AI Trợ lý - "Khôn hơn" với Groq Free Tier
 
 ## 1. Mục tiêu
-- Tích hợp Google Gemini API (free tier) vào NOBG với 3 tính năng:
-  1. **AI tóm tắt thông báo** trước khi TTS đọc (đọc ngắn gọn, đủ ý).
-  2. **AI lọc ưu tiên thông báo** (bỏ qua spam/rác, chỉ đọc tin quan trọng).
-  3. **Chat AI tổng quát** trong app.
-- Xử lý **đầy đủ mọi case lỗi API**: thiếu key, key sai (401/403), rate limit (429), model không tồn tại (404), nội dung bị chặn (safety), server lỗi (5xx), network, timeout, response rỗng/parse lỗi, JSON mode lỗi.
-- Rà soát toàn bộ codebase về error/exception/case handling và sửa các lỗi HIGH/MEDIUM quan trọng.
+- AI trả lời thông minh, chính xác hơn mà vẫn nằm trong giới hạn **Groq free tier** (30 RPM, TPM theo model).
+- Giảm số lượt gọi tool lặp lại (tiết kiệm quota), giữ "trí nhớ" cho hội thoại dài.
+- Tận dụng dữ liệu thật đã thu thập (battery_log, charging_sessions, cpu_freq_log).
 
-## 2. Kiến trúc
+## 2. Bối cảnh Groq Free Tier (đã verify 2026)
+- `llama-3.3-70b-versatile`: 30 RPM / 1.000 req/ngày, hỗ trợ tool-calling tốt → giữ làm default.
+- `qwen/qwen3-32b`: 60 RPM (ít bị giới hạn hơn) - thêm vào suggested models.
+- `llama-3.1-8b-instant`: 14.400 req/ngày - dùng cho tóm tắt không quan trọng.
+- DeepSeek R1 Distill: suy luận tốt nhưng tool-calling hạn chế.
 
-```
-┌─ GeminiApiClient.kt (data) ─ OkHttp ─ generativelanguage.googleapis.com
-│   - GeminiResult sealed: Success / Error(type, message)
-│   - generateContent(prompt, system?, jsonMode?, timeoutMs)
-│   - Retry: 429/5xx/network, exponential backoff, tôn trọng Retry-After
-├─ NobgRepository: prefs AI (enabled, apiKey, model, summaryEnabled, filterEnabled)
-├─ NotificationReaderService: gọi AI với withTimeoutOrNull -> fail-open về text gốc
-├─ ChatViewModel + ChatScreen: chat session, lịch sử 20 tin gần nhất
-└─ SettingsScreen + NotificationReadScreen: UI cấu hình
-```
+## 3. Các thay đổi
 
-## 3. Case handling của Gemini API
+### P0 - Tham số & Tool nền tảng
+1. `OpenAiCompatClient.kt`: `MAX_TOOL_ROUNDS` 3 → **6** (multi-hop), `MAX_TOKENS` 1024 → **2048**.
+2. `DeviceTools.kt`:
+   - Tool mới **`get_overall_stats`**: gộp pin + RAM + storage + top apps + NOBG status trong 1 gọi (thay cho chuỗi get_device_info + get_battery_info + get_app_usage_today + get_nobg_status).
+   - Tool mới **`get_battery_history`** (battery_log): min/max level, 60 mốc mẫu, số mẫu.
+   - Tool mới **`get_charging_sessions`** (charging_sessions): start/end, duration, from→to level, tốc độ %/giờ.
+   - Tool mới **`get_cpu_stats`** (cpu_freq_log): min/max/avg freq, underclock ratio.
+   - **Cache ngắn hạn** theo tool (3s pin → 60s installed apps) qua `cached()` để AI gọi lặp không tốn quota.
+3. `NobgRepository.kt`: + `getCpuLogsSince(time)` (wrapper CpuLogDao).
+4. `AiClient.kt`: cập nhật danh sách model Groq (thêm Qwen 3 32B, Llama 4 Scout, cảnh báo DeepSeek R1).
 
-| Case | Xử lý |
-|---|---|
-| Chưa nhập key | Trả NO_API_KEY, UI hiện hướng dẫn |
-| 400 | BAD_REQUEST, lấy error.message |
-| 401/403 | INVALID_API_KEY (hướng dẫn lấy key từ Google AI Studio) |
-| 404 | MODEL_NOT_FOUND -> tự fallback model `gemini-1.5-flash` |
-| 429 | RATE_LIMITED -> retry 2 lần, backoff, tôn trọng Retry-After |
-| 5xx | SERVER_ERROR -> retry 2 lần backoff |
-| Network/DNS/SSL | NETWORK -> retry |
-| Timeout | TIMEOUT (connect 10s, read 25s) |
-| promptFeedback.blockReason / finishReason SAFETY | BLOCKED |
-| candidates rỗng / thiếu text | EMPTY_RESPONSE |
-| JSON hỏng khi jsonMode | PARSE_ERROR -> retry 1 lần với prompt ép JSON |
-| Ký tự không hợp lệ | Trim, sanitize |
+### P1 - Zero-shot context
+5. `ChatViewModel.kt`: mỗi lượt chat tự gọi `get_overall_stats` (đã cache 3s) và chèn "NGỮ CẢNH HIỆN TẠI" vào system prompt → AI trả lời ngay, không cần 1-2 lượt tool lặp lại cho câu hỏi thường (pin/RAM/máy).
 
-**Nguyên tắc fail-open**: với đọc thông báo, AI lỗi/chậm -> VẪN đọc text gốc (không bỏ lỡ tin nhắn). Chỉ AI lọc trả về "không quan trọng" mới bỏ qua.
+### P1 - Tóm tắt hội thoại dài
+6. `ChatViewModel.kt`: khi > 36 tin (non-error), tự gọi AI tóm tắt phần đầu (dropLast 20), giữ `conversationSummary` chèn vào system prompt các lượt sau; chỉ tóm tắt lại sau mỗi +10 tin → không bùng quota.
+
+### P2 - Tool lịch sử pin / sạc / CPU
+- Đã gộp chung vào mục 2 (get_battery_history, get_charging_sessions, get_cpu_stats).
 
 ## 4. Files thay đổi
-- `app/build.gradle.kts`: + okhttp 4.12.0
-- MỚI `data/GeminiApiClient.kt`, `ui/ChatViewModel.kt`, `ui/ChatScreen.kt`
-- `service/NotificationReaderService.kt`: AI summary + filter
-- `data/NobgRepository.kt`: prefs AI
-- `ui/SettingsScreen.kt`: mục AI
-- `ui/NotificationReadScreen.kt`: card AI
-- `MainActivity.kt` + `ui/AppListScreen.kt`: entry AI Chat
-- Fix audit: ShizukuExecutor, UserService (timeout), SmartTimerService, SmartTimerViewModel, BatteryStatsViewModel, MainViewModel, FrozenAppsWidgetProvider, NotificationReaderService (BT permission, utterance listener), icon bitmap cap
+- `app/src/main/java/com/nobg/app/data/OpenAiCompatClient.kt`
+- `app/src/main/java/com/nobg/app/data/DeviceTools.kt`
+- `app/src/main/java/com/nobg/app/data/NobgRepository.kt`
+- `app/src/main/java/com/nobg/app/data/AiClient.kt`
+- `app/src/main/java/com/nobg/app/ui/ChatViewModel.kt`
 
 ## 5. Kiểm chứng
-- `.\gradlew.bat assembleDebug` 0 lỗi
-- Commit + push + kiểm tra GitHub Actions (đang gặp hạn chế quota phía GitHub)
+- `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat assembleDebug` → 0 lỗi.
+- Commit + push + kiểm tra GitHub Actions đạt SUCCESS.

@@ -28,10 +28,11 @@ class OpenAiCompatClient(
 
     companion object {
         private const val TAG = "OpenAiCompat"
-        private const val MAX_TOKENS = 1024
+        private const val MAX_TOKENS = 2048
         private const val RETRY_ATTEMPTS = 1
         private const val RETRY_BASE_DELAY_MS = 600L
-        private const val MAX_TOOL_ROUNDS = 3
+        // Cho phép AI làm nhiều bước (multi-hop): đọc tổng quan -> đọc chi tiết từng app -> suy luận
+        private const val MAX_TOOL_ROUNDS = 6
         // KHÔNG retry 429: quota phút của free tier rất thấp, retry chỉ làm cháy thêm quota
         private val RETRYABLE_TYPES = setOf(
             AiErrorType.SERVER_ERROR,

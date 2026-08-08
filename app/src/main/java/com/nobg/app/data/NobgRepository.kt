@@ -185,6 +185,8 @@ class NobgRepository(private val context: Context) {
 
     suspend fun getBatteryLogsSince(time: Long) = batteryLogDao.getLogsSince(time)
 
+    suspend fun getCpuLogsSince(time: Long) = cpuLogDao.getLogsSince(time)
+
     suspend fun getChargingLogsSince(time: Long) = batteryLogDao.getChargingLogsSince(time)
 
     suspend fun getLastChargingLog() = batteryLogDao.getLastChargingLog()

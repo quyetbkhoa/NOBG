@@ -32,6 +32,42 @@ object DeviceTools {
     private const val PROP_VOLTAGE = 8
     private const val PROP_TEMPERATURE = 9
 
+    /** Cache kết quả tool ngắn hạn để AI không gọi đi gọi lại cùng dữ liệu (giảm round-trip & quota) */
+    private data class CacheEntry(val result: String, val expiresAt: Long)
+    private val cache = HashMap<String, CacheEntry>()
+
+    /** TTL cache theo từng tool (ms) - chỉ cache dữ liệu thay đổi chậm hoặc không cần quá tươi */
+    private val CACHE_TTL_MS: Map<String, Long> = mapOf(
+        "get_device_info" to 10_000L,
+        "get_battery_info" to 3_000L,
+        "get_app_usage_today" to 30_000L,
+        "get_nobg_status" to 5_000L,
+        "get_nobg_settings" to 5_000L,
+        "get_installed_apps" to 60_000L,
+        "get_app_info" to 30_000L,
+        "get_overall_stats" to 3_000L,
+        "get_battery_history" to 30_000L,
+        "get_charging_sessions" to 30_000L,
+        "get_cpu_stats" to 30_000L
+    )
+
+    private suspend fun cached(name: String, args: JSONObject, ttlMs: Long, block: suspend () -> String): String {
+        val key = "$name|$args"
+        val now = SystemClock.elapsedRealtime()
+        synchronized(cache) {
+            cache[key]?.let { if (it.expiresAt > now) return it.result }
+        }
+        return block().also { value ->
+            synchronized(cache) {
+                cache[key] = CacheEntry(value, now + ttlMs)
+                if (cache.size > 64) {
+                    val expired = cache.filterValues { it.expiresAt <= now }
+                    expired.keys.forEach(cache::remove)
+                }
+            }
+        }
+    }
+
     val definitions: List<AiToolDefinition> = listOf(
         AiToolDefinition(
             name = "get_device_info",
@@ -48,11 +84,49 @@ object DeviceTools {
                 .put("properties", JSONObject())
         ),
         AiToolDefinition(
+            name = "get_overall_stats",
+            description = "Đọc TỔNG HỢP tình trạng máy trong 1 lần gọi: pin (phần trăm, nhiệt độ, trạng thái sạc), RAM tổng/trống, bộ nhớ trong tổng/trống, 5 app dùng nhiều nhất hôm nay, trạng thái NOBG (số app quản lý, đóng băng, shell). Dùng tool này thay vì gọi lần lượt get_device_info + get_battery_info + get_app_usage_today + get_nobg_status khi người dùng hỏi câu mang tính tổng quan như \"máy tôi thế nào\", \"sức khỏe máy\", \"tình trạng máy\".",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put("properties", JSONObject())
+        ),
+        AiToolDefinition(
             name = "get_app_usage_today",
             description = "Đọc danh sách 10 ứng dụng được dùng nhiều nhất hôm nay (từ 00:00) kèm thời gian sử dụng trên màn hình.",
             parameters = JSONObject()
                 .put("type", "object")
                 .put("properties", JSONObject())
+        ),
+        AiToolDefinition(
+            name = "get_battery_history",
+            description = "Đọc LỊCH SỬ PIN trong khoảng thời gian (mặc định 24 giờ gần nhất): mức pin thấp nhất/cao nhất trong khoảng, các mốc thời gian ghi nhận mức pin. " +
+                "Số liệu chỉ mang tính gần đúng (lấy mẫu mỗi khi pin/màn hình thay đổi).",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put(
+                    "properties",
+                    JSONObject().put("hours", JSONObject().put("type", "integer").put("description", "Số giờ nhìn lại (1-168), mặc định 24 (tùy chọn)"))
+                )
+        ),
+        AiToolDefinition(
+            name = "get_charging_sessions",
+            description = "Đọc các PHIÊN SẠC đã hoàn thành trong lịch sử: thời gian bắt đầu/kết thúc, thời gian sạc, mức pin đầu -> cuối, sạc có đầy 100% không. Tính tần suất sạc của người dùng.",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put(
+                    "properties",
+                    JSONObject().put("limit", JSONObject().put("type", "integer").put("description", "Số phiên mới nhất trả về, mặc định 10 (tùy chọn)"))
+                )
+        ),
+        AiToolDefinition(
+            name = "get_cpu_stats",
+            description = "Đọc thống kê CPU: tần số min/max/trung bình, thời gian chạy underclock, số lần ghi nhận trong khoảng giờ (mặc định 1 giờ). Giúp đánh giá máy có bị tụt hiệu năng không.",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put(
+                    "properties",
+                    JSONObject().put("hours", JSONObject().put("type", "integer").put("description", "Số giờ nhìn (1-24), mặc định 1 (tùy chọn)"))
+                )
         ),
         AiToolDefinition(
             name = "get_nobg_status",
@@ -144,35 +218,53 @@ object DeviceTools {
     fun labelOf(name: String): String = when (name) {
         "get_device_info" -> "thông tin máy"
         "get_battery_info" -> "thông tin pin"
+        "get_overall_stats" -> "tổng quan máy"
         "get_app_usage_today" -> "thời gian dùng app"
         "get_nobg_status" -> "trạng thái NOBG"
+        "get_nobg_settings" -> "cài đặt NOBG"
         "get_installed_apps" -> "danh sách app"
         "get_app_info" -> "chi tiết app"
-        "get_nobg_settings" -> "cài đặt NOBG"
+        "get_battery_history" -> "lịch sử pin (24h)"
+        "get_charging_sessions" -> "phiên sạc"
+        "get_cpu_stats" -> "thống kê CPU"
         "set_nobg_setting" -> "thay đổi cài đặt NOBG"
         else -> name
     }
 
-    /** Thực thi công cụ; KHÔNG BAO GIỜ ném exception - luôn trả về chuỗi JSON */
+    /** Thực thi công cụ; KHÔNG BAO GIỜ ném exception - luôn trả về chuỗi JSON. Kết quả được cache ngắn hạn theo tool. */
     suspend fun execute(name: String, args: JSONObject, context: Context, repo: NobgRepository): String {
         return try {
-            val result = when (name) {
-                "get_device_info" -> deviceInfo(context)
-                "get_battery_info" -> batteryInfo(context)
-                "get_app_usage_today" -> appUsageToday(context)
-                "get_nobg_status" -> nobgStatus(repo)
-                "get_installed_apps" -> installedApps(context, args)
-                "get_app_info" -> appInfo(context, args)
-                "get_nobg_settings" -> getAllSettings(repo)
-                // set_nobg_setting phải qua xét duyệt (xem applySettings trong ChatViewModel)
-                "set_nobg_setting" -> JSONObject()
-                    .put("error", "Công cụ thay đổi cài đặt phải được người dùng xác nhận trước.")
-                else -> JSONObject().put("error", "Công cụ không tồn tại: $name")
+            val ttl = CACHE_TTL_MS[name]
+            if (ttl != null) {
+                return cached(name, args, ttl) {
+                    compute(name, args, context, repo)
+                }
             }
-            result.toString()
+            compute(name, args, context, repo)
         } catch (e: Exception) {
             JSONObject().put("error", e.message ?: e.javaClass.simpleName).toString()
         }
+    }
+
+    private suspend fun compute(name: String, args: JSONObject, context: Context, repo: NobgRepository): String {
+        val result = when (name) {
+            "get_device_info" -> deviceInfo(context)
+            "get_battery_info" -> batteryInfo(context)
+            "get_overall_stats" -> overallStats(context, repo)
+            "get_app_usage_today" -> appUsageToday(context)
+            "get_nobg_status" -> nobgStatus(repo)
+            "get_installed_apps" -> installedApps(context, args)
+            "get_app_info" -> appInfo(context, args)
+            "get_nobg_settings" -> getAllSettings(repo)
+            "get_battery_history" -> batteryHistory(context, args, repo)
+            "get_charging_sessions" -> chargingSessions(context, args, repo)
+            "get_cpu_stats" -> cpuStats(context, args, repo)
+            // set_nobg_setting phải qua xét duyệt (xem applySettings trong ChatViewModel)
+            "set_nobg_setting" -> JSONObject()
+                .put("error", "Công cụ thay đổi cài đặt phải được người dùng xác nhận trước.")
+            else -> JSONObject().put("error", "Công cụ không tồn tại: $name")
+        }
+        return result.toString()
     }
 
     /** Đọc toàn bộ cài đặt NOBG đang có */
@@ -187,6 +279,122 @@ object DeviceTools {
         }
         obj.put("ai_configured", repo.isAiFullyConfigured())
         return obj
+    }
+
+    /** Tổng hợp tình trạng máy trong 1 JSON (thay cho 4 tool lẻ) */
+    private suspend fun overallStats(context: Context, repo: NobgRepository): JSONObject {
+        val device = deviceInfo(context)
+        val battery = batteryInfo(context)
+        val usage = appUsageToday(context)
+        val status = nobgStatus(repo)
+        val topApps = usage.optJSONArray("apps")?.let { arr ->
+            JSONArray().apply {
+                for (i in 0 until minOf(arr.length(), 5)) {
+                    put(arr.get(i))
+                }
+            }
+        } ?: JSONArray()
+        return JSONObject()
+            .put("pin", JSONObject()
+                .put("percent", battery.opt("level_percent"))
+                .put("temp_c", battery.opt("temperature_celsius"))
+                .put("charging", battery.opt("charging_status"))
+                .put("source", battery.opt("power_source")))
+            .put("ram", JSONObject()
+                .put("total_gb", device.opt("ram_total_gb"))
+                .put("available_gb", device.opt("ram_available_gb")))
+            .put("storage", JSONObject()
+                .put("total_gb", device.opt("storage_total_gb"))
+                .put("free_gb", device.opt("storage_free_gb")))
+            .put("top_apps_today", topApps)
+            .put("nobg", JSONObject()
+                .put("managed", status.opt("managed_app_count"))
+                .put("frozen", status.opt("frozen_shelf_count"))
+                .put("shell_ready", status.opt("shell_ready")))
+    }
+
+    /** Lịch sử pin (battery_log trong DB): min/max + các mốc mức pin gần nhất */
+    private suspend fun batteryHistory(context: Context, args: JSONObject, repo: NobgRepository): JSONObject {
+        val hours = args.optInt("hours", 24).coerceIn(1, 168)
+        val since = System.currentTimeMillis() - hours * 3600_000L
+        val logs = repo.getBatteryLogsSince(since)
+        if (logs.isEmpty()) {
+            return JSONObject()
+                .put("hours", hours)
+                .put("note", "Chưa có dữ liệu pin trong khoảng này (dữ liệu chỉ được ghi khi NOBG chạy nền).")
+        }
+        val minLevel = logs.minOf { it.batteryLevel }
+        val maxLevel = logs.maxOf { it.batteryLevel }
+        // Lấy mẫu: nhiều nhất 60 mốc, trải đều
+        val sampled = if (logs.size <= 60) logs else {
+            val step = logs.size.toDouble() / 60.0
+            (0 until 60).map { logs[minOf(logs.size - 1, (it * step).toInt())] }
+        }
+        val points = JSONArray()
+        sampled.forEach { l ->
+            points.put(
+                JSONObject()
+                    .put("t", SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(l.timestamp)))
+                    .put("level", l.batteryLevel)
+                    .put("charging", l.isCharging)
+            )
+        }
+        return JSONObject()
+            .put("hours", hours)
+            .put("min_level", minLevel)
+            .put("max_level", maxLevel)
+            .put("sample_count", logs.size)
+            .put("points", points)
+    }
+
+    /** Các phiên sạc đã ghi nhận */
+    private suspend fun chargingSessions(context: Context, args: JSONObject, repo: NobgRepository): JSONObject {
+        val limit = args.optInt("limit", 10).coerceIn(1, 50)
+        val sessions = repo.getAllChargingSessions().take(limit)
+        if (sessions.isEmpty()) {
+            return JSONObject().put("note", "Chưa có phiên sạc nào được ghi nhận. Phiên sạc được lưu khi sạc từ dưới mức đầy lên (kết thúc >= 95%).")
+        }
+        val arr = JSONArray()
+        sessions.forEach { s ->
+            arr.put(
+                JSONObject()
+                    .put("start", SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(s.startTimeMs)))
+                    .put("duration_minutes", s.totalDurationSeconds / 60)
+                    .put("from_level", s.startLevel)
+                    .put("to_level", s.endLevel)
+                    .put("completed_to_full", s.isCompletedToFull)
+                    .put("charge_gain_percent_per_hour", percentPerHour(s.startLevel, s.endLevel, s.totalDurationSeconds))
+            )
+        }
+        return JSONObject().put("sessions", arr)
+    }
+
+    private fun percentPerHour(start: Int, end: Int, durationSeconds: Long): Double {
+        if (durationSeconds <= 0) return 0.0
+        val gain = (end - start).coerceAtLeast(0)
+        return Math.round((gain * 3600.0 / durationSeconds) * 10.0) / 10.0
+    }
+
+    /** Thống kê CPU từ cpu_freq_log */
+    private suspend fun cpuStats(context: Context, args: JSONObject, repo: NobgRepository): JSONObject {
+        val hours = args.optInt("hours", 1).coerceIn(1, 24)
+        val since = System.currentTimeMillis() - hours * 3600_000L
+        val logs = repo.getCpuLogsSince(since)
+        if (logs.isEmpty()) {
+            return JSONObject()
+                .put("hours", hours)
+                .put("note", "Chưa có dữ liệu CPU trong khoảng này (chỉ ghi khi NOBG đang chạy nền).")
+        }
+        val freqs = logs.map { it.freqMhz }
+        val underclockSamples = logs.count { it.isUnderclockOn }
+        return JSONObject()
+            .put("hours", hours)
+            .put("samples", logs.size)
+            .put("freq_min_mhz", freqs.minOrNull())
+            .put("freq_max_mhz", freqs.maxOrNull())
+            .put("freq_avg_mhz", Math.round(freqs.average()).toInt())
+            .put("underclock_on_samples", underclockSamples)
+            .put("underclock_ratio", Math.round(underclockSamples * 100.0 / logs.size))
     }
 
     /**

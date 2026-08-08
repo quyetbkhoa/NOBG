@@ -116,11 +116,12 @@ enum class AiProvider(
                 "gemini-2.0-flash" to "🚀 Gemini 2.0 Flash (nhanh, khuyến nghị)",
                 "gemini-1.5-flash" to "🕰️ Gemini 1.5 Flash (tương thích cũ)"
             )
-            GROQ -> listOf(
+GROQ -> listOf(
                 "llama-3.3-70b-versatile" to "🦙 Llama 3.3 70B (đa năng, khuyến nghị)",
-                "llama-3.1-8b-instant" to "⚡ Llama 3.1 8B (siêu nhanh)",
-                "qwen-2.5-32b" to "🧠 Qwen 2.5 32B",
-                "deepseek-r1-distill-llama-70b" to "🤔 DeepSeek R1 Distill 70B (suy luận)"
+                "llama-3.1-8b-instant" to "⚡ Llama 3.1 8B (siêu nhanh, quota ngày cao nhất)",
+                "meta-llama/llama-4-scout-17b-16e-instruct" to "🌟 Llama 4 Scout 17B (TPM cao nhất free)",
+                "qwen/qwen3-32b" to "🧠 Qwen 3 32B (60 req/phút, ít giới hạn hơn)",
+                "deepseek-r1-distill-llama-70b" to "🤔 DeepSeek R1 Distill 70B (suy luận sâu, tool-call hạn chế)"
             )
             OPENROUTER -> listOf(
                 "deepseek/deepseek-r1:free" to "🤔 DeepSeek R1 (suy luận, free)",
