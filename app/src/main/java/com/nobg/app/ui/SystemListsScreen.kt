@@ -71,6 +71,16 @@ enum class SystemListType(
         "♿ Accessibility Services",
         "Dịch vụ trợ năng đang bật",
         "Danh sách các dịch vụ trợ năng (AccessibilityService) đang được bật.\n\nDịch vụ trợ năng có quyền rất mạnh: đọc toàn bộ nội dung trên màn hình, thao tác thay người dùng (bấm nút, nhập chữ)...\n\nChỉ nên bật cho ứng dụng bạn tin tưởng tuyệt đối. NOBG không sử dụng dịch vụ trợ năng."
+    ),
+    DEVICE_ADMINS(
+        "🏛️ Device Admins",
+        "App quản trị thiết bị đang kích hoạt",
+        "Danh sách các ứng dụng được cấp quyền Quản trị viên thiết bị (Device Administrator).\n\nQuyền này rất mạnh: khóa màn hình, xóa toàn bộ dữ liệu máy (factory reset), đổi mật khẩu, theo dõi hoạt động...\n\nChỉ nên kích hoạt cho ứng dụng bạn tin tưởng tuyệt đối (như Find My Device, ứng dụng bảo mật của cơ quan).\n\nBạn có thể quản lý tại Cài đặt → Bảo mật → Ứng dụng quản trị thiết bị.\n\nNOBG không yêu cầu quyền này."
+    ),
+    APP_HIBERNATION(
+        "😴 App Hibernation",
+        "App bị đưa vào ngủ đông (Android 12+)",
+        "App Hibernation là tính năng từ Android 12: khi một ứng dụng không được mở trong nhiều tuần, hệ thống tự động \"ngủ đông\" nó — thu hồi quyền đã cấp, xóa bộ nhớ đệm, đóng băng để giải phóng tài nguyên.\n\nApp bị ngủ đông sẽ: mất quyền đã cấp, không chạy nền, không nhận thông báo cho đến khi bạn mở lại.\n\nDanh sách này cho biết app nào đang ở trạng thái ngủ đông. Không hỗ trợ trên máy chạy Android dưới 12."
     )
 }
 
@@ -356,6 +366,8 @@ private suspend fun loadList(type: SystemListType, context: Context): List<Syste
         SystemListType.USAGE_STATS_ACCESS -> loadUsageStatsAccess(context)
         SystemListType.NOTIFICATION_LISTENERS -> loadNotificationListeners(context)
         SystemListType.ACCESSIBILITY_SERVICES -> loadAccessibilityServices(context)
+        SystemListType.DEVICE_ADMINS -> loadDeviceAdmins(context)
+        SystemListType.APP_HIBERNATION -> loadAppHibernation(context)
     }
 }
 
@@ -606,4 +618,73 @@ private suspend fun loadAccessibilityServices(context: Context): List<SystemList
             badge = "Bật"
         )
     }.sortedBy { it.title }
+}
+
+// 🏛️ Device Admins
+private suspend fun loadDeviceAdmins(context: Context): List<SystemListItem> {
+    val out = execShell("dumpsys device_policy")
+    val items = mutableListOf<SystemListItem>()
+    var inSection = false
+    out.lineSequence().forEach { line ->
+        val t = line.trim()
+        when {
+            t.contains("Enabled Device Admins", ignoreCase = true) ||
+                t.contains("Active Device Admins", ignoreCase = true) -> inSection = true
+            t.isBlank() || (line.isNotBlank() && line.startsWith("  ") && !line.startsWith("    ")) -> inSection = false
+        }
+        if (inSection) {
+            val pkgMatch = Regex("^Package\\s+(\\S+?)\\s*:?$").find(t)
+            val pkg = pkgMatch?.groupValues?.get(1)?.trimEnd(':')
+                ?: Regex("ComponentInfo\\{([^/]+)/").find(t)?.groupValues?.get(1)
+                ?: return@forEach
+            items.add(
+                SystemListItem(
+                    title = labelOf(context, pkg),
+                    subtitle = pkg,
+                    badge = "Quản trị viên",
+                    badgeColor = Color(0xFFE65100)
+                )
+            )
+        }
+    }
+    return items.distinctBy { it.subtitle }.sortedBy { it.title }
+}
+
+// 😴 App Hibernation (Android 12+)
+private suspend fun loadAppHibernation(context: Context): List<SystemListItem> {
+    val probe = try {
+        execShell("cmd hibernation get-application-hibernation-state 0 android").trim()
+    } catch (e: Exception) {
+        throw RuntimeException("Thiết bị không hỗ trợ App Hibernation (cần Android 12+): ${e.message}")
+    }
+    if (probe != "true" && probe != "false") {
+        throw RuntimeException("Phản hồi lạ từ hệ thống: \"$probe\"")
+    }
+
+    val out = execShell("pm list packages -U")
+    val pkgs = out.lineSequence()
+        .mapNotNull { Regex("package:(\\S+)\\s+uid:(\\d+)").find(it)?.groupValues?.get(1) }
+        .toList()
+
+    val semaphore = Semaphore(8)
+    return kotlinx.coroutines.coroutineScope {
+        pkgs.map { pkg ->
+            async {
+                semaphore.withPermit {
+                    try {
+                        val h = execShell("cmd hibernation get-application-hibernation-state 0 $pkg").trim()
+                        if (h != "true") return@withPermit null
+                        SystemListItem(
+                            title = labelOf(context, pkg),
+                            subtitle = pkg,
+                            badge = "Ngủ đông",
+                            badgeColor = Color(0xFF6A1B9A)
+                        )
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }
+        }.awaitAll().filterNotNull().sortedBy { it.title }
+    }
 }
