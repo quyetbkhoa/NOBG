@@ -80,7 +80,64 @@ object DeviceTools {
                 .put("type", "object")
                 .put("properties", JSONObject().put("package", JSONObject().put("type", "string").put("description", "Package name của ứng dụng (bắt buộc)")))
                 .put("required", JSONArray().put("package"))
+        ),
+        AiToolDefinition(
+            name = "get_nobg_settings",
+            description = "Đọc toàn bộ cài đặt của app NOBG: AI Trợ lý (bật/tắt, provider, model, tóm tắt, lọc rác), Đọc thông báo (bật/tắt, chỉ Bluetooth, ducking), TTS (tốc độ, âm lượng, cao độ), âm thanh báo pin đầy, chủ đề giao diện.",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put("properties", JSONObject())
+        ),
+        AiToolDefinition(
+            name = "set_nobg_setting",
+            description = "THAY ĐỔI cài đặt của app NOBG theo lệnh người dùng. Chỉ dùng khi người dùng yêu cầu, và mọi thay đổi đều phải được người dùng xác nhận. " +
+                "Tham số \"changes\" là object dạng {\"tên_cài_đặt\": giá_trị}. Các cài đặt hợp lệ: " +
+                "ai_enabled (boolean), ai_provider (string: gemini|groq|openrouter), ai_model (string), " +
+                "ai_summary_enabled (boolean), ai_filter_enabled (boolean), ai_filter_strictness (số 0-1), " +
+                "notif_read_enabled (boolean), notif_read_only_bt (boolean), notif_read_ducking (boolean), " +
+                "tts_speech_rate (số, mặc định 1.0), tts_volume (số 0-1), tts_pitch (số, mặc định 1.0), " +
+                "full_battery_sound (boolean), theme_mode (string: SYSTEM|LIGHT|DARK).",
+            parameters = JSONObject()
+                .put("type", "object")
+                .put(
+                    "properties",
+                    JSONObject().put(
+                        "changes",
+                        JSONObject()
+                            .put("type", "object")
+                            .put("description", "Các cài đặt cần thay đổi, ví dụ: {\"ai_summary_enabled\": true, \"tts_volume\": 0.8}")
+                    )
+                )
+                .put("required", JSONArray().put("changes")),
+            requiresApproval = true
         )
+    )
+
+    /** Mô tả một cài đặt NOBG để thực thi (whitelist - AI chỉ được đụng những cài đặt này) */
+    private data class SettingSpec(
+        val key: String,
+        val type: String, // "bool" | "string" | "number"
+        val label: String,
+        val validValues: Set<String> = emptySet(),
+        val read: (NobgRepository) -> Any,
+        val write: (NobgRepository, Any) -> Unit
+    )
+
+    private val settingCatalog = listOf(
+        SettingSpec("ai_enabled", "bool", "AI Trợ lý", read = { it.isAiEnabled() }, write = { r, v -> r.setAiEnabled(v as Boolean) }),
+        SettingSpec("ai_provider", "string", "Nhà cung cấp AI", validValues = setOf("gemini", "groq", "openrouter"), read = { it.getAiProvider() }, write = { r, v -> r.setAiProvider(v as String) }),
+        SettingSpec("ai_model", "string", "Model AI", read = { it.getAiModel() }, write = { r, v -> r.setAiModel(v as String) }),
+        SettingSpec("ai_summary_enabled", "bool", "Tóm tắt thông báo bằng AI", read = { it.isAiSummaryEnabled() }, write = { r, v -> r.setAiSummaryEnabled(v as Boolean) }),
+        SettingSpec("ai_filter_enabled", "bool", "Lọc thông báo rác bằng AI", read = { it.isAiFilterEnabled() }, write = { r, v -> r.setAiFilterEnabled(v as Boolean) }),
+        SettingSpec("ai_filter_strictness", "number", "Độ gắt lọc thông báo AI", read = { it.getAiFilterStrictness() }, write = { r, v -> r.setAiFilterStrictness((v as Number).toFloat()) }),
+        SettingSpec("notif_read_enabled", "bool", "Đọc thông báo", read = { it.isNotifReadGlobalEnabled() }, write = { r, v -> r.setNotifReadGlobalEnabled(v as Boolean) }),
+        SettingSpec("notif_read_only_bt", "bool", "Chỉ đọc khi kết nối Bluetooth", read = { it.isNotifReadOnlySelectedBt() }, write = { r, v -> r.setNotifReadOnlySelectedBt(v as Boolean) }),
+        SettingSpec("notif_read_ducking", "bool", "Giảm âm lượng khi đọc thông báo", read = { it.isNotifReadDuckingEnabled() }, write = { r, v -> r.setNotifReadDuckingEnabled(v as Boolean) }),
+        SettingSpec("tts_speech_rate", "number", "Tốc độ đọc TTS", read = { it.getTtsSpeechRate() }, write = { r, v -> r.setTtsSpeechRate((v as Number).toFloat()) }),
+        SettingSpec("tts_volume", "number", "Âm lượng đọc TTS", read = { it.getTtsVolume() }, write = { r, v -> r.setTtsVolume((v as Number).toFloat()) }),
+        SettingSpec("tts_pitch", "number", "Cao độ giọng đọc TTS", read = { it.getTtsPitch() }, write = { r, v -> r.setTtsPitch((v as Number).toFloat()) }),
+        SettingSpec("full_battery_sound", "bool", "Âm thanh báo pin đầy", read = { it.isFullBatterySoundEnabled() }, write = { r, v -> r.setFullBatterySoundEnabled(v as Boolean) }),
+        SettingSpec("theme_mode", "string", "Chủ đề giao diện", validValues = setOf("SYSTEM", "LIGHT", "DARK"), read = { it.getThemeMode() }, write = { r, v -> r.setThemeMode(v as String) })
     )
 
     /** Nhãn tiếng Việt ngắn gọn cho từng công cụ (hiển thị khi AI đang dùng) */
@@ -91,6 +148,8 @@ object DeviceTools {
         "get_nobg_status" -> "trạng thái NOBG"
         "get_installed_apps" -> "danh sách app"
         "get_app_info" -> "chi tiết app"
+        "get_nobg_settings" -> "cài đặt NOBG"
+        "set_nobg_setting" -> "thay đổi cài đặt NOBG"
         else -> name
     }
 
@@ -104,12 +163,100 @@ object DeviceTools {
                 "get_nobg_status" -> nobgStatus(repo)
                 "get_installed_apps" -> installedApps(context, args)
                 "get_app_info" -> appInfo(context, args)
+                "get_nobg_settings" -> getAllSettings(repo)
+                // set_nobg_setting phải qua xét duyệt (xem applySettings trong ChatViewModel)
+                "set_nobg_setting" -> JSONObject()
+                    .put("error", "Công cụ thay đổi cài đặt phải được người dùng xác nhận trước.")
                 else -> JSONObject().put("error", "Công cụ không tồn tại: $name")
             }
             result.toString()
         } catch (e: Exception) {
             JSONObject().put("error", e.message ?: e.javaClass.simpleName).toString()
         }
+    }
+
+    /** Đọc toàn bộ cài đặt NOBG đang có */
+    private fun getAllSettings(repo: NobgRepository): JSONObject {
+        val obj = JSONObject()
+        settingCatalog.forEach { spec ->
+            try {
+                obj.put(spec.key, spec.read(repo))
+            } catch (_: Exception) {
+                obj.put(spec.key, JSONObject.NULL)
+            }
+        }
+        obj.put("ai_configured", repo.isAiFullyConfigured())
+        return obj
+    }
+
+    /**
+     * Chuyển yêu cầu thay đổi thành mô tả tiếng Việt dễ hiểu cho dialog xét duyệt.
+     * Ví dụ: {"ai_summary_enabled": true, "tts_volume": 0.8} -> "Bật Tóm tắt thông báo bằng AI; Đặt Âm lượng đọc TTS = 0.8"
+     */
+    fun describeSettingChange(args: JSONObject): String {
+        val changes = args.optJSONObject("changes") ?: args
+        val parts = mutableListOf<String>()
+        changes.keys().forEach { key ->
+            val spec = settingCatalog.firstOrNull { it.key == key }
+            if (spec == null) {
+                parts.add("\"$key\" (cài đặt không được hỗ trợ)")
+                return@forEach
+            }
+            val value = changes.opt(key)
+            parts.add(
+                when {
+                    value is Boolean && value -> "Bật ${spec.label}"
+                    value is Boolean -> "Tắt ${spec.label}"
+                    else -> "Đặt ${spec.label} = $value"
+                }
+            )
+        }
+        return if (parts.isEmpty()) "Không có thay đổi nào" else parts.joinToString("; ")
+    }
+
+    /**
+     * Áp dụng thay đổi cài đặt (chỉ gọi SAU KHI người dùng chấp thuận).
+     * Trả về JSON: {"approved": true, "applied": [...], "errors": [...]}
+     */
+    suspend fun applySettings(args: JSONObject, context: Context, repo: NobgRepository): String {
+        val changes = args.optJSONObject("changes") ?: args
+        val applied = mutableListOf<String>()
+        val errors = mutableListOf<String>()
+        changes.keys().forEach { key ->
+            val spec = settingCatalog.firstOrNull { it.key == key }
+            if (spec == null) {
+                errors.add("\"$key\" không phải cài đặt hợp lệ")
+                return@forEach
+            }
+            val raw = changes.opt(key)
+            try {
+                when (spec.type) {
+                    "bool" -> {
+                        if (raw !is Boolean) throw IllegalArgumentException("phải là true/false")
+                        spec.write(repo, raw)
+                    }
+                    "number" -> {
+                        if (raw !is Number) throw IllegalArgumentException("phải là số")
+                        spec.write(repo, raw.toDouble())
+                    }
+                    "string" -> {
+                        val s = raw.toString()
+                        if (spec.validValues.isNotEmpty() && s !in spec.validValues) {
+                            throw IllegalArgumentException("phải là một trong: ${spec.validValues.joinToString("|")}")
+                        }
+                        spec.write(repo, s)
+                    }
+                }
+                applied.add(spec.label)
+            } catch (e: Exception) {
+                errors.add("$key: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+        return JSONObject()
+            .put("approved", true)
+            .put("applied", JSONArray(applied))
+            .put("errors", JSONArray(errors))
+            .toString()
     }
 
     private fun deviceInfo(context: Context): JSONObject {
@@ -180,7 +327,9 @@ object DeviceTools {
     private fun appUsageToday(context: Context): JSONObject {
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
         if (usm == null) {
-            return JSONObject().put("error", "Không có quyền xem thời gian sử dụng (Usage Access).")
+            return JSONObject()
+                .put("usage_access", false)
+                .put("hint", "NOBG chưa được cấp quyền Xem mức sử dụng (Usage Access). Hướng dẫn: Cài đặt → Ứng dụng → NOBG → Quyền → Truy cập mức sử dụng → Cho phép.")
         }
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -196,7 +345,9 @@ object DeviceTools {
         val stats: List<UsageStats> = try {
             usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now)
         } catch (_: SecurityException) {
-            return JSONObject().put("error", "Không có quyền xem thời gian sử dụng (Usage Access).")
+            return JSONObject()
+                .put("usage_access", false)
+                .put("hint", "NOBG chưa được cấp quyền Xem mức sử dụng (Usage Access). Hướng dẫn: Cài đặt → Ứng dụng → NOBG → Quyền → Truy cập mức sử dụng → Cho phép.")
         }
         stats.forEach { s ->
             usageByPkg.merge(s.packageName, s.totalTimeInForeground, Long::plus)
@@ -219,8 +370,9 @@ object DeviceTools {
     private suspend fun nobgStatus(repo: NobgRepository): JSONObject {
         val managed = repo.getEnabledApps()
         val shelf = repo.getFrozenShelfApps()
+        val shizukuReady = try { ShizukuManager.isShizukuRunning() } catch (_: Exception) { false }
         val disabled = try {
-            if (ShizukuManager.isShizukuRunning()) ShizukuManager.getDisabledPackages() else emptySet()
+            if (shizukuReady) ShizukuManager.getDisabledPackages() else emptySet()
         } catch (_: Exception) {
             emptySet()
         }
@@ -228,6 +380,8 @@ object DeviceTools {
             .put("managed_app_count", managed.size)
             .put("frozen_shelf_count", shelf.size)
             .put("disabled_system_app_count", disabled.size)
+            .put("shell_ready", shizukuReady)
+            .put("shell_hint", if (shizukuReady) "Shizuku đang chạy, đầy đủ quyền." else "Shizuku/ADB chưa sẵn sàng nên chưa thể đếm app bị vô hiệu hóa. Hướng dẫn: mở màn hình chính NOBG → Cài đặt → bật Shizuku.")
             .put("ai_enabled", repo.isAiEnabled())
             .put("ai_provider", repo.getAiProvider())
             .put("notification_reader_enabled", repo.isNotifReadGlobalEnabled())
@@ -277,7 +431,14 @@ object DeviceTools {
             .put("installed_date", formatTime(info.firstInstallTime))
             .put("enabled", enabledSetting != PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
             .put("standby_bucket", standbyBucket)
-            .put("last_used", if (lastUsed > 0) formatTime(lastUsed) else "chưa từng dùng")
+            .put(
+                "last_used",
+                when {
+                    lastUsed > 0 -> formatTime(lastUsed)
+                    lastUsed < 0 -> "không xác định (thiếu quyền Usage Access)"
+                    else -> "chưa từng dùng"
+                }
+            )
     }
 
     private fun lastTimeUsed(context: Context, pkg: String): Long {
@@ -287,16 +448,17 @@ object DeviceTools {
                 .filter { it.packageName == pkg }
                 .maxOfOrNull { it.lastTimeUsed } ?: 0
         } catch (_: SecurityException) {
-            0
+            -1
         }
     }
 
     private suspend fun standbyBucket(pkg: String): String {
         return try {
+            if (!ShizukuManager.isShizukuRunning()) return "không xác định (cần bật Shizuku/ADB)"
             val out = ShizukuManager.exec("am get-standby-bucket $pkg").trim()
             out.lines().lastOrNull()?.trim() ?: out
         } catch (_: Exception) {
-            "không xác định"
+            "không xác định (cần bật Shizuku/ADB)"
         }
     }
 

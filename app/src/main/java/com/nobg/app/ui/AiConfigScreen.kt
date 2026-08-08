@@ -380,6 +380,12 @@ fun AiConfigScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "⚙️ Bạn cũng có thể ra lệnh \"bật/tắt tính năng\" (ví dụ: bật Tóm tắt thông báo, tắt âm báo pin đầy) — AI sẽ hỏi bạn xác nhận trước khi thay đổi.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

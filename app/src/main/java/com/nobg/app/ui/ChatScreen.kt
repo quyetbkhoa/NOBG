@@ -29,8 +29,44 @@ fun ChatScreen(
     val isSending by chatViewModel.isSending.collectAsState()
     val inputText by chatViewModel.inputText.collectAsState()
     val configError by chatViewModel.configError.collectAsState()
+    val pendingApproval by chatViewModel.pendingApproval.collectAsState()
 
     val listState = rememberLazyListState()
+
+    // Dialog xét duyệt khi AI muốn thay đổi cài đặt NOBG
+    pendingApproval?.let { approval ->
+        AlertDialog(
+            onDismissRequest = { chatViewModel.respondApproval(false) },
+            title = { Text("⚠️ AI yêu cầu thay đổi cài đặt", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("AI Trợ lý muốn thực hiện:")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        approval.summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Chỉ khi bạn đồng ý, thay đổi mới được áp dụng.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { chatViewModel.respondApproval(true) }) {
+                    Text("Chấp thuận")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { chatViewModel.respondApproval(false) }) {
+                    Text("Từ chối")
+                }
+            }
+        )
+    }
 
     // Tự cuộn xuống tin mới nhất
     LaunchedEffect(messages.size, isSending) {
@@ -133,7 +169,7 @@ fun ChatScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Ví dụ: gợi ý app nên đóng băng, giải thích cách tiết kiệm pin,\ntính thời gian sạc pin...",
+                        "Ví dụ: \"Pin tôi còn bao nhiêu?\", \"RAM trống bao nhiêu?\",\n\"Tôi dùng app nào nhiều nhất?\", \"Bật tóm tắt thông báo\",\n\"Tắt âm thanh báo pin đầy\"...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

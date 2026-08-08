@@ -18,7 +18,9 @@ typealias AiToolCall = AiResult.ToolCall
 data class AiToolDefinition(
     val name: String,
     val description: String,
-    val parameters: JSONObject
+    val parameters: JSONObject,
+    /** true = công cụ THAY ĐỔI cài đặt, phải được người dùng xác nhận trước khi thực thi */
+    val requiresApproval: Boolean = false
 )
 
 enum class AiErrorType {
