@@ -98,7 +98,6 @@ class MainActivity : ComponentActivity() {
         val shouldShowOnboardingInitially = missingShizuku || missingNotification || missingBatteryOpt
 
         val repo = com.nobg.app.data.NobgRepository(applicationContext)
-        val initialScreen = intent?.getStringExtra("open_screen") ?: repo.getLastActiveScreen()
 
         setContent {
             val themeMode = remember { mutableStateOf(repo.getThemeMode()) }
@@ -109,15 +108,38 @@ class MainActivity : ComponentActivity() {
             }
             NobgTheme(darkTheme = darkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    var currentScreen by remember { mutableStateOf(initialScreen) }
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
+
+                    // Back stack: root luôn là DASHBOARD, các màn hình khác push lên trên
+                    val initialRaw = intent?.getStringExtra("open_screen") ?: repo.getLastActiveScreen()
+                    val initialScreen = if (initialRaw.isNullOrBlank() || initialRaw == "DASHBOARD" || initialRaw == "LIST") {
+                        "DASHBOARD"
+                    } else {
+                        initialRaw
+                    }
+                    val backStack = remember {
+                        mutableStateListOf<String>().apply {
+                            add("DASHBOARD")
+                            if (initialScreen != "DASHBOARD") add(initialScreen)
+                        }
+                    }
+                    val currentScreen by remember { derivedStateOf { backStack.last() } }
+
+                    fun navigate(screen: String) {
+                        if (backStack.last() != screen) backStack.add(screen)
+                    }
+
+                    fun goBack() {
+                        if (backStack.size > 1) backStack.removeAt(backStack.size - 1)
+                    }
+
                     val newScreenRequested by screenFlow.collectAsState()
 
-                    // Safety net: back from any non-home screen always returns to home (DASHBOARD)
+                    // Back từ bất kỳ màn hình nào: pop về màn hình trước đó, về tới DASHBOARD là dừng
                     BackHandler(
-                        enabled = !showOnboardingDialog && currentScreen != "DASHBOARD"
+                        enabled = !showOnboardingDialog && backStack.size > 1
                     ) {
-                        currentScreen = "DASHBOARD"
+                        goBack()
                     }
 
                     LaunchedEffect(currentScreen) {
@@ -126,7 +148,7 @@ class MainActivity : ComponentActivity() {
 
                     LaunchedEffect(newScreenRequested) {
                         if (!newScreenRequested.isNullOrBlank()) {
-                            currentScreen = newScreenRequested!!
+                            navigate(newScreenRequested!!)
                         }
                     }
 
@@ -142,24 +164,24 @@ class MainActivity : ComponentActivity() {
                     }
 
                     when (currentScreen) {
-                        "DASHBOARD", "LIST" -> DashboardScreen(
+                        "DASHBOARD" -> DashboardScreen(
                             viewModel = viewModel,
-                            onOpenAppList = { currentScreen = "APP_LIST" },
-                            onOpenSettings = { currentScreen = "SETTINGS" },
-                            onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
-                            onOpenFreezerShelf = { currentScreen = "FREEZER_SHELF" },
-                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" },
-                            onOpenAiChat = { currentScreen = "AI_CHAT" },
-                            onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" },
-                            onOpenAlgorithm = { currentScreen = "ALGORITHM" },
-                            onOpenSystemLists = { currentScreen = "SYSTEM_LISTS" }
+                            onOpenAppList = { navigate("APP_LIST") },
+                            onOpenSettings = { navigate("SETTINGS") },
+                            onOpenBatteryStats = { navigate("BATTERY_STATS") },
+                            onOpenFreezerShelf = { navigate("FREEZER_SHELF") },
+                            onOpenSmartTimer = { navigate("SMART_TIMER") },
+                            onOpenAiChat = { navigate("AI_CHAT") },
+                            onOpenNotificationRead = { navigate("NOTIFICATION_READ") },
+                            onOpenAlgorithm = { navigate("ALGORITHM") },
+                            onOpenSystemLists = { navigate("SYSTEM_LISTS") }
                         )
                         "SETTINGS" -> SettingsScreen(
                             viewModel = viewModel,
-                            onBack = { currentScreen = "DASHBOARD" },
-                            onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" },
-                            onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" },
-                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" },
+                            onBack = { goBack() },
+                            onOpenAlgorithmScreen = { navigate("ALGORITHM") },
+                            onOpenNotificationRead = { navigate("NOTIFICATION_READ") },
+                            onOpenSmartTimer = { navigate("SMART_TIMER") },
                             themeMode = themeMode.value,
                             onThemeModeChanged = { mode ->
                                 repo.setThemeMode(mode)
@@ -168,32 +190,32 @@ class MainActivity : ComponentActivity() {
                         )
                         "BATTERY_STATS" -> BatteryStatsScreen(
                             viewModel = batteryStatsViewModel,
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "FREEZER_SHELF" -> com.nobg.app.ui.FreezerShelfScreen(
                             repo = com.nobg.app.data.NobgRepository(applicationContext),
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "ALGORITHM" -> com.nobg.app.ui.AlgorithmScreen(
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "NOTIFICATION_READ" -> NotificationReadScreen(
                             viewModel = notifReadViewModel,
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "SMART_TIMER" -> com.nobg.app.ui.SmartTimerScreen(
                             viewModel = smartTimerViewModel,
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "AI_CHAT" -> com.nobg.app.ui.ChatScreen(
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         "SYSTEM_LISTS" -> com.nobg.app.ui.SystemListsScreen(
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                         else -> AppListScreen(
                             viewModel = viewModel,
-                            onBack = { currentScreen = "DASHBOARD" }
+                            onBack = { goBack() }
                         )
                     }
                 }

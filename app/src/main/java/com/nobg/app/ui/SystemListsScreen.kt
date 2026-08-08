@@ -2,6 +2,7 @@ package com.nobg.app.ui
 
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -102,6 +103,11 @@ private sealed class LoadState {
 fun SystemListsScreen(onBack: () -> Unit) {
     var selectedType by remember { mutableStateOf<SystemListType?>(null) }
     var infoType by remember { mutableStateOf<SystemListType?>(null) }
+
+    // Back khi đang xem chi tiết một danh sách: quay về danh sách các loại
+    BackHandler(enabled = selectedType != null) {
+        selectedType = null
+    }
 
     if (selectedType != null) {
         SystemListDetailScreen(
