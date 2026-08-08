@@ -43,7 +43,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         if (!repo.isAiFullyConfigured()) {
-            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào Cài đặt -> AI để cấu hình."
+            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào màn hình AI Trợ lý (trang chủ) để cấu hình."
         }
     }
 
@@ -56,7 +56,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (text.isEmpty() || _isSending.value) return
 
         if (!repo.isAiFullyConfigured()) {
-            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào Cài đặt -> AI để cấu hình."
+            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào màn hình AI Trợ lý (trang chủ) để cấu hình."
             return
         }
         _configError.value = null

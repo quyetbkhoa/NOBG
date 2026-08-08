@@ -55,7 +55,7 @@ class OpenAiCompatClient(
         if (apiKey.isEmpty()) {
             return@withContext AiResult.Error(
                 AiErrorType.NO_API_KEY,
-                "Chưa nhập API key cho $providerLabel. Vào Cài đặt -> AI để nhập key miễn phí."
+                "Chưa nhập API key cho $providerLabel. Vào màn hình AI Trợ lý (trang chủ) để nhập key miễn phí."
             )
         }
 

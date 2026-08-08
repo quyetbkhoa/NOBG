@@ -218,8 +218,8 @@ fun DashboardScreen(
                     MaterialTheme.colorScheme.primary
                 ),
                 FeatureEntry(
-                    "AI Chat",
-                    "Hỏi Gemini miễn phí",
+                    "AI Trợ lý",
+                    "Gemini, Groq, OpenRouter",
                     Icons.Filled.SmartToy,
                     onOpenAiChat,
                     MaterialTheme.colorScheme.tertiary

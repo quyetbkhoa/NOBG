@@ -68,7 +68,7 @@ class GeminiApiClient(
         if (apiKey.isEmpty()) {
             return@withContext AiResult.Error(
                 AiErrorType.NO_API_KEY,
-                "Chưa nhập API key Gemini. Vào Cài đặt -> AI (Gemini) để nhập key miễn phí từ Google AI Studio."
+                "Chưa nhập API key Gemini. Vào màn hình AI Trợ lý (trang chủ) để nhập key miễn phí từ Google AI Studio."
             )
         }
 

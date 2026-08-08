@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity() {
                             onOpenBatteryStats = { navigate("BATTERY_STATS") },
                             onOpenFreezerShelf = { navigate("FREEZER_SHELF") },
                             onOpenSmartTimer = { navigate("SMART_TIMER") },
-                            onOpenAiChat = { navigate("AI_CHAT") },
+                            onOpenAiChat = { navigate("AI_CONFIG") },
                             onOpenNotificationRead = { navigate("NOTIFICATION_READ") },
                             onOpenAlgorithm = { navigate("ALGORITHM") },
                             onOpenSystemLists = { navigate("SYSTEM_LISTS") }
@@ -179,9 +179,6 @@ class MainActivity : ComponentActivity() {
                         "SETTINGS" -> SettingsScreen(
                             viewModel = viewModel,
                             onBack = { goBack() },
-                            onOpenAlgorithmScreen = { navigate("ALGORITHM") },
-                            onOpenNotificationRead = { navigate("NOTIFICATION_READ") },
-                            onOpenSmartTimer = { navigate("SMART_TIMER") },
                             themeMode = themeMode.value,
                             onThemeModeChanged = { mode ->
                                 repo.setThemeMode(mode)
@@ -209,6 +206,11 @@ class MainActivity : ComponentActivity() {
                         )
                         "AI_CHAT" -> com.nobg.app.ui.ChatScreen(
                             onBack = { goBack() }
+                        )
+                        "AI_CONFIG" -> com.nobg.app.ui.AiConfigScreen(
+                            repo = repo,
+                            onBack = { goBack() },
+                            onOpenAiChat = { navigate("AI_CHAT") }
                         )
                         "SYSTEM_LISTS" -> com.nobg.app.ui.SystemListsScreen(
                             onBack = { goBack() }
