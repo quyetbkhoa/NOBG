@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
@@ -44,7 +45,8 @@ fun AppListScreen(
     onOpenSettings: () -> Unit,
     onOpenBatteryStats: () -> Unit,
     onOpenFreezerShelf: () -> Unit,
-    onOpenSmartTimer: () -> Unit = {}
+    onOpenSmartTimer: () -> Unit = {},
+    onOpenAiChat: () -> Unit = {}
 ) {
     val apps by viewModel.appList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -110,6 +112,9 @@ fun AppListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenAiChat) {
+                        Icon(Icons.Filled.SmartToy, contentDescription = "AI Chat")
+                    }
                     IconButton(onClick = onOpenSmartTimer) {
                         Icon(Icons.Filled.Timer, contentDescription = "Đếm giờ thông minh")
                     }
@@ -424,8 +429,10 @@ private fun DrawableIcon(drawable: Drawable?, modifier: Modifier = Modifier) {
         return
     }
     val bitmap = remember(drawable) {
-        val w = drawable.intrinsicWidth.coerceAtLeast(1)
-        val h = drawable.intrinsicHeight.coerceAtLeast(1)
+        // Giới hạn kích thước tránh OOM với icon báo lỗi intrinsic size quá lớn
+        val maxSize = 128
+        val w = drawable.intrinsicWidth.coerceIn(1, maxSize)
+        val h = drawable.intrinsicHeight.coerceIn(1, maxSize)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         drawable.setBounds(0, 0, canvas.width, canvas.height)

@@ -160,12 +160,16 @@ class MainActivity : ComponentActivity() {
                             viewModel = smartTimerViewModel,
                             onBack = { currentScreen = "LIST" }
                         )
+                        "AI_CHAT" -> com.nobg.app.ui.ChatScreen(
+                            onBack = { currentScreen = "LIST" }
+                        )
                         else -> AppListScreen(
                             viewModel = viewModel,
                             onOpenSettings = { currentScreen = "SETTINGS" },
                             onOpenBatteryStats = { currentScreen = "BATTERY_STATS" },
                             onOpenFreezerShelf = { currentScreen = "FREEZER_SHELF" },
-                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" }
+                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" },
+                            onOpenAiChat = { currentScreen = "AI_CHAT" }
                         )
                     }
                 }

@@ -1,49 +1,55 @@
-# Implementation Plan: Modernize & Unify App UI
+# Implementation Plan: Tích hợp Gemini API (Free Tier) + Rà soát Error Handling
 
-## Mục tiêu
-Làm giao diện toàn bộ app hiện đại, đẹp, thống nhất và linh hoạt theo hệ thống (Material You / Dynamic Color).
+## 1. Mục tiêu
+- Tích hợp Google Gemini API (free tier) vào NOBG với 3 tính năng:
+  1. **AI tóm tắt thông báo** trước khi TTS đọc (đọc ngắn gọn, đủ ý).
+  2. **AI lọc ưu tiên thông báo** (bỏ qua spam/rác, chỉ đọc tin quan trọng).
+  3. **Chat AI tổng quát** trong app.
+- Xử lý **đầy đủ mọi case lỗi API**: thiếu key, key sai (401/403), rate limit (429), model không tồn tại (404), nội dung bị chặn (safety), server lỗi (5xx), network, timeout, response rỗng/parse lỗi, JSON mode lỗi.
+- Rà soát toàn bộ codebase về error/exception/case handling và sửa các lỗi HIGH/MEDIUM quan trọng.
 
-## Phạm vi & Thay đổi
+## 2. Kiến trúc
 
-### 1. Theme.kt (nền tảng - ảnh hưởng toàn app)
-- Bật **Dynamic Color** (Material You): `dynamicLightColorScheme` / `dynamicDarkColorScheme` trên Android 12+ (SDK 31+).
-- Thiết bị cũ / không hỗ trợ: fallback bảng màu xanh lá NOBG hiện tại (đã tinh chỉnh cho cân bằng).
-- Bổ sung `Typography` tùy chỉnh và `Shapes` mềm mại (bo góc 12/16/24dp) dùng chung toàn app.
-- Hỗ trợ dark theme tự động theo hệ thống (đã có `isSystemInDarkTheme`).
+```
+┌─ GeminiApiClient.kt (data) ─ OkHttp ─ generativelanguage.googleapis.com
+│   - GeminiResult sealed: Success / Error(type, message)
+│   - generateContent(prompt, system?, jsonMode?, timeoutMs)
+│   - Retry: 429/5xx/network, exponential backoff, tôn trọng Retry-After
+├─ NobgRepository: prefs AI (enabled, apiKey, model, summaryEnabled, filterEnabled)
+├─ NotificationReaderService: gọi AI với withTimeoutOrNull -> fail-open về text gốc
+├─ ChatViewModel + ChatScreen: chat session, lịch sử 20 tin gần nhất
+└─ SettingsScreen + NotificationReadScreen: UI cấu hình
+```
 
-### 2. MainActivity.kt
-- Bật **edge-to-edge** (`enableEdgeToEdge`) để trạng thái thanh điều hướng hiện đại, icon tự đổi màu theo dark/light.
-- Surface nền sử dụng `MaterialTheme.colorScheme.background` (mặc định của Material3).
+## 3. Case handling của Gemini API
 
-### 3. AppListScreen.kt (màn hình chính)
-- Top bar: thay emoji `⏱️`/`🧊` bằng icon Material chuẩn (`Timer`, `AcUnit`) - đồng bộ style.
-- Thanh tìm kiếm: dùng dạng tonal `SearchBar`-like, bo góc đều hơn.
-- Hàng app (`AppRow`): chuyển sang Card gọn gàng thay vì Row + Divider, badge bỏ emoji thừa, dùng màu theme.
+| Case | Xử lý |
+|---|---|
+| Chưa nhập key | Trả NO_API_KEY, UI hiện hướng dẫn |
+| 400 | BAD_REQUEST, lấy error.message |
+| 401/403 | INVALID_API_KEY (hướng dẫn lấy key từ Google AI Studio) |
+| 404 | MODEL_NOT_FOUND -> tự fallback model `gemini-1.5-flash` |
+| 429 | RATE_LIMITED -> retry 2 lần, backoff, tôn trọng Retry-After |
+| 5xx | SERVER_ERROR -> retry 2 lần backoff |
+| Network/DNS/SSL | NETWORK -> retry |
+| Timeout | TIMEOUT (connect 10s, read 25s) |
+| promptFeedback.blockReason / finishReason SAFETY | BLOCKED |
+| candidates rỗng / thiếu text | EMPTY_RESPONSE |
+| JSON hỏng khi jsonMode | PARSE_ERROR -> retry 1 lần với prompt ép JSON |
+| Ký tự không hợp lệ | Trim, sanitize |
 
-### 4. SettingsScreen.kt
-- Thống nhất card: cùng một kiểu container (`surfaceContainerLow`) thay vì lẫn lộn `surfaceVariant`/`secondaryContainer`/`tertiaryContainer` với alpha khác nhau.
-- Tiêu đề card: bỏ style ALL-CAPS + emoji dài, dùng tiêu đề thường + icon Material.
-- Đồng bộ button style.
+**Nguyên tắc fail-open**: với đọc thông báo, AI lỗi/chậm -> VẪN đọc text gốc (không bỏ lỡ tin nhắn). Chỉ AI lọc trả về "không quan trọng" mới bỏ qua.
 
-### 5. FreezerShelfScreen.kt
-- Card grid item: giữ nguyên cấu trúc, làm mượt màu trạng thái (frozen/unfrozen) theo theme.
-- Thống nhất `RoundedCornerShape` với theme shapes.
+## 4. Files thay đổi
+- `app/build.gradle.kts`: + okhttp 4.12.0
+- MỚI `data/GeminiApiClient.kt`, `ui/ChatViewModel.kt`, `ui/ChatScreen.kt`
+- `service/NotificationReaderService.kt`: AI summary + filter
+- `data/NobgRepository.kt`: prefs AI
+- `ui/SettingsScreen.kt`: mục AI
+- `ui/NotificationReadScreen.kt`: card AI
+- `MainActivity.kt` + `ui/AppListScreen.kt`: entry AI Chat
+- Fix audit: ShizukuExecutor, UserService (timeout), SmartTimerService, SmartTimerViewModel, BatteryStatsViewModel, MainViewModel, FrozenAppsWidgetProvider, NotificationReaderService (BT permission, utterance listener), icon bitmap cap
 
-### 6. BatteryStatsScreen.kt
-- `TabRow` mặc định → `PrimaryTabRow` (Material3) hiện đại hơn.
-- Card chỉ số: dùng `surfaceContainerHigh`/`surfaceContainerLow` theo chuẩn M3.
-- Bỏ màu hardcode `Color(0xFF4CAF50)`/`0xFFF44336` → dùng `primary`/`error`.
-
-### 7. NotificationReadScreen.kt & SmartTimerScreen.kt
-- Thống nhất card container theo chuẩn M3 mới.
-- SmartTimer đã được cải tiến trước đó, chỉ căn chỉnh nhẹ.
-
-### 8. Dialogs (AppManagementDialog, AppDetailDialog, FilterBottomSheet, PermissionOnboardingDialog, AlgorithmScreen, ChargingSessionsTab)
-- Đã dùng `MaterialTheme.colorScheme` - sẽ tự nhận dynamic color. Chỉ sửa nếu có màu hardcode đáng kể (AppDetailDialog dùng 2 màu đồ thị cố định → chuyển sang màu theme).
-
-## Kiểm chứng
-- `.\gradlew.bat assembleDebug` thành công 0 lỗi.
-- Push main + kiểm tra GitHub Actions.
-
-## Rủi ro
-- Dynamic color có thể đổi màu chủ đạo sang bất kỳ màu nào (theo wallpaper) - chấp nhận được, đúng yêu cầu "linh hoạt theo hệ thống". Fallback xanh lá cho máy cũ.
+## 5. Kiểm chứng
+- `.\gradlew.bat assembleDebug` 0 lỗi
+- Commit + push + kiểm tra GitHub Actions (đang gặp hạn chế quota phía GitHub)

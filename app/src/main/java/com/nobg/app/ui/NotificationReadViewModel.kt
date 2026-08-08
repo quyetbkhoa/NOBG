@@ -94,6 +94,15 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     private val _isNotifListenerEnabled = MutableStateFlow(false)
     val isNotifListenerEnabled: StateFlow<Boolean> = _isNotifListenerEnabled.asStateFlow()
 
+    private val _aiSummaryEnabled = MutableStateFlow(false)
+    val aiSummaryEnabled: StateFlow<Boolean> = _aiSummaryEnabled.asStateFlow()
+
+    private val _aiFilterEnabled = MutableStateFlow(false)
+    val aiFilterEnabled: StateFlow<Boolean> = _aiFilterEnabled.asStateFlow()
+
+    private val _aiConfigured = MutableStateFlow(false)
+    val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
+
     private val _hasSelectedDeviceConnected = MutableStateFlow(false)
     val hasSelectedDeviceConnected: StateFlow<Boolean> = _hasSelectedDeviceConnected.asStateFlow()
 
@@ -112,6 +121,9 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         _ttsPan.value = repo.getTtsPan()
         _ttsPitch.value = repo.getTtsPitch()
         checkNotifListenerPermission()
+        _aiSummaryEnabled.value = repo.isAiSummaryEnabled()
+        _aiFilterEnabled.value = repo.isAiFilterEnabled()
+        _aiConfigured.value = repo.isAiFullyConfigured()
         loadUserApps()
         loadBluetoothDevices()
         registerBtStateReceiver()
@@ -345,6 +357,20 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleGlobalEnabled(enabled: Boolean) {
         repo.setNotifReadGlobalEnabled(enabled)
         _isGlobalEnabled.value = enabled
+    }
+
+    fun toggleAiSummaryEnabled(enabled: Boolean) {
+        repo.setAiSummaryEnabled(enabled)
+        _aiSummaryEnabled.value = enabled
+    }
+
+    fun toggleAiFilterEnabled(enabled: Boolean) {
+        repo.setAiFilterEnabled(enabled)
+        _aiFilterEnabled.value = enabled
+    }
+
+    fun refreshAiConfigured() {
+        _aiConfigured.value = repo.isAiFullyConfigured()
     }
 
     fun toggleOnlySelectedBt(enabled: Boolean) {

@@ -50,6 +50,9 @@ fun NotificationReadScreen(
     val ttsPan by viewModel.ttsPan.collectAsState()
     val ttsPitch by viewModel.ttsPitch.collectAsState()
     val isNotifListenerEnabled by viewModel.isNotifListenerEnabled.collectAsState()
+    val aiSummaryEnabled by viewModel.aiSummaryEnabled.collectAsState()
+    val aiFilterEnabled by viewModel.aiFilterEnabled.collectAsState()
+    val aiConfigured by viewModel.aiConfigured.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -57,6 +60,7 @@ fun NotificationReadScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.checkNotifListenerPermission()
+                viewModel.refreshAiConfigured()
                 viewModel.loadBluetoothDevices()
             }
         }
@@ -302,9 +306,84 @@ fun NotificationReadScreen(
                 }
             }
 
-            // ===== CARD 3: Danh sách Thiết bị Bluetooth =====
-            if (isOnlySelectedBt) {
+            // ===== CARD 3: AI (Gemini) - tóm tắt & lọc ưu tiên =====
+            if (aiSummaryEnabled || aiFilterEnabled || aiConfigured) {
                 item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "🤖 AI (Gemini)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            if (!aiConfigured) {
+                                Text(
+                                    "⚠️ Cần bật AI và nhập API key trong Cài đặt -> AI (Gemini) trước khi dùng các tính năng này. Khi AI lỗi hoặc quá chậm, thông báo vẫn được đọc bình thường.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "📝 Tóm tắt thông báo trước khi đọc",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "AI tóm gọn nội dung (< 25 từ) cho đọc nhanh, giữ OTP/người gửi",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = aiSummaryEnabled,
+                                    onCheckedChange = { viewModel.toggleAiSummaryEnabled(it) },
+                                    enabled = aiConfigured
+                                )
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "🗑️ Lọc thông báo rác bằng AI",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "Bỏ qua quảng cáo/khuyến mãi/tin rác, chỉ đọc tin quan trọng. AI lỗi thì vẫn đọc tất cả",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = aiFilterEnabled,
+                                    onCheckedChange = { viewModel.toggleAiFilterEnabled(it) },
+                                    enabled = aiConfigured
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== CARD 4: Danh sách Thiết bị Bluetooth =====
+            if (isOnlySelectedBt) {                item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(

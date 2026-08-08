@@ -16,6 +16,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.text.isDigitsOnly
+import com.nobg.app.data.GeminiApiClient
+import com.nobg.app.data.GeminiApiClient.GeminiResult
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
@@ -40,6 +42,15 @@ class NotificationReaderService : NotificationListenerService() {
     private var isTtsReady = false
     private val lastReadTimestamps = mutableMapOf<String, Long>()
     private lateinit var audioManager: AudioManager
+    // Theo dõi audio focus theo từng utterance để abandon đúng khi đọc xong
+    private val focusByUtterance = java.util.concurrent.ConcurrentHashMap<String, Pair<AudioFocusRequest, Boolean>>()
+
+    private val geminiClient by lazy {
+        GeminiApiClient(
+            apiKeyProvider = { repo.getAiApiKey() },
+            modelProvider = { repo.getAiModel() }
+        )
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -55,6 +66,17 @@ class NotificationReaderService : NotificationListenerService() {
                 }
                 tts?.setSpeechRate(repo.getTtsSpeechRate())
                 isTtsReady = true
+                // Cài listener ĐÚNG MỘT LẦN để không bị mất onDone/onError của utterance trước
+                // (nếu cài lại mỗi lần speak, audio focus có thể không bao giờ được nhả)
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(id: String?) {}
+                    override fun onDone(id: String?) {
+                        releaseAudioFocus(id)
+                    }
+                    override fun onError(id: String?) {
+                        releaseAudioFocus(id)
+                    }
+                })
                 Log.d(TAG, "TTS initialized successfully")
             } else {
                 Log.e(TAG, "TTS initialization failed with status: $status")
@@ -99,8 +121,12 @@ class NotificationReaderService : NotificationListenerService() {
 
                 val text = buildSpeechText(sbn, config)
                 if (text.isNotBlank()) {
-                    speakWithAudioFocus(text)
-                    lastReadTimestamps[sbn.packageName] = System.currentTimeMillis()
+                    // AI xử lý (lọc ưu tiên + tóm tắt) - fail-open: lỗi thì vẫn đọc text gốc
+                    val finalText = maybeAiProcess(sbn, config, text)
+                    if (finalText != null) {
+                        speakWithAudioFocus(finalText)
+                        lastReadTimestamps[sbn.packageName] = System.currentTimeMillis()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing notification from ${sbn.packageName}", e)
@@ -130,6 +156,15 @@ class NotificationReaderService : NotificationListenerService() {
     @Suppress("MissingPermission")
     private suspend fun isSelectedBluetoothConnected(): Boolean {
         try {
+            // Android 12+: cần quyền BLUETOOTH_CONNECT mới gọi được getConnectedDevices
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                applicationContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.w(TAG, "BLUETOOTH_CONNECT permission not granted, BT-only reading disabled")
+                return false
+            }
+
             val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
                 ?: return false
             val adapter = btManager.adapter ?: return false
@@ -159,6 +194,87 @@ class NotificationReaderService : NotificationListenerService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error checking Bluetooth connection", e)
             return false
+        }
+    }
+
+    /**
+     * Xử lý thông báo bằng AI (nếu đã bật và đủ cấu hình).
+     * Trả về:
+     *  - text đã tóm tắt hoặc text gốc nếu AI lỗi (fail-open)
+     *  - null nếu AI quyết định KHÔNG quan trọng (chỉ khi lọc ưu tiên bật và AI trả về important=false)
+     * KHÔNG BAO GIỜ chặn đọc: mọi lỗi/timeout đều dẫn về text gốc.
+     */
+    private suspend fun maybeAiProcess(
+        sbn: StatusBarNotification,
+        config: NotificationReadConfigEntity,
+        text: String
+    ): String? {
+        if (!repo.isAiFullyConfigured()) return text
+
+        // Chỉ dùng AI khi đọc nội dung thực (không dùng cho APP_NAME_ONLY / SENDER_ONLY)
+        if (config.readMode != NotificationReadMode.FULL_CONTENT &&
+            config.readMode != NotificationReadMode.SMART_CHAT
+        ) return text
+
+        // 1. Lọc ưu tiên - chỉ bỏ qua đọc khi AI CHẮC CHẮN trả về important=false
+        if (repo.isAiFilterEnabled()) {
+            val important = aiIsImportant(sbn, text)
+            if (important == false) return null
+        }
+
+        // 2. Tóm tắt - nếu AI lỗi/chậm thì dùng text gốc
+        if (repo.isAiSummaryEnabled()) {
+            val summary = aiSummarize(text)
+            if (summary != null) return summary
+        }
+
+        return text
+    }
+
+    private suspend fun aiSummarize(text: String): String? = withTimeoutOrNull(3500L) {
+        val result = geminiClient.generateContent(
+            systemPrompt = "Bạn là trợ lý tóm tắt thông báo tiếng Việt. Tóm tắt ngắn gọn dưới 25 từ, " +
+                "giữ thông tin quan trọng nhất: người gửi, nội dung chính, mã OTP nếu có. " +
+                "Chỉ trả về nội dung tóm tắt, không thêm lời dẫn.",
+            userPrompt = "Tóm tắt thông báo sau: $text",
+            timeoutMs = 3500L
+        )
+        when (result) {
+            is GeminiResult.Success -> result.text.trim().takeIf { it.isNotBlank() && it.length < 300 }
+            is GeminiResult.Error -> {
+                Log.w(TAG, "AI summarize failed: ${result.type} - ${result.message}")
+                null
+            }
+        }
+    }
+
+    private suspend fun aiIsImportant(sbn: StatusBarNotification, text: String): Boolean? = withTimeoutOrNull(3000L) {
+        val appName = getAppLabel(sbn.packageName)
+        val result = geminiClient.generateContent(
+            systemPrompt = "Bạn là bộ lọc thông báo tiếng Việt. Thông báo QUAN TRỌNG cần báo ngay: " +
+                "tin nhắn cá nhân, OTP/mã xác thực, cuộc gọi, lịch hẹn, nhắc việc, cảnh báo. " +
+                "KHÔNG quan trọng: quảng cáo, khuyến mãi, tin tức, trò chơi, mạng xã hội rác, điểm danh. " +
+                "Trả về JSON thuần, chỉ đúng định dạng: {\"important\": true} hoặc {\"important\": false}",
+            userPrompt = "App: $appName\nThông báo: $text",
+            jsonMode = true,
+            timeoutMs = 3000L
+        )
+        when (result) {
+            is GeminiResult.Success -> {
+                val cleaned = result.text.trim()
+                    .removePrefix("```json").removePrefix("```")
+                    .removeSuffix("```").trim()
+                try {
+                    org.json.JSONObject(cleaned).optBoolean("important", true)
+                } catch (e: Exception) {
+                    Log.w(TAG, "AI filter: invalid JSON response: $cleaned", e)
+                    true // fail-open: JSON hỏng thì vẫn đọc
+                }
+            }
+            is GeminiResult.Error -> {
+                Log.w(TAG, "AI filter failed: ${result.type} - ${result.message}")
+                true // fail-open: lỗi thì vẫn đọc
+            }
         }
     }
 
@@ -285,6 +401,17 @@ class NotificationReaderService : NotificationListenerService() {
         }
     }
 
+    private fun releaseAudioFocus(utteranceId: String?) {
+        if (utteranceId == null) return
+        val entry = focusByUtterance.remove(utteranceId) ?: return
+        val (focusRequest, hasFocus) = entry
+        if (hasFocus) {
+            try {
+                audioManager.abandonAudioFocusRequest(focusRequest)
+            } catch (_: Exception) {}
+        }
+    }
+
     /** Phát TTS với Audio Focus Ducking và âm lượng tùy chỉnh */
     private fun speakWithAudioFocus(text: String) {
         tts?.setSpeechRate(repo.getTtsSpeechRate())
@@ -317,19 +444,7 @@ class NotificationReaderService : NotificationListenerService() {
             putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, repo.getTtsPan())
         }
 
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
-            override fun onDone(id: String?) {
-                if (hasFocus) {
-                    audioManager.abandonAudioFocusRequest(focusRequest)
-                }
-            }
-            override fun onError(id: String?) {
-                if (hasFocus) {
-                    audioManager.abandonAudioFocusRequest(focusRequest)
-                }
-            }
-        })
+        focusByUtterance[utteranceId] = focusRequest to hasFocus
 
         tts?.speak(text, TextToSpeech.QUEUE_ADD, params, utteranceId)
     }

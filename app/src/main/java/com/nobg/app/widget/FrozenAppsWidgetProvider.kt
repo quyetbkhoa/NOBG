@@ -59,6 +59,21 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
         }
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            try {
+                updateAppWidgetInner(context, appWidgetManager, appWidgetId)
+            } catch (e: Exception) {
+                // RemoteViews/DB lỗi không được phép làm crash provider
+                android.util.Log.e("FrozenWidget", "Widget update failed for id $appWidgetId", e)
+                try {
+                    val fallback = RemoteViews(context.packageName, R.layout.widget_frozen_apps)
+                    fallback.setTextViewText(R.id.tv_widget_title, "NOBG")
+                    fallback.setTextViewText(R.id.tv_widget_count, "? app")
+                    appWidgetManager.updateAppWidget(appWidgetId, fallback)
+                } catch (_: Exception) {}
+            }
+        }
+
+        private fun updateAppWidgetInner(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_frozen_apps)
 
             // Read customization config
@@ -162,20 +177,31 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.widget_grid_view, pendingIntent)
 
             CoroutineScope(Dispatchers.IO).launch {
-                val repo = NobgRepository(context)
-                val shelfApps = repo.getFrozenShelfApps()
-                views.setTextViewText(R.id.tv_widget_count, "${shelfApps.size} app")
+                try {
+                    val repo = NobgRepository(context)
+                    val shelfApps = repo.getFrozenShelfApps()
+                    views.setTextViewText(R.id.tv_widget_count, "${shelfApps.size} app")
 
-                if (shelfApps.isEmpty()) {
-                    views.setViewVisibility(R.id.tv_widget_empty, View.VISIBLE)
-                    views.setViewVisibility(R.id.widget_grid_view, View.GONE)
-                } else {
-                    views.setViewVisibility(R.id.tv_widget_empty, View.GONE)
-                    views.setViewVisibility(R.id.widget_grid_view, View.VISIBLE)
+                    if (shelfApps.isEmpty()) {
+                        views.setViewVisibility(R.id.tv_widget_empty, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_grid_view, View.GONE)
+                    } else {
+                        views.setViewVisibility(R.id.tv_widget_empty, View.GONE)
+                        views.setViewVisibility(R.id.widget_grid_view, View.VISIBLE)
+                    }
+
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_grid_view)
+                } catch (e: Exception) {
+                    android.util.Log.e("FrozenWidget", "Widget DB update failed for id $appWidgetId", e)
+                    // Hiển thị fallback thay vì để widget đứng im
+                    try {
+                        views.setViewVisibility(R.id.tv_widget_empty, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_grid_view, View.GONE)
+                        views.setTextViewText(R.id.tv_widget_count, "? app")
+                        appWidgetManager.updateAppWidget(appWidgetId, views)
+                    } catch (_: Exception) {}
                 }
-
-                appWidgetManager.updateAppWidget(appWidgetId, views)
-                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_grid_view)
             }
         }
     }

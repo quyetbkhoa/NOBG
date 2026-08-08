@@ -156,45 +156,60 @@ class SmartTimerService : Service() {
         var lastAnnouncedMinute = -1
 
         while (isActive) {
-            val now = System.currentTimeMillis()
-            val elapsedMs = now - startTimestamp
-            val elapsedMinutes = (elapsedMs / (60 * 1000L)).toInt()
-            val totalDurationMinutes = currentConfig.durationMinutes
+            try {
+                val now = System.currentTimeMillis()
+                val elapsedMs = now - startTimestamp
+                val elapsedMinutes = (elapsedMs / (60 * 1000L)).toInt()
+                val totalDurationMinutes = currentConfig.durationMinutes
 
-            // Check if duration expired
-            if (totalDurationMinutes > 0 && elapsedMinutes >= totalDurationMinutes) {
-                // Speak final announcement
-                speakAnnouncement("Đã hết thời gian $totalDurationMinutes phút.")
-
-                // Delay to finish speech
-                delay(4000L)
-
-                if (currentConfig.autoShutdown) {
-                    // Trigger shutdown via Shizuku if available
-                    if (PrivilegedShell.isReady()) {
-                        PrivilegedShell.exec("reboot -p")
-                        PrivilegedShell.exec("svc power shutdown")
+                // Check if duration expired
+                if (totalDurationMinutes > 0 && elapsedMinutes >= totalDurationMinutes) {
+                    // Speak final announcement
+                    try {
+                        speakAnnouncement("Đã hết thời gian $totalDurationMinutes phút.")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Final announcement failed", e)
                     }
+
+                    // Delay to finish speech
+                    delay(4000L)
+
+                    if (currentConfig.autoShutdown) {
+                        // Trigger shutdown via Shizuku if available
+                        if (PrivilegedShell.isReady()) {
+                            try {
+                                PrivilegedShell.exec("reboot -p")
+                                PrivilegedShell.exec("svc power shutdown")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Auto shutdown command failed", e)
+                            }
+                        }
+                    }
+                    stopSmartTimer()
+                    stopSelf()
+                    break
                 }
-                stopSmartTimer()
-                stopSelf()
-                break
+
+                // Check if interval minute has been reached
+                val interval = currentConfig.intervalMinutes.coerceAtLeast(1)
+                if (elapsedMinutes > 0 && elapsedMinutes % interval == 0 && elapsedMinutes != lastAnnouncedMinute) {
+                    lastAnnouncedMinute = elapsedMinutes
+                    val speechText = buildSpeechText(elapsedMinutes)
+                    speakAnnouncement(speechText)
+                }
+
+                // Update notification and widget every 5 seconds
+                val notifText = buildNotificationText(elapsedMinutes, totalDurationMinutes)
+                updateNotification(notifText)
+                SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
+
+                delay(2000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Timer loop iteration failed, continuing", e)
+                delay(2000L)
             }
-
-            // Check if interval minute has been reached
-            val interval = currentConfig.intervalMinutes.coerceAtLeast(1)
-            if (elapsedMinutes > 0 && elapsedMinutes % interval == 0 && elapsedMinutes != lastAnnouncedMinute) {
-                lastAnnouncedMinute = elapsedMinutes
-                val speechText = buildSpeechText(elapsedMinutes)
-                speakAnnouncement(speechText)
-            }
-
-            // Update notification and widget every 5 seconds
-            val notifText = buildNotificationText(elapsedMinutes, totalDurationMinutes)
-            updateNotification(notifText)
-            SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
-
-            delay(2000L)
         }
     }
 

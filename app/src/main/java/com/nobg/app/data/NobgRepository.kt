@@ -31,6 +31,12 @@ class NobgRepository(private val context: Context) {
         private const val KEY_NOTIF_READ_DUCKING = "notif_read_ducking"
         private const val KEY_TTS_PAN = "tts_pan"
         private const val KEY_TTS_PITCH = "tts_pitch"
+        private const val KEY_AI_ENABLED = "ai_enabled"
+        private const val KEY_AI_API_KEY = "ai_api_key"
+        private const val KEY_AI_MODEL = "ai_model"
+        private const val KEY_AI_SUMMARY_ENABLED = "ai_summary_enabled"
+        private const val KEY_AI_FILTER_ENABLED = "ai_filter_enabled"
+        private const val KEY_AI_FILTER_STRICTNESS = "ai_filter_strictness"
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
@@ -595,4 +601,44 @@ class NobgRepository(private val context: Context) {
             .putLong("smart_timer_end_time", config.endTimeMillis)
             .apply()
     }
+
+    // --- AI (GEMINI) PREFS ---
+    fun isAiEnabled(): Boolean = prefs.getBoolean(KEY_AI_ENABLED, false)
+
+    fun setAiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AI_ENABLED, enabled).apply()
+    }
+
+    fun getAiApiKey(): String = prefs.getString(KEY_AI_API_KEY, "") ?: ""
+
+    fun setAiApiKey(key: String) {
+        prefs.edit().putString(KEY_AI_API_KEY, key.trim()).apply()
+    }
+
+    fun getAiModel(): String = prefs.getString(KEY_AI_MODEL, GeminiApiClient.DEFAULT_MODEL)
+        ?: GeminiApiClient.DEFAULT_MODEL
+
+    fun setAiModel(model: String) {
+        prefs.edit().putString(KEY_AI_MODEL, model.trim()).apply()
+    }
+
+    fun isAiSummaryEnabled(): Boolean = prefs.getBoolean(KEY_AI_SUMMARY_ENABLED, false)
+
+    fun setAiSummaryEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AI_SUMMARY_ENABLED, enabled).apply()
+    }
+
+    fun isAiFilterEnabled(): Boolean = prefs.getBoolean(KEY_AI_FILTER_ENABLED, false)
+
+    fun setAiFilterEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AI_FILTER_ENABLED, enabled).apply()
+    }
+
+    fun getAiFilterStrictness(): Float = prefs.getFloat(KEY_AI_FILTER_STRICTNESS, 0.5f)
+
+    fun setAiFilterStrictness(strictness: Float) {
+        prefs.edit().putFloat(KEY_AI_FILTER_STRICTNESS, strictness.coerceIn(0.0f, 1.0f)).apply()
+    }
+
+    fun isAiFullyConfigured(): Boolean = isAiEnabled() && getAiApiKey().isNotBlank()
 }

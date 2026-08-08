@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.core.content.ContextCompat
@@ -41,7 +43,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAlgorithmScreen: () -> Unit,
     onOpenNotificationRead: () -> Unit = {},
-    onOpenSmartTimer: () -> Unit = {}
+    onOpenSmartTimer: () -> Unit = {},
+    onOpenAiChat: () -> Unit = {}
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
@@ -402,6 +405,14 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // 🤖 AI (GEMINI)
+            AiSettingsCard(
+                repo = repo,
+                scope = scope,
+                context = context,
+                onOpenAiChat = onOpenAiChat
+            )
 
             // TRUNG TÂM QUẢN LÝ QUYỀN HỆ THỐNG
             Card(
@@ -892,5 +903,173 @@ fun SettingsScreen(
                 TextButton(onClick = { showConfirm = false }) { Text("Hủy") }
             }
         )
+    }
+}
+
+/** Card cấu hình AI Gemini trong Cài đặt */
+@Composable
+private fun AiSettingsCard(
+    repo: com.nobg.app.data.NobgRepository,
+    scope: kotlinx.coroutines.CoroutineScope,
+    context: android.content.Context,
+    onOpenAiChat: () -> Unit
+) {
+    var aiEnabled by remember { mutableStateOf(repo.isAiEnabled()) }
+    var apiKey by remember { mutableStateOf(repo.getAiApiKey()) }
+    var model by remember { mutableStateOf(repo.getAiModel()) }
+    var isTesting by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    var testIsSuccess by remember { mutableStateOf(false) }
+    var showKey by remember { mutableStateOf(false) }
+
+    val geminiClient by lazy {
+        com.nobg.app.data.GeminiApiClient(
+            apiKeyProvider = { apiKey },
+            modelProvider = { model }
+        )
+    }
+
+    fun runTestConnection() {
+        if (apiKey.isBlank()) {
+            testResult = "Vui lòng nhập API key trước khi kiểm tra."
+            testIsSuccess = false
+            return
+        }
+        isTesting = true
+        testResult = null
+        scope.launch {
+            try {
+                val result = geminiClient.testConnection()
+                when (result) {
+                    is com.nobg.app.data.GeminiApiClient.GeminiResult.Success -> {
+                        testResult = "Kết nối thành công! Gemini trả lời: \"${result.text.take(40)}\""
+                        testIsSuccess = true
+                    }
+                    is com.nobg.app.data.GeminiApiClient.GeminiResult.Error -> {
+                        testResult = result.message
+                        testIsSuccess = false
+                    }
+                }
+            } catch (e: Exception) {
+                testResult = "Lỗi không xác định: ${e.message ?: e.javaClass.simpleName}"
+                testIsSuccess = false
+            } finally {
+                isTesting = false
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "🤖 AI (Gemini) - Miễn phí",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Tóm tắt thông báo, lọc thông báo rác, chat AI",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = aiEnabled,
+                    onCheckedChange = {
+                        aiEnabled = it
+                        repo.setAiEnabled(it)
+                        if (!it) testResult = null
+                    }
+                )
+            }
+
+            if (aiEnabled) {
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = {
+                        apiKey = it
+                        repo.setAiApiKey(it)
+                        testResult = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("API Key (lấy miễn phí tại aistudio.google.com)") },
+                    singleLine = true,
+                    visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        TextButton(onClick = { showKey = !showKey }) {
+                            Text(if (showKey) "Ẩn" else "Hiện")
+                        }
+                    }
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = model,
+                    onValueChange = {
+                        model = it
+                        repo.setAiModel(it)
+                        testResult = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Model (mặc định: gemini-2.0-flash)") },
+                    singleLine = true
+                )
+
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Lưu ý: free tier giới hạn ~15 request/phút. Key sai/quá hạn hoặc vượt quota sẽ báo rõ lỗi khi dùng.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { runTestConnection() },
+                    enabled = !isTesting && apiKey.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isTesting) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Đang kiểm tra...")
+                    } else {
+                        Text("🔌 Kiểm tra kết nối")
+                    }
+                }
+
+                testResult?.let { result ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        result,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (testIsSuccess) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = onOpenAiChat,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("💬 Mở AI Chat")
+                }
+            }
+        }
     }
 }

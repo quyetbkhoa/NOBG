@@ -13,10 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.nobg.app.data.SmartTimerMode
 import java.util.Locale
 
@@ -28,8 +30,15 @@ fun SmartTimerScreen(
 ) {
     BackHandler(onBack = onBack)
 
+    val context = LocalContext.current
     val config by viewModel.configState.collectAsState()
     val elapsedSec by viewModel.elapsedSeconds.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.toastEvent.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Scaffold(
         topBar = {

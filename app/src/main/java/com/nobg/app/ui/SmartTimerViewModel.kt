@@ -10,8 +10,11 @@ import com.nobg.app.data.SmartTimerConfig
 import com.nobg.app.data.SmartTimerMode
 import com.nobg.app.service.SmartTimerService
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -21,6 +24,9 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _configState = MutableStateFlow(repo.getSmartTimerConfig())
     val configState: StateFlow<SmartTimerConfig> = _configState.asStateFlow()
+
+    private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     private val _elapsedSeconds = MutableStateFlow(0L)
     val elapsedSeconds: StateFlow<Long> = _elapsedSeconds.asStateFlow()
@@ -95,10 +101,17 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
         val intent = Intent(app, SmartTimerService::class.java).apply {
             action = SmartTimerService.ACTION_START
         }
-        if (Build.VERSION.SDK_INT >= 26) {
-            app.startForegroundService(intent)
-        } else {
-            app.startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                app.startForegroundService(intent)
+            } else {
+                app.startService(intent)
+            }
+        } catch (e: Exception) {
+            // Android 12+: startForegroundService từ background sẽ bị chặn
+            android.util.Log.e("SmartTimerVM", "Cannot start timer service", e)
+            saveAndEmit(_configState.value.copy(isRunning = false))
+            _toastEvent.tryEmit("Không thể khởi động hẹn giờ: ${e.message ?: "app đang ở background"}")
         }
     }
 
@@ -110,7 +123,11 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
         val intent = Intent(app, SmartTimerService::class.java).apply {
             action = SmartTimerService.ACTION_STOP
         }
-        app.startService(intent)
+        try {
+            app.startService(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("SmartTimerVM", "Cannot stop timer service", e)
+        }
     }
 
     fun applyPreset(mode: SmartTimerMode, durationMins: Int, intervalMins: Int, autoShutdown: Boolean) {

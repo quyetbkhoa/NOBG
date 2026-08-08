@@ -266,31 +266,43 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshDisabledPackages() {
         viewModelScope.launch(Dispatchers.IO) {
             if (PrivilegedShell.isReady()) {
-                val disabledSet = ShizukuManager.getDisabledPackages()
-                _disabledPackages.value = disabledSet
+                try {
+                    val disabledSet = ShizukuManager.getDisabledPackages()
+                    _disabledPackages.value = disabledSet
+                } catch (e: Exception) {
+                    android.util.Log.e("MainVM", "Error refreshing disabled packages", e)
+                }
             }
         }
     }
 
     fun disableApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (PrivilegedShell.isReady()) {
-                val (success, _) = ShizukuManager.disablePackageResult(packageName)
-                if (!success) {
-                    val label = _installedApps.value.find { it.packageName == packageName }?.label ?: packageName
-                    _toastEvent.emit("Không thể vô hiệu hóa $label: Ứng dụng này bị hệ thống Android bảo vệ.")
+            try {
+                if (PrivilegedShell.isReady()) {
+                    val (success, _) = ShizukuManager.disablePackageResult(packageName)
+                    if (!success) {
+                        val label = _installedApps.value.find { it.packageName == packageName }?.label ?: packageName
+                        _toastEvent.emit("Không thể vô hiệu hóa $label: Ứng dụng này bị hệ thống Android bảo vệ.")
+                    }
+                    refreshDisabledPackages()
                 }
-                refreshDisabledPackages()
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error disabling $packageName", e)
             }
         }
     }
 
     fun enableAndLaunchApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (PrivilegedShell.isReady()) {
-                ShizukuManager.enablePackage(packageName)
-                ShizukuManager.launchPackage(packageName)
-                refreshDisabledPackages()
+            try {
+                if (PrivilegedShell.isReady()) {
+                    ShizukuManager.enablePackage(packageName)
+                    ShizukuManager.launchPackage(packageName)
+                    refreshDisabledPackages()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error enabling/launching $packageName", e)
             }
         }
     }
@@ -307,20 +319,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshPowerStates() {
         viewModelScope.launch(Dispatchers.IO) {
-            val isShizukuAvailable = PrivilegedShell.isReady()
-            val currentApps = _installedApps.value
-            val pkgList = currentApps.map { it.packageName }
+            try {
+                val isShizukuAvailable = PrivilegedShell.isReady()
+                val currentApps = _installedApps.value
+                val pkgList = currentApps.map { it.packageName }
 
-            if (isShizukuAvailable) {
-                val resultMap = ShizukuManager.getAllAppPowerModes(pkgList)
-                _powerStatesMap.value = resultMap
-            } else {
-                val resultMap = mutableMapOf<String, BackgroundPowerState>()
-                for (app in currentApps) {
-                    val isIgnoringOpt = powerManager.isIgnoringBatteryOptimizations(app.packageName)
-                    resultMap[app.packageName] = if (isIgnoringOpt) BackgroundPowerState.UNRESTRICTED else BackgroundPowerState.OPTIMIZED
+                if (isShizukuAvailable) {
+                    val resultMap = ShizukuManager.getAllAppPowerModes(pkgList)
+                    _powerStatesMap.value = resultMap
+                } else {
+                    val resultMap = mutableMapOf<String, BackgroundPowerState>()
+                    for (app in currentApps) {
+                        val isIgnoringOpt = powerManager.isIgnoringBatteryOptimizations(app.packageName)
+                        resultMap[app.packageName] = if (isIgnoringOpt) BackgroundPowerState.UNRESTRICTED else BackgroundPowerState.OPTIMIZED
+                    }
+                    _powerStatesMap.value = resultMap
                 }
-                _powerStatesMap.value = resultMap
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error refreshing power states", e)
             }
         }
         refreshDisabledPackages()
@@ -328,13 +344,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadPowerStateForApp(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val isShizukuAvailable = PrivilegedShell.isReady()
-            val state = if (isShizukuAvailable) {
-                ShizukuManager.getPowerMode(packageName)
-            } else {
-                if (powerManager.isIgnoringBatteryOptimizations(packageName)) BackgroundPowerState.UNRESTRICTED else BackgroundPowerState.OPTIMIZED
+            try {
+                val isShizukuAvailable = PrivilegedShell.isReady()
+                val state = if (isShizukuAvailable) {
+                    ShizukuManager.getPowerMode(packageName)
+                } else {
+                    if (powerManager.isIgnoringBatteryOptimizations(packageName)) BackgroundPowerState.UNRESTRICTED else BackgroundPowerState.OPTIMIZED
+                }
+                _powerStatesMap.value = _powerStatesMap.value + (packageName to state)
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error loading power state for $packageName", e)
             }
-            _powerStatesMap.value = _powerStatesMap.value + (packageName to state)
         }
     }
 
@@ -342,12 +362,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             // 1. Immediately update UI state
             _powerStatesMap.value = _powerStatesMap.value + (packageName to newState)
-
-            if (PrivilegedShell.isReady()) {
-                repo.backupIfNeeded(packageName)
-                ShizukuManager.setPowerMode(packageName, newState)
-                delay(250)
-                loadPowerStateForApp(packageName)
+            try {
+                if (PrivilegedShell.isReady()) {
+                    repo.backupIfNeeded(packageName)
+                    ShizukuManager.setPowerMode(packageName, newState)
+                    delay(250)
+                    loadPowerStateForApp(packageName)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error changing power state for $packageName", e)
             }
         }
     }
@@ -438,10 +461,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun freezeAppImmediately(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            repo.toggleAppFrozenShelf(packageName, true)
-            ShizukuManager.forceStop(packageName)
-            ShizukuManager.disablePackage(packageName)
-            refreshDisabledPackages()
+            try {
+                repo.toggleAppFrozenShelf(packageName, true)
+                ShizukuManager.forceStop(packageName)
+                ShizukuManager.disablePackage(packageName)
+                refreshDisabledPackages()
+            } catch (e: Exception) {
+                android.util.Log.e("MainVM", "Error freezing $packageName", e)
+                _toastEvent.emit("Không thể đóng băng $packageName: ${e.message ?: "lỗi hệ thống"}")
+            }
         }
     }
 

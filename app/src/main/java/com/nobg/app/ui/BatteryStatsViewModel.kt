@@ -128,17 +128,23 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
     fun selectAppDetail(packageName: String) {
         _isLoadingDetail.value = true
         viewModelScope.launch(Dispatchers.IO) {
-            val endTime = System.currentTimeMillis()
-            val startTime = _anchorTimeMs.value.let { if (it > 0) it else (endTime - 86400000L) }
-            val detail = AppDetailStatsHelper.getAppDetailStats(
-                context = getApplication(),
-                packageName = packageName,
-                startTimeMs = startTime,
-                endTimeMs = endTime,
-                totalCalculatedMah = lastTotalCalculatedMah
-            )
-            _selectedAppDetail.value = detail
-            _isLoadingDetail.value = false
+            try {
+                val endTime = System.currentTimeMillis()
+                val startTime = _anchorTimeMs.value.let { if (it > 0) it else (endTime - 86400000L) }
+                val detail = AppDetailStatsHelper.getAppDetailStats(
+                    context = getApplication(),
+                    packageName = packageName,
+                    startTimeMs = startTime,
+                    endTimeMs = endTime,
+                    totalCalculatedMah = lastTotalCalculatedMah
+                )
+                _selectedAppDetail.value = detail
+            } catch (e: Exception) {
+                android.util.Log.e("BatteryStatsVM", "Error loading app detail for $packageName", e)
+                _selectedAppDetail.value = null
+            } finally {
+                _isLoadingDetail.value = false
+            }
         }
     }
 
@@ -179,8 +185,9 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
 
             _anchorTimeMs.value = startTime
 
-            val statsMap = usm.queryAndAggregateUsageStats(startTime, endTime)
-            val batteryDetailsMap = BatteryDumpsysParser.getAppBatteryDetails()
+            try {
+                val statsMap = usm.queryAndAggregateUsageStats(startTime, endTime)
+                val batteryDetailsMap = BatteryDumpsysParser.getAppBatteryDetails()
 
             var totalCalculatedMah = 0.0
 
@@ -241,6 +248,11 @@ class BatteryStatsViewModel(app: Application) : AndroidViewModel(app) {
                 .sortedByDescending { it.batteryMah }
 
             _usageStats.value = items
+            } catch (e: Exception) {
+                // Usage stats permission bị thu hồi hoặc Shizuku dumpsys lỗi -> không crash, báo rỗng
+                android.util.Log.e("BatteryStatsVM", "Error loading usage stats", e)
+                _usageStats.value = emptyList()
+            }
         }
     }
 
