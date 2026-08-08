@@ -3,8 +3,9 @@ package com.nobg.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.nobg.app.data.GeminiApiClient
-import com.nobg.app.data.GeminiApiClient.GeminiResult
+import com.nobg.app.data.AiClientFactory
+import com.nobg.app.data.AiProvider
+import com.nobg.app.data.AiResult
 import com.nobg.app.data.NobgRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,12 +25,7 @@ enum class AiChatRole { USER, ASSISTANT }
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = NobgRepository(app)
-    private val geminiClient by lazy {
-        GeminiApiClient(
-            apiKeyProvider = { repo.getAiApiKey() },
-            modelProvider = { repo.getAiModel() }
-        )
-    }
+    private val aiClient by lazy { AiClientFactory.create(repo) }
 
     private val _messages = MutableStateFlow<List<AiChatMessage>>(emptyList())
     val messages: StateFlow<List<AiChatMessage>> = _messages.asStateFlow()
@@ -47,7 +43,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         if (!repo.isAiFullyConfigured()) {
-            _configError.value = "Chưa bật AI hoặc chưa nhập API key. Vào Cài đặt -> AI (Gemini) để cấu hình."
+            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào Cài đặt -> AI để cấu hình."
         }
     }
 
@@ -60,7 +56,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (text.isEmpty() || _isSending.value) return
 
         if (!repo.isAiFullyConfigured()) {
-            _configError.value = "Chưa bật AI hoặc chưa nhập API key. Vào Cài đặt -> AI (Gemini) để cấu hình."
+            _configError.value = "Chưa bật AI hoặc chưa nhập API key (${AiProvider.fromId(repo.getAiProvider()).displayName}). Vào Cài đặt -> AI để cấu hình."
             return
         }
         _configError.value = null
@@ -81,7 +77,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 "ép dừng, thống kê pin, đọc thông báo, hẹn giờ tắt máy, widget). " +
                 "Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu. Nếu được hỏi về cách dùng app hãy hướng dẫn cụ thể."
 
-            val result = geminiClient.generateContent(
+            val result = aiClient.generateContent(
                 systemPrompt = systemPrompt,
                 userPrompt = history.joinToString("\n") { (role, t) ->
                     (if (role == AiChatRole.USER) "Người dùng: " else "Trợ lý: ") + t
@@ -90,12 +86,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             )
 
             val reply = when (result) {
-                is GeminiResult.Success -> AiChatMessage(
+                is AiResult.Success -> AiChatMessage(
                     id = ++nextId,
                     role = AiChatRole.ASSISTANT,
                     text = result.text.trim()
                 )
-                is GeminiResult.Error -> AiChatMessage(
+                is AiResult.Error -> AiChatMessage(
                     id = ++nextId,
                     role = AiChatRole.ASSISTANT,
                     text = result.message,

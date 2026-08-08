@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -957,7 +958,7 @@ fun SettingsScreen(
     }
 }
 
-/** Card cấu hình AI Gemini trong Cài đặt */
+/** Card cấu hình AI (Gemini / Groq / OpenRouter) trong Cài đặt */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AiSettingsCard(
@@ -967,18 +968,33 @@ private fun AiSettingsCard(
     onOpenAiChat: () -> Unit
 ) {
     var aiEnabled by remember { mutableStateOf(repo.isAiEnabled()) }
-    var apiKey by remember { mutableStateOf(repo.getAiApiKey()) }
-    var model by remember { mutableStateOf(repo.getAiModel()) }
+    var provider by remember { mutableStateOf(com.nobg.app.data.AiProvider.fromId(repo.getAiProvider())) }
+    var apiKey by remember(provider) { mutableStateOf(repo.getAiProviderApiKey(provider)) }
+    var model by remember(provider) { mutableStateOf(repo.getAiModel()) }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var testIsSuccess by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf(false) }
 
-    val geminiClient by lazy {
-        com.nobg.app.data.GeminiApiClient(
-            apiKeyProvider = { apiKey },
-            modelProvider = { model }
-        )
+    fun saveApiKey(key: String) {
+        apiKey = key
+        repo.setAiProviderApiKey(provider, key)
+        testResult = null
+    }
+
+    fun selectProvider(p: com.nobg.app.data.AiProvider) {
+        if (p == provider) return
+        provider = p
+        repo.setAiProvider(p.id)
+        apiKey = repo.getAiProviderApiKey(p)
+        model = repo.getAiModel()
+        testResult = null
+    }
+
+    fun saveModel(m: String) {
+        model = m
+        repo.setAiModel(m)
+        testResult = null
     }
 
     fun runTestConnection() {
@@ -991,13 +1007,13 @@ private fun AiSettingsCard(
         testResult = null
         scope.launch {
             try {
-                val result = geminiClient.testConnection()
+                val result = com.nobg.app.data.AiClientFactory.create(repo).testConnection()
                 when (result) {
-                    is com.nobg.app.data.GeminiApiClient.GeminiResult.Success -> {
-                        testResult = "Kết nối thành công! Gemini trả lời: \"${result.text.take(40)}\""
+                    is com.nobg.app.data.AiResult.Success -> {
+                        testResult = "Kết nối thành công! ${provider.displayName} trả lời: \"${result.text.take(40)}\""
                         testIsSuccess = true
                     }
-                    is com.nobg.app.data.GeminiApiClient.GeminiResult.Error -> {
+                    is com.nobg.app.data.AiResult.Error -> {
                         testResult = result.message
                         testIsSuccess = false
                     }
@@ -1025,7 +1041,7 @@ private fun AiSettingsCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "🤖 AI (Gemini) - Miễn phí",
+                        "🤖 AI (Gemini, Groq, OpenRouter) - Miễn phí",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -1048,14 +1064,66 @@ private fun AiSettingsCard(
             if (aiEnabled) {
                 Spacer(Modifier.height(12.dp))
 
-                // ── 1. API KEY ──────────────────────────────────────────────
+                // ── 0. NHÀ CUNG CẤP (PROVIDER) ───────────────────────────
                 Text(
-                    "🔑 1. API Key",
+                    "🔄 0. Nhà cung cấp (Provider)",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Lấy miễn phí tại Google AI Studio (aistudio.google.com)",
+                    "Chọn dịch vụ AI. Mỗi provider dùng API key riêng.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+
+                com.nobg.app.data.AiProvider.entries.forEach { p ->
+                    val selected = p == provider
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp)
+                            .clickable { selectProvider(p) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
+                            }
+                        ),
+                        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selected, onClick = { selectProvider(p) })
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    p.displayName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    p.shortDesc,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // ── 1. API KEY ────────────────────────────────────────────
+                Text(
+                    "🔑 1. API Key (${provider.displayName})",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Lấy miễn phí tại: ${provider.keyUrl}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1063,14 +1131,10 @@ private fun AiSettingsCard(
 
                 OutlinedTextField(
                     value = apiKey,
-                    onValueChange = {
-                        apiKey = it
-                        repo.setAiApiKey(it)
-                        testResult = null
-                    },
+                    onValueChange = { saveApiKey(it) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Dán API Key vào đây (AIza…)") },
-                    placeholder = { Text("AIza…") },
+                    label = { Text("Dán API Key vào đây (${provider.keyHint})") },
+                    placeholder = { Text(provider.keyHint) },
                     singleLine = true,
                     visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
@@ -1082,91 +1146,44 @@ private fun AiSettingsCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                var showKeyGuide by remember { mutableStateOf(false) }
                 OutlinedButton(
-                    onClick = { showKeyGuide = !showKeyGuide },
+                    onClick = {
+                        try {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(provider.keyUrl)
+                                )
+                            )
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Không mở được trình duyệt", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (showKeyGuide) "🙈 Thu gọn hướng dẫn lấy API Key" else "📖 Hướng dẫn lấy API Key (4 bước)")
-                }
-
-                if (showKeyGuide) {
-                    Spacer(Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                "1️⃣ Mở trang Google AI Studio: aistudio.google.com/apikey",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                "2️⃣ Đăng nhập tài khoản Google của bạn.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                "3️⃣ Bấm nút \"Create API key\" → chọn \"Create API key in new project\".",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                "4️⃣ Sao chép chuỗi key bắt đầu bằng AIza… rồi dán vào ô bên trên.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Button(
-                                onClick = {
-                                    try {
-                                        context.startActivity(
-                                            Intent(
-                                                Intent.ACTION_VIEW,
-                                                Uri.parse("https://aistudio.google.com/apikey")
-                                            )
-                                        )
-                                    } catch (_: Exception) {
-                                        Toast.makeText(context, "Không mở được trình duyệt", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("🌐 Mở trang lấy API Key")
-                            }
-                        }
-                    }
+                    Text("🌐 Mở trang lấy API Key")
                 }
 
                 Spacer(Modifier.height(12.dp))
 
-                // ── 2. MODEL AI ─────────────────────────────────────────────
+                // ── 2. MODEL AI ───────────────────────────────────────────
                 Text(
                     "🧠 2. Model AI",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Chọn model Gemini sử dụng cho tóm tắt, lọc và chat.",
+                    "Chọn model của ${provider.displayName} dùng cho tóm tắt, lọc và chat.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
 
                 var modelExpanded by remember { mutableStateOf(false) }
+                val suggestedModels = com.nobg.app.data.AiProvider.suggestedModels(provider)
                 val modelOptions = buildList {
-                    addAll(listOf(
-                        "gemini-2.5-flash" to "⚡ Gemini 2.5 Flash (mới nhất, cân bằng)",
-                        "gemini-2.0-flash" to "🚀 Gemini 2.0 Flash (nhanh, khuyến nghị)",
-                        "gemini-1.5-flash" to "🕰️ Gemini 1.5 Flash (tương thích cũ)"
-                    ))
-                    if (model !in listOf("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")) {
+                    addAll(suggestedModels)
+                    if (model !in suggestedModels.map { it.first }) {
                         add(model to "✏️ Tùy chỉnh: $model")
                     }
                 }
@@ -1193,9 +1210,7 @@ private fun AiSettingsCard(
                             DropdownMenuItem(
                                 text = { Text(modelLabel, maxLines = 1) },
                                 onClick = {
-                                    model = modelId
-                                    repo.setAiModel(modelId)
-                                    testResult = null
+                                    saveModel(modelId)
                                     modelExpanded = false
                                 }
                             )
@@ -1204,8 +1219,16 @@ private fun AiSettingsCard(
                 }
 
                 Spacer(Modifier.height(8.dp))
+                val providerNote = when (provider) {
+                    com.nobg.app.data.AiProvider.GEMINI ->
+                        "Free tier ~10-15 req/phút. Nên tạo key tại Google AI Studio (aistudio.google.com/apikey) — key tạo ở Cloud Console thường bị quota = 0 (429 ngay lần đầu)."
+                    com.nobg.app.data.AiProvider.GROQ ->
+                        "Free không cần thẻ, giới hạn ~30 req/phút theo model. Key bắt đầu bằng gsk_."
+                    com.nobg.app.data.AiProvider.OPENROUTER ->
+                        "Model free (có đuôi :free) giới hạn ~50 req/ngày. Chọn model khác sẽ bị tính phí theo credit."
+                }
                 Text(
-                    "Lưu ý: free tier giới hạn ~15 request/phút. Key sai/quá hạn hoặc vượt quota sẽ báo rõ lỗi khi dùng. Nếu model không tồn tại, ứng dụng tự chuyển sang Gemini 1.5 Flash.",
+                    providerNote,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

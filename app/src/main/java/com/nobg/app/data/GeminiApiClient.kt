@@ -19,12 +19,12 @@ import java.util.concurrent.TimeUnit
  *  - Thiếu key, key sai (401/403), rate limit (429), model không tồn tại (404)
  *  - Nội dung bị chặn (safety), server lỗi (5xx), network, timeout
  *  - Response rỗng / parse lỗi / JSON mode lỗi
- * Nguyên tắc: KHÔNG BAO GIỜ ném exception ra ngoài - luôn trả về GeminiResult.
+ * Nguyên tắc: KHÔNG BAO GIỜ ném exception ra ngoài - luôn trả về AiResult.
  */
 class GeminiApiClient(
     private val apiKeyProvider: () -> String,
     private val modelProvider: () -> String = { DEFAULT_MODEL }
-) {
+) : AiClient {
 
     companion object {
         private const val TAG = "GeminiApi"
@@ -39,9 +39,9 @@ class GeminiApiClient(
 
         val RETRYABLE_TYPES = setOf(
             // KHÔNG retry 429: server đang từ chối do quota, retry chỉ làm tăng số request cháy thêm quota phút
-            GeminiErrorType.SERVER_ERROR,
-            GeminiErrorType.NETWORK,
-            GeminiErrorType.TIMEOUT
+            AiErrorType.SERVER_ERROR,
+            AiErrorType.NETWORK,
+            AiErrorType.TIMEOUT
         )
     }
 
@@ -51,27 +51,6 @@ class GeminiApiClient(
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    /** Kết quả gọi Gemini - không bao giờ ném exception */
-    sealed interface GeminiResult {
-        data class Success(val text: String) : GeminiResult
-        data class Error(val type: GeminiErrorType, val message: String) : GeminiResult
-    }
-
-    enum class GeminiErrorType {
-        NO_API_KEY,        // Chưa nhập key
-        INVALID_API_KEY,   // 401/403 - key sai/hết hạn
-        RATE_LIMITED,      // 429 - vượt quota free tier
-        MODEL_NOT_FOUND,   // 404 - model sai
-        BLOCKED,           // Nội dung bị chặn bởi safety filter
-        BAD_REQUEST,       // 400 - prompt/schema không hợp lệ
-        SERVER_ERROR,      // 5xx
-        NETWORK,           // Mất mạng/DNS/SSL
-        TIMEOUT,           // Quá thời gian chờ
-        EMPTY_RESPONSE,    // Server trả rỗng
-        PARSE_ERROR,       // Không parse được JSON
-        UNKNOWN
-    }
-
     /**
      * Gửi prompt tới Gemini.
      * @param systemPrompt prompt hệ thống (định hướng hành vi)
@@ -79,29 +58,29 @@ class GeminiApiClient(
      * @param jsonMode yêu cầu server trả JSON thuần (responseMimeType)
      * @param timeoutMs thời gian tối đa cho toàn bộ lần gọi (bao gồm retry)
      */
-    suspend fun generateContent(
-        systemPrompt: String? = null,
+    override suspend fun generateContent(
+        systemPrompt: String?,
         userPrompt: String,
-        jsonMode: Boolean = false,
-        timeoutMs: Long = 15000L
-    ): GeminiResult = withContext(Dispatchers.IO) {
+        jsonMode: Boolean,
+        timeoutMs: Long
+    ): AiResult = withContext(Dispatchers.IO) {
         val apiKey = apiKeyProvider().trim()
         if (apiKey.isEmpty()) {
-            return@withContext GeminiResult.Error(
-                GeminiErrorType.NO_API_KEY,
+            return@withContext AiResult.Error(
+                AiErrorType.NO_API_KEY,
                 "Chưa nhập API key Gemini. Vào Cài đặt -> AI (Gemini) để nhập key miễn phí từ Google AI Studio."
             )
         }
 
         val model = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
-        var lastError: GeminiResult.Error? = null
+        var lastError: AiResult.Error? = null
 
         // Thử model chính, nếu 404 thì fallback model cũ
         for (attempt in 0..RETRY_ATTEMPTS) {
             val result = callOnce(systemPrompt, userPrompt, jsonMode, model, apiKey, timeoutMs)
             when (result) {
-                is GeminiResult.Success -> return@withContext result
-                is GeminiResult.Error -> {
+                is AiResult.Success -> return@withContext result
+                is AiResult.Error -> {
                     // Retry cho rate limit / server / network
                     if (result.type in RETRYABLE_TYPES && attempt < RETRY_ATTEMPTS) {
                         delay(RETRY_BASE_DELAY_MS * (attempt + 1))
@@ -109,16 +88,16 @@ class GeminiApiClient(
                         continue
                     }
                     // Model không tồn tại -> fallback model cũ
-                    if (result.type == GeminiErrorType.MODEL_NOT_FOUND && model != FALLBACK_MODEL) {
+                    if (result.type == AiErrorType.MODEL_NOT_FOUND && model != FALLBACK_MODEL) {
                         lastError = result
                         val fallbackResult = callOnce(systemPrompt, userPrompt, jsonMode, FALLBACK_MODEL, apiKey, timeoutMs)
-                        if (fallbackResult is GeminiResult.Success) return@withContext fallbackResult
+                        if (fallbackResult is AiResult.Success) return@withContext fallbackResult
                     }
                     return@withContext result
                 }
             }
         }
-        lastError ?: GeminiResult.Error(GeminiErrorType.UNKNOWN, "Lỗi không xác định khi gọi Gemini.")
+        lastError ?: AiResult.Error(AiErrorType.UNKNOWN, "Lỗi không xác định khi gọi Gemini.")
     }
 
     private suspend fun callOnce(
@@ -128,7 +107,7 @@ class GeminiApiClient(
         model: String,
         apiKey: String,
         timeoutMs: Long
-    ): GeminiResult {
+    ): AiResult {
         return try {
             val body = buildRequestBody(systemPrompt, userPrompt, jsonMode)
             val request = Request.Builder()
@@ -140,8 +119,8 @@ class GeminiApiClient(
             val startTime = System.currentTimeMillis()
             val response = withTimeoutGuarded(timeoutMs) {
                 httpClient.newCall(request).execute()
-            } ?: return GeminiResult.Error(
-                GeminiErrorType.TIMEOUT,
+            } ?: return AiResult.Error(
+                AiErrorType.TIMEOUT,
                 "Gemini phản hồi quá lâu ($timeoutMs ms). Hãy thử lại sau."
             )
 
@@ -156,13 +135,13 @@ class GeminiApiClient(
             Log.e(TAG, "Network error calling Gemini", e)
             val isTimeout = e is java.net.SocketTimeoutException ||
                 e.message?.contains("timeout", ignoreCase = true) == true
-            GeminiResult.Error(
-                if (isTimeout) GeminiErrorType.TIMEOUT else GeminiErrorType.NETWORK,
+            AiResult.Error(
+                if (isTimeout) AiErrorType.TIMEOUT else AiErrorType.NETWORK,
                 if (isTimeout) "Hết thời gian chờ kết nối Gemini." else "Lỗi mạng khi kết nối Gemini: ${e.message ?: "không xác định"}"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error calling Gemini", e)
-            GeminiResult.Error(GeminiErrorType.UNKNOWN, "Lỗi không xác định: ${e.message ?: e.javaClass.simpleName}")
+            AiResult.Error(AiErrorType.UNKNOWN, "Lỗi không xác định: ${e.message ?: e.javaClass.simpleName}")
         }
     }
 
@@ -203,25 +182,25 @@ class GeminiApiClient(
             .toString()
     }
 
-    private fun handleHttpError(code: Int, body: String): GeminiResult.Error {
+    private fun handleHttpError(code: Int, body: String): AiResult.Error {
         val serverMessage = extractErrorMessage(body)
         return when (code) {
-            400 -> GeminiResult.Error(GeminiErrorType.BAD_REQUEST, "Yêu cầu không hợp lệ (400): ${serverMessage ?: "kiểm tra lại nội dung"}")
-            401, 403 -> GeminiResult.Error(
-                GeminiErrorType.INVALID_API_KEY,
+            400 -> AiResult.Error(AiErrorType.BAD_REQUEST, "Yêu cầu không hợp lệ (400): ${serverMessage ?: "kiểm tra lại nội dung"}")
+            401, 403 -> AiResult.Error(
+                AiErrorType.INVALID_API_KEY,
                 "API key không hợp lệ hoặc đã hết hạn ($code). Vào Google AI Studio (aistudio.google.com) để tạo key mới."
             )
-            404 -> GeminiResult.Error(GeminiErrorType.MODEL_NOT_FOUND, "Model không tồn tại (404): ${serverMessage ?: "kiểm tra tên model"}")
-            429 -> GeminiResult.Error(
-                GeminiErrorType.RATE_LIMITED,
+            404 -> AiResult.Error(AiErrorType.MODEL_NOT_FOUND, "Model không tồn tại (404): ${serverMessage ?: "kiểm tra tên model"}")
+            429 -> AiResult.Error(
+                AiErrorType.RATE_LIMITED,
                 buildString {
                     append("Đã vượt giới hạn miễn phí (429).")
                     if (serverMessage != null) append("\nServer: $serverMessage")
                     append("\nCách xử lý: tạo key MỚI từ aistudio.google.com/apikey (key từ Cloud Console có thể có quota = 0), đợi 1 phút rồi thử lại, hoặc kiểm tra quota tại Google AI Studio.")
                 }
             )
-            in 500..599 -> GeminiResult.Error(GeminiErrorType.SERVER_ERROR, "Máy chủ Gemini đang lỗi ($code). Thử lại sau ít phút.")
-            else -> GeminiResult.Error(GeminiErrorType.UNKNOWN, "Lỗi không xác định từ server ($code): ${serverMessage ?: ""}")
+            in 500..599 -> AiResult.Error(AiErrorType.SERVER_ERROR, "Máy chủ Gemini đang lỗi ($code). Thử lại sau ít phút.")
+            else -> AiResult.Error(AiErrorType.UNKNOWN, "Lỗi không xác định từ server ($code): ${serverMessage ?: ""}")
         }
     }
 
@@ -236,7 +215,7 @@ class GeminiApiClient(
     }
 
     /** Parse response chuẩn: candidates[0].content.parts[].text */
-    private fun parseSuccess(body: String, elapsedMs: Long): GeminiResult {
+    private fun parseSuccess(body: String, elapsedMs: Long): AiResult {
         return try {
             val root = JSONObject(body)
 
@@ -244,16 +223,16 @@ class GeminiApiClient(
             val promptFeedback = root.optJSONObject("promptFeedback")
             val blockReason = promptFeedback?.optString("blockReason", "") ?: ""
             if (blockReason.isNotBlank()) {
-                return GeminiResult.Error(
-                    GeminiErrorType.BLOCKED,
+                return AiResult.Error(
+                    AiErrorType.BLOCKED,
                     "Yêu cầu bị chặn bởi bộ lọc an toàn của Gemini (lý do: $blockReason)."
                 )
             }
 
             val candidates = root.optJSONArray("candidates") ?: JSONArray()
             if (candidates.length() == 0) {
-                return GeminiResult.Error(
-                    GeminiErrorType.EMPTY_RESPONSE,
+                return AiResult.Error(
+                    AiErrorType.EMPTY_RESPONSE,
                     "Gemini không trả về nội dung (candidates rỗng). Hãy thử lại."
                 )
             }
@@ -261,8 +240,8 @@ class GeminiApiClient(
             val candidate = candidates.optJSONObject(0)
             val finishReason = candidate?.optString("finishReason", "")
             if (finishReason == "SAFETY") {
-                return GeminiResult.Error(
-                    GeminiErrorType.BLOCKED,
+                return AiResult.Error(
+                    AiErrorType.BLOCKED,
                     "Nội dung trả về bị chặn bởi bộ lọc an toàn của Gemini."
                 )
             }
@@ -275,24 +254,16 @@ class GeminiApiClient(
                 if (text.isNotBlank()) texts.add(text)
             }
             if (texts.isEmpty()) {
-                return GeminiResult.Error(
-                    GeminiErrorType.EMPTY_RESPONSE,
+                return AiResult.Error(
+                    AiErrorType.EMPTY_RESPONSE,
                     "Gemini trả về nhưng không có nội dung text. Hãy thử lại."
                 )
             }
 
-            GeminiResult.Success(texts.joinToString("\n"))
+            AiResult.Success(texts.joinToString("\n"))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse Gemini response (elapsed=${elapsedMs}ms): ${body.take(300)}", e)
-            GeminiResult.Error(GeminiErrorType.PARSE_ERROR, "Không phân tích được phản hồi Gemini. Hãy thử lại.")
+            AiResult.Error(AiErrorType.PARSE_ERROR, "Không phân tích được phản hồi Gemini. Hãy thử lại.")
         }
     }
-
-    /** Kiểm tra kết nối + key + model (dùng cho nút "Kiểm tra kết nối" trong Cài đặt) */
-    suspend fun testConnection(): GeminiResult =
-        generateContent(
-            systemPrompt = null,
-            userPrompt = "Trả lời đúng 1 từ: OK",
-            timeoutMs = 10000L
-        )
 }

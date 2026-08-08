@@ -32,6 +32,7 @@ class NobgRepository(private val context: Context) {
         private const val KEY_TTS_PAN = "tts_pan"
         private const val KEY_TTS_PITCH = "tts_pitch"
         private const val KEY_AI_ENABLED = "ai_enabled"
+        private const val KEY_AI_PROVIDER = "ai_provider"
         private const val KEY_AI_API_KEY = "ai_api_key"
         private const val KEY_AI_MODEL = "ai_model"
         private const val KEY_AI_SUMMARY_ENABLED = "ai_summary_enabled"
@@ -610,24 +611,56 @@ class NobgRepository(private val context: Context) {
             .apply()
     }
 
-    // --- AI (GEMINI) PREFS ---
+    // --- AI PREFS (đa provider: Gemini / Groq / OpenRouter) ---
     fun isAiEnabled(): Boolean = prefs.getBoolean(KEY_AI_ENABLED, false)
 
     fun setAiEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_AI_ENABLED, enabled).apply()
     }
 
-    fun getAiApiKey(): String = prefs.getString(KEY_AI_API_KEY, "") ?: ""
+    /** Provider AI đang chọn ("gemini" | "groq" | "openrouter") */
+    fun getAiProvider(): String = prefs.getString(KEY_AI_PROVIDER, "gemini") ?: "gemini"
 
-    fun setAiApiKey(key: String) {
-        prefs.edit().putString(KEY_AI_API_KEY, key.trim()).apply()
+    fun setAiProvider(providerId: String) {
+        prefs.edit().putString(KEY_AI_PROVIDER, providerId).apply()
     }
 
-    fun getAiModel(): String = prefs.getString(KEY_AI_MODEL, GeminiApiClient.DEFAULT_MODEL)
-        ?: GeminiApiClient.DEFAULT_MODEL
+    /** Key của provider chỉ định. Gemini đọc thêm key cũ lưu ở "ai_api_key" để không mất key đang dùng */
+    fun getAiProviderApiKey(provider: AiProvider): String {
+        val stored = prefs.getString("ai_api_key_${provider.id}", "") ?: ""
+        if (stored.isNotBlank()) return stored
+        if (provider == AiProvider.GEMINI) {
+            return prefs.getString(KEY_AI_API_KEY, "") ?: ""
+        }
+        return ""
+    }
+
+    fun setAiProviderApiKey(provider: AiProvider, key: String) {
+        prefs.edit().putString("ai_api_key_${provider.id}", key.trim()).apply()
+    }
+
+    /** Key của provider đang chọn */
+    fun getAiApiKey(): String = getAiProviderApiKey(AiProvider.fromId(getAiProvider()))
+
+    fun setAiApiKey(key: String) {
+        setAiProviderApiKey(AiProvider.fromId(getAiProvider()), key)
+    }
+
+    /** Model của provider đang chọn (lưu riêng từng provider, có mặc định riêng) */
+    fun getAiModel(): String {
+        val provider = AiProvider.fromId(getAiProvider())
+        val stored = prefs.getString("ai_model_${provider.id}", "") ?: ""
+        if (stored.isNotBlank()) return stored
+        if (provider == AiProvider.GEMINI) {
+            val legacy = prefs.getString(KEY_AI_MODEL, "") ?: ""
+            if (legacy.isNotBlank()) return legacy
+        }
+        return provider.defaultModel
+    }
 
     fun setAiModel(model: String) {
-        prefs.edit().putString(KEY_AI_MODEL, model.trim()).apply()
+        val provider = AiProvider.fromId(getAiProvider())
+        prefs.edit().putString("ai_model_${provider.id}", model.trim()).apply()
     }
 
     fun isAiSummaryEnabled(): Boolean = prefs.getBoolean(KEY_AI_SUMMARY_ENABLED, false)

@@ -16,8 +16,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.text.isDigitsOnly
-import com.nobg.app.data.GeminiApiClient
-import com.nobg.app.data.GeminiApiClient.GeminiResult
+import com.nobg.app.data.AiResult
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
@@ -45,12 +44,7 @@ class NotificationReaderService : NotificationListenerService() {
     // Theo dõi audio focus theo từng utterance để abandon đúng khi đọc xong
     private val focusByUtterance = java.util.concurrent.ConcurrentHashMap<String, Pair<AudioFocusRequest, Boolean>>()
 
-    private val geminiClient by lazy {
-        GeminiApiClient(
-            apiKeyProvider = { repo.getAiApiKey() },
-            modelProvider = { repo.getAiModel() }
-        )
-    }
+    private val aiClient by lazy { com.nobg.app.data.AiClientFactory.create(repo) }
 
     override fun onCreate() {
         super.onCreate()
@@ -232,7 +226,7 @@ class NotificationReaderService : NotificationListenerService() {
     }
 
     private suspend fun aiSummarize(text: String): String? = withTimeoutOrNull(3500L) {
-        val result = geminiClient.generateContent(
+        val result = aiClient.generateContent(
             systemPrompt = "Bạn là trợ lý tóm tắt thông báo tiếng Việt. Tóm tắt ngắn gọn dưới 25 từ, " +
                 "giữ thông tin quan trọng nhất: người gửi, nội dung chính, mã OTP nếu có. " +
                 "Chỉ trả về nội dung tóm tắt, không thêm lời dẫn.",
@@ -240,8 +234,8 @@ class NotificationReaderService : NotificationListenerService() {
             timeoutMs = 3500L
         )
         when (result) {
-            is GeminiResult.Success -> result.text.trim().takeIf { it.isNotBlank() && it.length < 300 }
-            is GeminiResult.Error -> {
+            is com.nobg.app.data.AiResult.Success -> result.text.trim().takeIf { it.isNotBlank() && it.length < 300 }
+            is com.nobg.app.data.AiResult.Error -> {
                 Log.w(TAG, "AI summarize failed: ${result.type} - ${result.message}")
                 null
             }
@@ -250,7 +244,7 @@ class NotificationReaderService : NotificationListenerService() {
 
     private suspend fun aiIsImportant(sbn: StatusBarNotification, text: String): Boolean? = withTimeoutOrNull(3000L) {
         val appName = getAppLabel(sbn.packageName)
-        val result = geminiClient.generateContent(
+        val result = aiClient.generateContent(
             systemPrompt = "Bạn là bộ lọc thông báo tiếng Việt. Thông báo QUAN TRỌNG cần báo ngay: " +
                 "tin nhắn cá nhân, OTP/mã xác thực, cuộc gọi, lịch hẹn, nhắc việc, cảnh báo. " +
                 "KHÔNG quan trọng: quảng cáo, khuyến mãi, tin tức, trò chơi, mạng xã hội rác, điểm danh. " +
@@ -260,7 +254,7 @@ class NotificationReaderService : NotificationListenerService() {
             timeoutMs = 3000L
         )
         when (result) {
-            is GeminiResult.Success -> {
+            is com.nobg.app.data.AiResult.Success -> {
                 val cleaned = result.text.trim()
                     .removePrefix("```json").removePrefix("```")
                     .removeSuffix("```").trim()
@@ -271,7 +265,7 @@ class NotificationReaderService : NotificationListenerService() {
                     true // fail-open: JSON hỏng thì vẫn đọc
                 }
             }
-            is GeminiResult.Error -> {
+            is com.nobg.app.data.AiResult.Error -> {
                 Log.w(TAG, "AI filter failed: ${result.type} - ${result.message}")
                 true // fail-open: lỗi thì vẫn đọc
             }
