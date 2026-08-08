@@ -241,17 +241,20 @@ fun NotificationReadScreen(
                             FilterChip(
                                 selected = ttsPan == -0.5f,
                                 onClick = { viewModel.setTtsPan(-0.5f) },
-                                label = { Text("👈 Tai Trái (-0.5f)", style = MaterialTheme.typography.labelSmall) }
+                                label = { Text("👈 Tai Trái", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                modifier = Modifier.weight(1f)
                             )
                             FilterChip(
                                 selected = ttsPan == 0.0f,
                                 onClick = { viewModel.setTtsPan(0.0f) },
-                                label = { Text("🎧 Chính Giữa (0.0f)", style = MaterialTheme.typography.labelSmall) }
+                                label = { Text("🎧 Chính Giữa", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                modifier = Modifier.weight(1f)
                             )
                             FilterChip(
                                 selected = ttsPan == 0.5f,
                                 onClick = { viewModel.setTtsPan(0.5f) },
-                                label = { Text("👉 Tai Phải (+0.5f)", style = MaterialTheme.typography.labelSmall) }
+                                label = { Text("👉 Tai Phải", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                modifier = Modifier.weight(1f)
                             )
                         }
 

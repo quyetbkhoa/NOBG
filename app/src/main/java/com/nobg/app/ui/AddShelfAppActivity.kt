@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,7 +26,13 @@ class AddShelfAppActivity : ComponentActivity() {
         val repo = NobgRepository(applicationContext)
 
         setContent {
-            NobgTheme {
+            val themeMode = repo.getThemeMode()
+            val darkTheme = when (themeMode) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> isSystemInDarkTheme()
+            }
+            NobgTheme(darkTheme = darkTheme) {
                 val scope = rememberCoroutineScope()
                 var currentShelfPkgs by remember { mutableStateOf<Set<String>>(emptySet()) }
                 var isRepoLoading by remember { mutableStateOf(true) }

@@ -159,7 +159,8 @@ fun AlgorithmScreen(
                                                     leaf.title,
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.weight(1f)
                                                 )
                                                 Icon(
                                                     if (isLeafExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,

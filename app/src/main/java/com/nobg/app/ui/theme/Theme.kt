@@ -32,19 +32,20 @@ private val DarkColors = darkColorScheme(
     error = Color(0xFFFFB4AB)
 )
 
+// Giao diện Trắng - Xanh (White-Blue Light Theme)
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF2E7D32),
+    primary = Color(0xFF1565C0),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFB6F2C2),
-    onPrimaryContainer = Color(0xFF00210D),
-    secondary = Color(0xFF558B2F),
+    primaryContainer = Color(0xFFD6E3FF),
+    onPrimaryContainer = Color(0xFF001B3F),
+    secondary = Color(0xFF0277BD),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFD5F2B0),
-    onSecondaryContainer = Color(0xFF142800),
-    tertiary = Color(0xFF0077B6),
-    surface = Color(0xFFFCFDF7),
-    surfaceVariant = Color(0xFFDEE5DC),
-    background = Color(0xFFFCFDF7),
+    secondaryContainer = Color(0xFFCBE6FF),
+    onSecondaryContainer = Color(0xFF001D33),
+    tertiary = Color(0xFF0091EA),
+    surface = Color(0xFFFAFCFF),
+    surfaceVariant = Color(0xFFE1E8F0),
+    background = Color(0xFFF3F8FF),
     error = Color(0xFFBA1A1A)
 )
 
@@ -64,13 +65,20 @@ private val NobgShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
+/**
+ * @param darkTheme       Nền tối hay sáng
+ * @param useDynamicColor Chỉ dùng dynamic color (Material You) khi chọn "Theo hệ thống";
+ *                        nếu người dùng chọn cụ thể Sáng/Tối thì dùng bảng màu tĩnh để giữ đúng
+ *                        giao diện Trắng-Xanh hoặc Tối đã chọn.
+ */
 @Composable
 fun NobgTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    useDynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }

@@ -272,13 +272,15 @@ private fun AppUsageRow(item: UsageItem, maxMah: Double, onClick: () -> Unit) {
                     "Pin: ${String.format("%.1f", item.batteryMah)} mAh (${String.format("%.1f", item.batteryPct)}%)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
                 if (item.wakeupCount > 0 || item.totalCpuMs > 0) {
                     Text(
                         "⏰ ${item.wakeupCount} wakeups | ⚡ CPU: ${formatDurationShort(item.totalCpuMs)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
             }
@@ -452,9 +454,10 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         }
     }
 
-    val tooltipPaint = remember {
+    val tooltipTextColor = MaterialTheme.colorScheme.onPrimary
+    val tooltipPaint = remember(tooltipTextColor) {
         android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
+            color = tooltipTextColor.toArgb()
             textSize = 24f
             isFakeBoldText = true
             isAntiAlias = true

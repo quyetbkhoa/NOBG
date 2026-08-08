@@ -387,9 +387,10 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
         }
     }
 
-    val tooltipPaint = remember {
+    val tooltipTextColor = MaterialTheme.colorScheme.onPrimary
+    val tooltipPaint = remember(tooltipTextColor) {
         android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
+            color = tooltipTextColor.toArgb()
             textSize = 24f
             isFakeBoldText = true
             isAntiAlias = true
@@ -545,9 +546,10 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
         }
     }
 
-    val tooltipPaint = remember {
+    val tooltipTextColor = MaterialTheme.colorScheme.onPrimary
+    val tooltipPaint = remember(tooltipTextColor) {
         android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
+            color = tooltipTextColor.toArgb()
             textSize = 24f
             isFakeBoldText = true
             isAntiAlias = true

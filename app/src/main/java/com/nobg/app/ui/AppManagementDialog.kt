@@ -59,7 +59,7 @@ fun Modifier.drawVerticalScrollbar(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AppManagementDialog(
     appModel: AppUiModel,
@@ -257,10 +257,10 @@ fun AppManagementDialog(
                 }
 
                 // Current Badges Overview
-                Row(
+                androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     PowerBadge(state = localPowerState)
                     NobgBadge(enabled = isNobgEnabled, mode = currentNobgMode, delaySeconds = currentDelay)
@@ -392,7 +392,7 @@ fun AppManagementDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f) else Color.Transparent)
                                     .clickable {
                                         localPowerState = state
                                         viewModel.changePowerState(appModel.packageName, state)
@@ -624,7 +624,8 @@ fun AppManagementDialog(
                             Text(
                                 text = if (appModel.isDisabled) "❄️ Đã vô hiệu hóa" else "❄️ Vô hiệu hóa ứng dụng",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
                             )
                             if (appModel.isDisabled) {
                                 Button(
@@ -668,7 +669,7 @@ fun AppManagementDialog(
                             ) {
                                 Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Cài đặt app", style = MaterialTheme.typography.labelSmall)
+                                Text("Cài đặt", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                             }
 
                             OutlinedButton(
@@ -680,7 +681,7 @@ fun AppManagementDialog(
                             ) {
                                 Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Cài đặt pin", style = MaterialTheme.typography.labelSmall)
+                                Text("Pin", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                             }
 
                             if (appModel.config != null) {
@@ -695,7 +696,7 @@ fun AppManagementDialog(
                                 ) {
                                     Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Reset app", style = MaterialTheme.typography.labelSmall)
+                                    Text("Reset", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                                 }
                             }
                         }

@@ -137,7 +137,7 @@ fun FilterBottomSheet(
                 ) {
                     Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("🗑️ Xóa tất cả bộ lọc", style = MaterialTheme.typography.labelSmall)
+                    Text("Xóa tất cả", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
 
                 Button(

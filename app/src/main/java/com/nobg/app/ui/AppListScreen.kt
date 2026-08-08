@@ -283,6 +283,7 @@ fun AppListScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppRow(
     app: AppUiModel,
@@ -300,7 +301,7 @@ private fun AppRow(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (enabled)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         )
@@ -350,9 +351,9 @@ private fun AppRow(
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                Row(
+                androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     PowerBadge(state = app.powerState)
                     NobgBadge(

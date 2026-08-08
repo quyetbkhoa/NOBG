@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,7 +46,9 @@ fun SettingsScreen(
     onOpenAlgorithmScreen: () -> Unit,
     onOpenNotificationRead: () -> Unit = {},
     onOpenSmartTimer: () -> Unit = {},
-    onOpenAiChat: () -> Unit = {}
+    onOpenAiChat: () -> Unit = {},
+    themeMode: String = "SYSTEM",
+    onThemeModeChanged: (String) -> Unit = {}
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     val shizukuReady by viewModel.shizukuReady.collectAsState()
@@ -234,6 +238,53 @@ fun SettingsScreen(
                 }
             }
 
+            // 🎨 GIAO DIỆN (THEME)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "🎨 Giao diện",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Chọn chủ đề giao diện: Trắng - Xanh, Tối, hoặc tự động theo hệ thống.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    listOf(
+                        "SYSTEM" to "🌓 Theo hệ thống",
+                        "LIGHT" to "☀️ Trắng - Xanh",
+                        "DARK" to "🌙 Tối"
+                    ).forEach { (mode, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable { onThemeModeChanged(mode) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = themeMode == mode,
+                                onClick = { onThemeModeChanged(mode) }
+                            )
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (themeMode == mode) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+
             val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 if (uri != null) {
                     scope.launch {
@@ -296,13 +347,13 @@ fun SettingsScreen(
                             onClick = { exportLauncher.launch("nobg_config_backup.json") },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("📤 Xuất file (JSON)")
+                            Text("📤 Xuất JSON")
                         }
                         Button(
                             onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("📥 Nhập cấu hình")
+                            Text("📥 Nhập JSON")
                         }
                     }
                 }
@@ -630,7 +681,7 @@ fun SettingsScreen(
                             var showWireless by remember { mutableStateOf(false) }
                             Spacer(Modifier.height(8.dp))
                             TextButton(onClick = { showWireless = !showWireless }, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (showWireless) "Ẩn Hướng dẫn Wireless ADB (Android 11+)" else "Hiện Hướng dẫn Wireless ADB (Android 11+)", style = MaterialTheme.typography.labelSmall)
+                                Text(if (showWireless) "Ẩn Hướng dẫn Wireless ADB" else "Hiện Hướng dẫn Wireless ADB", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                             }
                             
                             if (showWireless) {
@@ -688,7 +739,7 @@ fun SettingsScreen(
                             if (isCheckingUpdate) {
                                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                             } else {
-                                Text("🔄 Kiểm tra bản mới")
+                                Text("🔄 Kiểm tra bản mới", maxLines = 1)
                             }
                         }
 
@@ -707,7 +758,7 @@ fun SettingsScreen(
                             if (isFetchingChangelog) {
                                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                             } else {
-                                Text("📝 Xem Changelog")
+                                Text("📝 Xem Changelog", maxLines = 1)
                             }
                         }
                     }

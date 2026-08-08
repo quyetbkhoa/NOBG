@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -99,7 +100,13 @@ class MainActivity : ComponentActivity() {
         val initialScreen = intent?.getStringExtra("open_screen") ?: repo.getLastActiveScreen()
 
         setContent {
-            NobgTheme {
+            val themeMode = remember { mutableStateOf(repo.getThemeMode()) }
+            val darkTheme = when (themeMode.value) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> isSystemInDarkTheme()
+            }
+            NobgTheme(darkTheme = darkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var currentScreen by remember { mutableStateOf(initialScreen) }
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
@@ -139,7 +146,12 @@ class MainActivity : ComponentActivity() {
                             onBack = { currentScreen = "LIST" },
                             onOpenAlgorithmScreen = { currentScreen = "ALGORITHM" },
                             onOpenNotificationRead = { currentScreen = "NOTIFICATION_READ" },
-                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" }
+                            onOpenSmartTimer = { currentScreen = "SMART_TIMER" },
+                            themeMode = themeMode.value,
+                            onThemeModeChanged = { mode ->
+                                repo.setThemeMode(mode)
+                                themeMode.value = mode
+                            }
                         )
                         "BATTERY_STATS" -> BatteryStatsScreen(
                             viewModel = batteryStatsViewModel,

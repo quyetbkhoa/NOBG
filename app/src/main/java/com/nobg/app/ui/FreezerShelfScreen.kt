@@ -183,7 +183,7 @@ fun FreezerShelfScreen(
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("🧊 Đóng băng tất cả", fontSize = 12.sp)
+                            Text("🧊 Đóng băng tất cả", fontSize = 12.sp, maxLines = 1)
                         }
 
                         OutlinedButton(
@@ -198,7 +198,7 @@ fun FreezerShelfScreen(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("☀️ Xả băng tất cả", fontSize = 12.sp)
+                            Text("☀️ Xả băng tất cả", fontSize = 12.sp, maxLines = 1)
                         }
                     }
                 }
@@ -329,7 +329,7 @@ fun ShelfAppGridItem(
                 onLongClick = { showMenu = true }
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (app.isFrozen) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (app.isFrozen) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -366,11 +366,11 @@ fun ShelfAppGridItem(
                     } else {
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(app.appName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(app.appName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -384,7 +384,7 @@ fun ShelfAppGridItem(
                             Icon(
                                 if (app.isFrozen) Icons.Default.AcUnit else Icons.Default.WbSunny,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = if (app.isFrozen) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
                                 modifier = Modifier.size(12.dp)
                             )
                         }

@@ -37,6 +37,14 @@ class NobgRepository(private val context: Context) {
         private const val KEY_AI_SUMMARY_ENABLED = "ai_summary_enabled"
         private const val KEY_AI_FILTER_ENABLED = "ai_filter_enabled"
         private const val KEY_AI_FILTER_STRICTNESS = "ai_filter_strictness"
+        private const val KEY_THEME_MODE = "theme_mode"
+    }
+
+    /** Chế độ giao diện: "SYSTEM" (theo hệ thống) | "LIGHT" (Trắng - Xanh) | "DARK" (Tối) */
+    fun getThemeMode(): String = prefs.getString(KEY_THEME_MODE, "SYSTEM") ?: "SYSTEM"
+
+    fun setThemeMode(mode: String) {
+        prefs.edit().putString(KEY_THEME_MODE, mode).apply()
     }
 
     fun observeApps(): Flow<List<AppEntity>> = appDao.observeAll()
