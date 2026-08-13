@@ -589,7 +589,6 @@ class NobgRepository(private val context: Context) {
             mode = mode,
             intervalMinutes = prefs.getInt("smart_timer_interval", 2),
             durationMinutes = prefs.getInt("smart_timer_duration", 60),
-            autoShutdown = prefs.getBoolean("smart_timer_auto_shutdown", false),
             volume = prefs.getFloat("smart_timer_volume", 1.0f),
             audioDucking = prefs.getBoolean("smart_timer_ducking", true),
             speechRate = prefs.getFloat("smart_timer_speech_rate", 1.1f),
@@ -604,12 +603,34 @@ class NobgRepository(private val context: Context) {
             .putString("smart_timer_mode", config.mode.name)
             .putInt("smart_timer_interval", config.intervalMinutes)
             .putInt("smart_timer_duration", config.durationMinutes)
-            .putBoolean("smart_timer_auto_shutdown", config.autoShutdown)
+            .remove("smart_timer_auto_shutdown")
             .putFloat("smart_timer_volume", config.volume)
             .putBoolean("smart_timer_ducking", config.audioDucking)
             .putFloat("smart_timer_speech_rate", config.speechRate)
             .putLong("smart_timer_start_time", config.startTimeMillis)
             .putLong("smart_timer_end_time", config.endTimeMillis)
+            .apply()
+    }
+
+    fun getSmartTimerQuickConfig(): SmartTimerQuickConfig {
+        val modeName = prefs.getString("smart_timer_widget_mode", SmartTimerMode.CLOCK_TIME.name)
+        val mode = try {
+            SmartTimerMode.valueOf(modeName ?: SmartTimerMode.CLOCK_TIME.name)
+        } catch (_: IllegalArgumentException) {
+            SmartTimerMode.CLOCK_TIME
+        }
+        return SmartTimerQuickConfig(
+            mode = mode,
+            intervalMinutes = prefs.getInt("smart_timer_widget_interval", 2).coerceAtLeast(1),
+            durationMinutes = prefs.getInt("smart_timer_widget_duration", 60).coerceAtLeast(0)
+        )
+    }
+
+    fun saveSmartTimerQuickConfig(config: SmartTimerQuickConfig) {
+        prefs.edit()
+            .putString("smart_timer_widget_mode", config.mode.name)
+            .putInt("smart_timer_widget_interval", config.intervalMinutes.coerceAtLeast(1))
+            .putInt("smart_timer_widget_duration", config.durationMinutes.coerceAtLeast(0))
             .apply()
     }
 

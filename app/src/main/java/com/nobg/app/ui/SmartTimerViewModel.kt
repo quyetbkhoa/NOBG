@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.SmartTimerConfig
 import com.nobg.app.data.SmartTimerMode
+import com.nobg.app.data.SmartTimerQuickConfig
 import com.nobg.app.service.SmartTimerService
+import com.nobg.app.widget.SmartTimerWidgetProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,9 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _configState = MutableStateFlow(repo.getSmartTimerConfig())
     val configState: StateFlow<SmartTimerConfig> = _configState.asStateFlow()
+
+    private val _quickConfigState = MutableStateFlow(repo.getSmartTimerQuickConfig())
+    val quickConfigState: StateFlow<SmartTimerQuickConfig> = _quickConfigState.asStateFlow()
 
     private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
@@ -67,11 +72,6 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setDuration(durationMinutes: Int) {
         val newCfg = _configState.value.copy(durationMinutes = durationMinutes.coerceAtLeast(0))
-        saveAndEmit(newCfg)
-    }
-
-    fun setAutoShutdown(autoShutdown: Boolean) {
-        val newCfg = _configState.value.copy(autoShutdown = autoShutdown)
         saveAndEmit(newCfg)
     }
 
@@ -130,12 +130,11 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun applyPreset(mode: SmartTimerMode, durationMins: Int, intervalMins: Int, autoShutdown: Boolean) {
+    fun applyPreset(mode: SmartTimerMode, durationMins: Int, intervalMins: Int) {
         val updated = _configState.value.copy(
             mode = mode,
             durationMinutes = durationMins,
             intervalMinutes = intervalMins,
-            autoShutdown = autoShutdown,
             isRunning = true,
             startTimeMillis = System.currentTimeMillis()
         )
@@ -143,8 +142,26 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
         startTimer()
     }
 
+    fun setQuickMode(mode: SmartTimerMode) {
+        saveQuickConfig(_quickConfigState.value.copy(mode = mode))
+    }
+
+    fun setQuickInterval(intervalMinutes: Int) {
+        saveQuickConfig(_quickConfigState.value.copy(intervalMinutes = intervalMinutes.coerceAtLeast(1)))
+    }
+
+    fun setQuickDuration(durationMinutes: Int) {
+        saveQuickConfig(_quickConfigState.value.copy(durationMinutes = durationMinutes.coerceAtLeast(0)))
+    }
+
     private fun saveAndEmit(config: SmartTimerConfig) {
         _configState.value = config
         repo.saveSmartTimerConfig(config)
+    }
+
+    private fun saveQuickConfig(config: SmartTimerQuickConfig) {
+        _quickConfigState.value = config
+        repo.saveSmartTimerQuickConfig(config)
+        SmartTimerWidgetProvider.updateAllWidgets(getApplication())
     }
 }

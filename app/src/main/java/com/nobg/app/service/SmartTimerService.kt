@@ -19,7 +19,6 @@ import com.nobg.app.R
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.SmartTimerConfig
 import com.nobg.app.data.SmartTimerMode
-import com.nobg.app.shell.PrivilegedShell
 import com.nobg.app.widget.SmartTimerWidgetProvider
 import kotlinx.coroutines.*
 import java.util.*
@@ -33,8 +32,7 @@ class SmartTimerService : Service() {
 
         const val ACTION_START = "com.nobg.app.action.SMART_TIMER_START"
         const val ACTION_STOP = "com.nobg.app.action.SMART_TIMER_STOP"
-        const val ACTION_TOGGLE_QUICK_DEFAULT = "com.nobg.app.action.SMART_TIMER_TOGGLE_DEFAULT"
-        const val ACTION_TOGGLE_QUICK_15M = "com.nobg.app.action.SMART_TIMER_TOGGLE_15M"
+        const val ACTION_TOGGLE_WIDGET_QUICK = "com.nobg.app.action.SMART_TIMER_TOGGLE_WIDGET_QUICK"
 
         @Volatile
         var isServiceRunning = false
@@ -92,33 +90,18 @@ class SmartTimerService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_TOGGLE_QUICK_DEFAULT -> {
+            ACTION_TOGGLE_WIDGET_QUICK -> {
                 if (currentConfig.isRunning) {
                     stopSmartTimer()
                     stopSelf()
                     return START_NOT_STICKY
                 } else {
+                    val widgetConfig = repo.getSmartTimerQuickConfig()
                     val quickCfg = repo.getSmartTimerConfig().copy(
                         isRunning = true,
-                        mode = SmartTimerMode.CLOCK_TIME,
-                        intervalMinutes = 2,
-                        durationMinutes = 60,
-                        startTimeMillis = System.currentTimeMillis()
-                    )
-                    startSmartTimer(quickCfg)
-                }
-            }
-            ACTION_TOGGLE_QUICK_15M -> {
-                if (currentConfig.isRunning) {
-                    stopSmartTimer()
-                    stopSelf()
-                    return START_NOT_STICKY
-                } else {
-                    val quickCfg = repo.getSmartTimerConfig().copy(
-                        isRunning = true,
-                        intervalMinutes = 1,
-                        durationMinutes = 15,
-                        autoShutdown = true,
+                        mode = widgetConfig.mode,
+                        intervalMinutes = widgetConfig.intervalMinutes,
+                        durationMinutes = widgetConfig.durationMinutes,
                         startTimeMillis = System.currentTimeMillis()
                     )
                     startSmartTimer(quickCfg)
@@ -174,17 +157,6 @@ class SmartTimerService : Service() {
                     // Delay to finish speech
                     delay(4000L)
 
-                    if (currentConfig.autoShutdown) {
-                        // Trigger shutdown via Shizuku if available
-                        if (PrivilegedShell.isReady()) {
-                            try {
-                                PrivilegedShell.exec("reboot -p")
-                                PrivilegedShell.exec("svc power shutdown")
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Auto shutdown command failed", e)
-                            }
-                        }
-                    }
                     stopSmartTimer()
                     stopSelf()
                     break
@@ -350,6 +322,7 @@ class SmartTimerService : Service() {
         timerJob = null
         currentConfig = currentConfig.copy(isRunning = false)
         repo.saveSmartTimerConfig(currentConfig)
+        isServiceRunning = false
 
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
@@ -363,7 +336,6 @@ class SmartTimerService : Service() {
         tts?.shutdown()
         tts = null
         isTtsReady = false
-        isServiceRunning = false
         serviceScope.cancel()
         super.onDestroy()
     }

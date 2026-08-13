@@ -136,7 +136,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 ?: ""
 
             val systemPrompt = summaryNote + "Bạn là trợ lý AI thông minh trong app NOBG (quản lý app chạy ngầm, đóng băng app, " +
-                "ép dừng, thống kê pin, đọc thông báo, hẹn giờ tắt máy, widget). Trả lời bằng tiếng Việt, ngắn gọn, tự nhiên, có trọng tâm. " +
+                "ép dừng, thống kê pin, đọc thông báo, đếm giờ thông minh, widget). Trả lời bằng tiếng Việt, ngắn gọn, tự nhiên, có trọng tâm. " +
                 "Nếu được hỏi về cách dùng app hãy hướng dẫn cụ thể từng bước. " +
                 "BẠN CÓ QUYỀN ĐỌC DỮ LIỆU THẬT TRÊN MÁY bằng các công cụ: " +
                 "get_overall_stats (TỔNG HỢP pin + RAM + bộ nhớ + app dùng nhiều nhất + trạng thái NOBG - ưu tiên dùng tool này cho câu hỏi tổng quan), " +

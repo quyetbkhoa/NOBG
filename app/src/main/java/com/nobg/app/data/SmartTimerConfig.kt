@@ -10,10 +10,15 @@ data class SmartTimerConfig(
     val mode: SmartTimerMode = SmartTimerMode.CLOCK_TIME,
     val intervalMinutes: Int = 2,
     val durationMinutes: Int = 60,
-    val autoShutdown: Boolean = false,
     val volume: Float = 1.0f,
     val audioDucking: Boolean = true,
     val speechRate: Float = 1.1f,
     val startTimeMillis: Long = 0L,
     val endTimeMillis: Long = 0L
+)
+
+data class SmartTimerQuickConfig(
+    val mode: SmartTimerMode = SmartTimerMode.CLOCK_TIME,
+    val intervalMinutes: Int = 2,
+    val durationMinutes: Int = 60
 )

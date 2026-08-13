@@ -17,7 +17,9 @@
     <!-- Granted via ADB: adb shell pm grant com.nobg.app android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- Granted via AppOps/Shizuku; this app is not relying on a normal runtime grant. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Bluetooth permissions for notification reader -->

@@ -631,11 +631,17 @@ object DeviceTools {
         val enabledSetting = pm.getApplicationEnabledSetting(pkg)
         val lastUsed = lastTimeUsed(context, pkg)
         val standbyBucket = standbyBucket(pkg)
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
         return JSONObject()
             .put("package", pkg)
             .put("label", label)
             .put("version", info.versionName ?: "?")
-            .put("version_code", info.longVersionCode)
+            .put("version_code", versionCode)
             .put("installed_date", formatTime(info.firstInstallTime))
             .put("enabled", enabledSetting != PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
             .put("standby_bucket", standbyBucket)

@@ -32,6 +32,7 @@ fun SmartTimerScreen(
 
     val context = LocalContext.current
     val config by viewModel.configState.collectAsState()
+    val quickConfig by viewModel.quickConfigState.collectAsState()
     val elapsedSec by viewModel.elapsedSeconds.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -74,9 +75,18 @@ fun SmartTimerScreen(
             )
 
             QuickPresetsCard(
-                onPresetSelect = { mode, duration, interval, autoShutdown ->
-                    viewModel.applyPreset(mode, duration, interval, autoShutdown)
+                onPresetSelect = { mode, duration, interval ->
+                    viewModel.applyPreset(mode, duration, interval)
                 }
+            )
+
+            WidgetQuickConfigCard(
+                mode = quickConfig.mode,
+                interval = quickConfig.intervalMinutes,
+                duration = quickConfig.durationMinutes,
+                onModeSelected = viewModel::setQuickMode,
+                onIntervalSelected = viewModel::setQuickInterval,
+                onDurationSelected = viewModel::setQuickDuration
             )
 
             ReaderConfigCard(
@@ -86,11 +96,6 @@ fun SmartTimerScreen(
                 onModeSelected = { viewModel.setMode(it) },
                 onIntervalSelected = { viewModel.setInterval(it) },
                 onDurationSelected = { viewModel.setDuration(it) }
-            )
-
-            AutoShutdownCard(
-                autoShutdown = config.autoShutdown,
-                onToggle = { viewModel.setAutoShutdown(it) }
             )
 
             AudioSettingsCard(
@@ -198,7 +203,7 @@ private fun TimerStatusCard(
 
 @Composable
 private fun QuickPresetsCard(
-    onPresetSelect: (mode: SmartTimerMode, duration: Int, interval: Int, autoShutdown: Boolean) -> Unit
+    onPresetSelect: (mode: SmartTimerMode, duration: Int, interval: Int) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -214,44 +219,145 @@ private fun QuickPresetsCard(
                 fontSize = 16.sp
             )
 
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { onPresetSelect(SmartTimerMode.CLOCK_TIME, 60, 2, false) },
-                    modifier = Modifier.weight(1f),
+                    onClick = { onPresetSelect(SmartTimerMode.CLOCK_TIME, 60, 2) },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Mặc định", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("1h · 2p/lần", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Mặc định", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Giờ thực · 1h · báo mỗi 2p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
                 OutlinedButton(
-                    onClick = { onPresetSelect(SmartTimerMode.ELAPSED_TIME, 15, 1, true) },
-                    modifier = Modifier.weight(1f),
+                    onClick = { onPresetSelect(SmartTimerMode.ELAPSED_TIME, 15, 1) },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("15p Tắt máy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("1p/lần · tự tắt", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("15 phút", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Đã trôi qua · báo mỗi 1p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
                 OutlinedButton(
-                    onClick = { onPresetSelect(SmartTimerMode.ELAPSED_TIME, 30, 2, false) },
-                    modifier = Modifier.weight(1f),
+                    onClick = { onPresetSelect(SmartTimerMode.ELAPSED_TIME, 30, 2) },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("30 phút", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("2p/lần", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("30 phút", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Đã trôi qua · báo mỗi 2p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetQuickConfigCard(
+    mode: SmartTimerMode,
+    interval: Int,
+    duration: Int,
+    onModeSelected: (SmartTimerMode) -> Unit,
+    onIntervalSelected: (Int) -> Unit,
+    onDurationSelected: (Int) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("▣ Chế độ nhanh của Widget", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(
+                "Bấm widget 1x1 để bắt đầu với các thiết lập dưới đây; bấm lại để dừng.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+            )
+
+            Text("Loại giờ được đọc", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = mode == SmartTimerMode.CLOCK_TIME,
+                    onClick = { onModeSelected(SmartTimerMode.CLOCK_TIME) },
+                    label = { Text("Giờ thực tế (ví dụ: 8 giờ 20)") },
+                    leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                FilterChip(
+                    selected = mode == SmartTimerMode.ELAPSED_TIME,
+                    onClick = { onModeSelected(SmartTimerMode.ELAPSED_TIME) },
+                    label = { Text("Thời gian đã trôi qua") },
+                    leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            HorizontalDivider()
+            TimerOptionChips(
+                title = "Báo sau mỗi",
+                values = listOf(1 to "1p", 2 to "2p", 3 to "3p", 5 to "5p", 10 to "10p", 15 to "15p"),
+                selectedValue = interval,
+                onSelected = onIntervalSelected
+            )
+
+            HorizontalDivider()
+            TimerOptionChips(
+                title = "Tự dừng sau",
+                values = listOf(15 to "15p", 30 to "30p", 60 to "1h", 120 to "2h", 0 to "∞ Không GH"),
+                selectedValue = duration,
+                onSelected = onDurationSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimerOptionChips(
+    title: String,
+    values: List<Pair<Int, String>>,
+    selectedValue: Int,
+    onSelected: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        values.chunked(3).forEach { rowValues ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                rowValues.forEach { (value, label) ->
+                    FilterChip(
+                        selected = selectedValue == value,
+                        onClick = { onSelected(value) },
+                        label = { Text(label, maxLines = 1) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                repeat(3 - rowValues.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -279,124 +385,44 @@ private fun ReaderConfigCard(
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Chế độ đọc", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
                         selected = mode == SmartTimerMode.CLOCK_TIME,
                         onClick = { onModeSelected(SmartTimerMode.CLOCK_TIME) },
-                        label = { Text("Giờ thực tế", fontSize = 12.sp) },
+                        label = { Text("Giờ thực tế (ví dụ: 8 giờ 20)", fontSize = 12.sp) },
                         leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     FilterChip(
                         selected = mode == SmartTimerMode.ELAPSED_TIME,
                         onClick = { onModeSelected(SmartTimerMode.ELAPSED_TIME) },
                         label = { Text("Thời gian trôi qua", fontSize = 12.sp) },
                         leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
 
             HorizontalDivider()
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Chu kỳ báo (1 lần mỗi)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                val intervals = listOf(1, 2, 3, 5, 10, 15, 30)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    intervals.take(4).forEach { i ->
-                        FilterChip(
-                            selected = interval == i,
-                            onClick = { onIntervalSelected(i) },
-                            label = { Text("${i}p") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    intervals.drop(4).forEach { i ->
-                        FilterChip(
-                            selected = interval == i,
-                            onClick = { onIntervalSelected(i) },
-                            label = { Text("${i}p") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
+            TimerOptionChips(
+                title = "Chu kỳ báo (1 lần mỗi)",
+                values = listOf(1, 2, 3, 5, 10, 15, 30).map { it to "${it}p" },
+                selectedValue = interval,
+                onSelected = onIntervalSelected
+            )
 
             HorizontalDivider()
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Thời lượng tổng", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                val durations = listOf(
+            TimerOptionChips(
+                title = "Thời lượng tổng",
+                values = listOf(
                     15 to "15p",
                     30 to "30p",
                     60 to "1h",
                     120 to "2h",
                     0 to "∞"
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    durations.take(3).forEach { (d, label) ->
-                        FilterChip(
-                            selected = duration == d,
-                            onClick = { onDurationSelected(d) },
-                            label = { Text(label) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    durations.drop(3).forEach { (d, label) ->
-                        FilterChip(
-                            selected = duration == d,
-                            onClick = { onDurationSelected(d) },
-                            label = { Text(label) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AutoShutdownCard(
-    autoShutdown: Boolean,
-    onToggle: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("⚡ Hẹn giờ tắt máy khi hết giờ", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(
-                    "Tự động tắt máy (qua Shizuku ADB) khi thời lượng đếm kết thúc",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = autoShutdown,
-                onCheckedChange = onToggle
+                ),
+                selectedValue = duration,
+                onSelected = onDurationSelected
             )
         }
     }

@@ -1,38 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_smart_timer_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:gravity="center"
-    android:padding="8dp"
-    android:background="@drawable/bg_widget_smart_timer">
+    android:padding="2dp">
 
-    <ImageView
-        android:id="@+id/iv_timer_widget_icon"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:src="@drawable/ic_launcher_nobg"
-        android:contentDescription="Smart Timer Icon" />
+    <LinearLayout
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_widget_smart_timer"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="5dp">
 
-    <TextView
-        android:id="@+id/tv_timer_widget_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="NOBG"
-        android:textColor="#FFFFFF"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:gravity="center" />
+        <ImageView
+            android:id="@+id/iv_timer_widget_icon"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:contentDescription="Biểu tượng đếm giờ NOBG"
+            android:src="@drawable/ic_launcher_nobg" />
 
-    <TextView
-        android:id="@+id/tv_timer_widget_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="1h (2p/lần)"
-        android:textColor="#38BDF8"
-        android:textSize="10sp"
-        android:gravity="center" />
+        <TextView
+            android:id="@+id/tv_timer_widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="NOBG"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/tv_timer_widget_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="1h · 2p"
+            android:textColor="#94A3B8"
+            android:textSize="8sp" />
+
+    </LinearLayout>
+
+</FrameLayout>

@@ -49,6 +49,7 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
 
             val repo = NobgRepository(context)
             val config = repo.getSmartTimerConfig()
+            val quickConfig = repo.getSmartTimerQuickConfig()
 
             if (isRunning) {
                 val elapsedMins = if (config.startTimeMillis > 0) {
@@ -65,13 +66,21 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_timer_widget_status, statusText)
                 views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#38BDF8"))
             } else {
-                views.setTextViewText(R.id.tv_timer_widget_status, "1h (2p/lần)")
+                val durationText = when {
+                    quickConfig.durationMinutes == 0 -> "∞"
+                    quickConfig.durationMinutes % 60 == 0 -> "${quickConfig.durationMinutes / 60}h"
+                    else -> "${quickConfig.durationMinutes}p"
+                }
+                views.setTextViewText(
+                    R.id.tv_timer_widget_status,
+                    "$durationText · ${quickConfig.intervalMinutes}p"
+                )
                 views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#94A3B8"))
             }
 
-            // Click action: Toggle the default preset (1h - 2p/min - real clock time)
+            // Click action: toggle the quick mode configured in the Timer screen.
             val toggleIntent = Intent(context, SmartTimerService::class.java).apply {
-                action = SmartTimerService.ACTION_TOGGLE_QUICK_DEFAULT
+                action = SmartTimerService.ACTION_TOGGLE_WIDGET_QUICK
             }
             val pendingToggle = PendingIntent.getService(
                 context,

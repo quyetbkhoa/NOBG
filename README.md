@@ -64,9 +64,9 @@
 * **Reset độc lập từng Tab**: reset app tiêu thụ / chỉ số pin chung / phiên sạc riêng biệt.
 
 #### 6. ⏱️ Hẹn Giờ Thông Minh (Smart Timer)
-* **Hẹn giờ sự kiện hệ thống**: tắt màn hình, chế độ tiết kiệm pin, hẹn giờ mở/đóng app — chạy đúng giờ đã đặt.
-* **Widget hẹn giờ**: xem & bấm nhanh từ màn hình chính.
-* Minh bạch lệnh hệ thống: hiện đúng Shell/ADB/Shizuku sẽ chạy.
+* **Nhắc giờ bằng giọng đọc**: đọc giờ thực tế hoặc thời gian đã trôi qua theo chu kỳ tùy chọn.
+* **Widget 1x1 vuông bo góc**: bấm để bắt đầu/dừng nhanh ngay từ màn hình chính.
+* **Cấu hình riêng cho Widget**: chọn loại giờ, tổng thời lượng và chu kỳ thông báo trong màn hình Timer.
 
 #### 7. 📘 Bảng Tra Cứu Thuật Toán & Lệnh Hệ Thống (Algorithm Knowledge Base)
 * Tra cứu nguyên lý hoạt động, công thức toán học và toàn bộ lệnh `appops set`, `pm disable-user`, `am force-stop`, `dumpsys` mà NOBG thực thi — **minh bạch tuyệt đối**.
@@ -147,7 +147,7 @@
 - **Per-tab independent reset**.
 
 #### 6. ⏱️ Smart Timer
-- Schedule system actions (screen off, power save, open app...) with a Home Screen widget; every underlying shell command is shown transparently.
+- Periodic spoken reminders using clock time or elapsed time, plus a rounded-square 1x1 Home Screen widget with independently configurable quick mode.
 
 #### 7. 📘 Algorithm & Shell Command Knowledge Base
 - Full transparency: algorithms, math formulas, exact `appops set` / `pm disable-user` / `am force-stop` / `dumpsys` commands used by the app.

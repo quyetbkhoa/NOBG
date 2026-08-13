@@ -205,7 +205,7 @@ fun DashboardScreen(
                 ),
                 FeatureEntry(
                     "Đếm giờ thông minh",
-                    "Hẹn giờ đóng băng",
+                    "Nhắc giờ định kỳ bằng giọng đọc",
                     Icons.Filled.Timer,
                     onOpenSmartTimer,
                     MaterialTheme.colorScheme.secondary
