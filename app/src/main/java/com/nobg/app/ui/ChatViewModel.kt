@@ -37,7 +37,8 @@ data class PendingApproval(
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = NobgRepository(app)
-    private val aiClient by lazy { AiClientFactory.create(repo) }
+    val providerDisplayName: String
+        get() = AiProvider.fromId(repo.getAiProvider()).displayName
 
     /** Số tin nhắn gần nhất gửi kèm cho AI mỗi lượt */
     private val HISTORY_WINDOW = 20
@@ -105,6 +106,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         _inputText.value = text
     }
 
+    fun sendSuggestedPrompt(text: String) {
+        if (_isSending.value) return
+        _inputText.value = text
+        sendMessage()
+    }
+
     fun sendMessage() {
         val text = _inputText.value.trim()
         if (text.isEmpty() || _isSending.value) return
@@ -164,7 +171,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             // Ghi nhận các công cụ AI đã dùng để hiển thị cho người dùng
             val toolLabelsUsed = mutableListOf<String>()
 
-            val result = aiClient.generateContent(
+            // Tạo client theo cấu hình mới nhất để đổi provider không cần khởi động lại app.
+            val result = AiClientFactory.create(repo).generateContent(
                 systemPrompt = systemPrompt,
                 userPrompt = history.joinToString("\n") { (role, t) ->
                     (if (role == AiChatRole.USER) "Người dùng: " else "Trợ lý: ") + t

@@ -1,6 +1,7 @@
 package com.nobg.app.ui
 
 import android.app.Activity
+import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -20,44 +21,26 @@ class UnfreezeAndLaunchActivity : Activity() {
             overridePendingTransition(0, 0)
         } catch (_: Exception) {}
 
+        if (intent.getBooleanExtra("open_widget_settings", false)) {
+            val widgetId = intent.getIntExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID
+            )
+            startActivity(
+                Intent(this, com.nobg.app.widget.WidgetConfigActivity::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+            )
+            finish()
+            return
+        }
+
         val pkg = intent.getStringExtra("pkg_to_launch") ?: intent.data?.schemeSpecificPart
-        val isDeleteMode = intent.getBooleanExtra("is_delete_mode", false)
 
         if (pkg.isNullOrBlank()) {
             // Clicked empty space in widget -> Open NOBG Freezer Shelf directly
             openFreezerShelfAndFinish()
-            return
-        }
-
-        if (isDeleteMode) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val repo = com.nobg.app.data.NobgRepository(applicationContext)
-                    val appLabel = try {
-                        val appInfo = packageManager.getApplicationInfo(pkg, 0)
-                        packageManager.getApplicationLabel(appInfo).toString()
-                    } catch (_: Exception) {
-                        pkg
-                    }
-                    repo.toggleAppFrozenShelf(pkg, false)
-                    com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(applicationContext)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(applicationContext, "❌ Đã xóa $appLabel khỏi Kệ đóng bằng", Toast.LENGTH_SHORT).show()
-                        finish()
-                        try {
-                            overridePendingTransition(0, 0)
-                        } catch (_: Exception) {}
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(applicationContext, "Lỗi xóa app: ${e.message}", Toast.LENGTH_SHORT).show()
-                        finish()
-                        try {
-                            overridePendingTransition(0, 0)
-                        } catch (_: Exception) {}
-                    }
-                }
-            }
             return
         }
 

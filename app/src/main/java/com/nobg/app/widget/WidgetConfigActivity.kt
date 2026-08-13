@@ -5,24 +5,20 @@ import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.RectF
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,11 +27,24 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
+import com.nobg.app.data.NobgRepository
+import com.nobg.app.ui.AddShelfAppDialog
 import com.nobg.app.ui.theme.NobgTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private data class WidgetShelfAppUi(
+    val packageName: String,
+    val appName: String,
+    val icon: Bitmap?
+)
 
 class WidgetConfigActivity : ComponentActivity() {
 
@@ -91,17 +100,44 @@ fun WidgetConfigScreen(
     onSave: (WidgetConfig) -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val repo = remember { NobgRepository(context.applicationContext) }
+    val scope = rememberCoroutineScope()
     var theme by remember { mutableStateOf(initialConfig.theme) }
     var textColorSetting by remember { mutableStateOf(initialConfig.textColor) }
-    var opacityPct by remember { mutableStateOf(initialConfig.opacityPct.toFloat()) }
-    var numColumns by remember { mutableStateOf(initialConfig.numColumns) }
-    var iconSizeDp by remember { mutableStateOf(initialConfig.iconSizeDp) }
-    var cornerRadiusDp by remember { mutableStateOf(initialConfig.cornerRadiusDp) }
+    var opacityPct by remember { mutableFloatStateOf(initialConfig.opacityPct.toFloat()) }
+    var numColumns by remember { mutableIntStateOf(initialConfig.numColumns) }
+    var iconSizeDp by remember { mutableIntStateOf(initialConfig.iconSizeDp) }
+    var cornerRadiusDp by remember { mutableIntStateOf(initialConfig.cornerRadiusDp) }
+    var shelfApps by remember { mutableStateOf<List<WidgetShelfAppUi>>(emptyList()) }
+    var shelfRevision by remember { mutableIntStateOf(0) }
+    var showAddApps by remember { mutableStateOf(false) }
+    var isShelfLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(shelfRevision) {
+        isShelfLoading = true
+        shelfApps = withContext(Dispatchers.IO) {
+            val packageManager = context.packageManager
+            repo.getFrozenShelfApps().map { entity ->
+                try {
+                    val appInfo = packageManager.getApplicationInfo(entity.packageName, 0)
+                    WidgetShelfAppUi(
+                        packageName = entity.packageName,
+                        appName = packageManager.getApplicationLabel(appInfo).toString(),
+                        icon = drawableToBitmap(packageManager.getApplicationIcon(appInfo), 48)
+                    )
+                } catch (_: Exception) {
+                    WidgetShelfAppUi(entity.packageName, entity.packageName, null)
+                }
+            }
+        }
+        isShelfLoading = false
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("🎨 Tùy chỉnh Giao diện Widget", fontWeight = FontWeight.Bold) },
+                title = { Text("Cài đặt Widget Kệ Đóng Băng", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -155,9 +191,126 @@ fun WidgetConfigScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
+            Text(
+                text = "ỨNG DỤNG TRÊN KỆ",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Quản lý nội dung Widget",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                "Thêm hoặc xóa app tại đây; Widget cập nhật ngay.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        FilledTonalButton(onClick = { showAddApps = true }) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Thêm")
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    when {
+                        isShelfLoading -> Box(
+                            modifier = Modifier.fillMaxWidth().height(64.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
+                        shelfApps.isEmpty() -> Text(
+                            "Chưa có ứng dụng. Widget hiện chỉ có ô Cài đặt.",
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        else -> shelfApps.forEach { app ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (app.icon != null) {
+                                    Image(
+                                        bitmap = app.icon.asImageBitmap(),
+                                        contentDescription = app.appName,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                                    )
+                                } else {
+                                    Surface(
+                                        modifier = Modifier.size(40.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(app.appName.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        app.appName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        app.packageName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                repo.toggleAppFrozenShelf(app.packageName, false)
+                                            }
+                                            FrozenAppsWidgetProvider.updateAllWidgets(context)
+                                            shelfRevision++
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "Xóa ${app.appName} khỏi Kệ",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
             // LIVE WIDGET PREVIEW CARD
             Text(
-                text = "👁️ XEM TRƯỚC GIAO DIỆN REALTIME",
+                text = "XEM TRƯỚC WIDGET",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -168,20 +321,6 @@ fun WidgetConfigScreen(
                 Color(15, 23, 42, (bgAlpha * 255).toInt())
             } else {
                 Color(255, 255, 255, (bgAlpha * 255).toInt())
-            }
-
-            val titleColor = when (textColorSetting) {
-                "WHITE" -> Color.White
-                "BLACK" -> Color(0xFF0F172A)
-                "ACCENT" -> if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7)
-                else -> if (theme == "DARK") Color(0xFF38BDF8) else Color(0xFF0284C7) // SYSTEM
-            }
-
-            val countColor = when (textColorSetting) {
-                "WHITE" -> Color.White.copy(alpha = 0.8f)
-                "BLACK" -> Color(0xFF475569)
-                "ACCENT" -> if (theme == "DARK") Color(0xFF7DD3FC) else Color(0xFF0369A1)
-                else -> if (theme == "DARK") Color(0xFF94A3B8) else Color(0xFF64748B) // SYSTEM
             }
 
             val appTextColor = when (textColorSetting) {
@@ -200,49 +339,17 @@ fun WidgetConfigScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
+                    val previewItems = shelfApps
+                        .take((numColumns - 1).coerceAtLeast(0))
+                        .map { it.appName to false } + ("Cài đặt" to true)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "NOBG",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = titleColor
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "2 app",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = countColor
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = countColor
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // Grid preview items
-                    val sampleApps = listOf("Zalo", "Facebook", "YouTube", "Messenger")
-                    val displayCount = numColumns.coerceAtMost(4)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        for (i in 0 until displayCount) {
-                            val name = sampleApps[i]
+                        previewItems.forEachIndexed { index, (name, isSettings) ->
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(4.dp)
+                                modifier = Modifier.weight(1f).padding(4.dp)
                             ) {
                                 val radiusCornerDp = when (cornerRadiusDp) {
                                     12 -> 12.dp
@@ -255,21 +362,26 @@ fun WidgetConfigScreen(
                                         .size((iconSizeDp * 0.85f).dp)
                                         .clip(RoundedCornerShape(radiusCornerDp))
                                         .background(
-                                            when (i) {
-                                                0 -> Color(0xFF0068FF)
-                                                1 -> Color(0xFF1877F2)
-                                                2 -> Color(0xFFFF0000)
-                                                else -> Color(0xFF0084FF)
-                                            }
+                                            if (isSettings) Color(0xFF0EA5E9)
+                                            else listOf(Color(0xFF0068FF), Color(0xFF1877F2), Color(0xFFFF0000))[index % 3]
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = name.take(1),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = (iconSizeDp * 0.35f).sp
-                                    )
+                                    if (isSettings) {
+                                        Icon(
+                                            Icons.Default.Settings,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size((iconSizeDp * 0.52f).dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = name.take(1),
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = (iconSizeDp * 0.35f).sp
+                                        )
+                                    }
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(
@@ -280,6 +392,9 @@ fun WidgetConfigScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+                        repeat((numColumns - previewItems.size).coerceAtLeast(0)) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -451,5 +566,37 @@ fun WidgetConfigScreen(
 
             Spacer(Modifier.height(30.dp))
         }
+    }
+
+    if (showAddApps) {
+        AddShelfAppDialog(
+            context = context,
+            currentShelfPkgs = shelfApps.mapTo(mutableSetOf()) { it.packageName },
+            onlyUserApps = true,
+            onDismiss = { showAddApps = false },
+            onConfirm = { addedPackages ->
+                showAddApps = false
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        addedPackages.forEach { repo.toggleAppFrozenShelf(it, true) }
+                    }
+                    FrozenAppsWidgetProvider.updateAllWidgets(context)
+                    shelfRevision++
+                }
+            }
+        )
+    }
+}
+
+private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable, sizeDp: Int): Bitmap {
+    val density = android.content.res.Resources.getSystem().displayMetrics.density
+    val sizePx = (sizeDp * density).toInt().coerceAtLeast(1)
+    if (drawable is android.graphics.drawable.BitmapDrawable && drawable.bitmap != null) {
+        return Bitmap.createScaledBitmap(drawable.bitmap, sizePx, sizePx, true)
+    }
+    return Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also { bitmap ->
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
     }
 }

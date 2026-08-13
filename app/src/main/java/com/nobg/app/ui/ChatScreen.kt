@@ -3,6 +3,8 @@ package com.nobg.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -80,7 +82,16 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("🤖 AI Chat (Gemini)") },
+                title = {
+                    Column {
+                        Text("AI Trợ lý", fontWeight = FontWeight.Bold)
+                        Text(
+                            chatViewModel.providerDisplayName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -152,28 +163,52 @@ fun ChatScreen(
         }
     ) { padding ->
         if (messages.isEmpty()) {
-            // Trạng thái trống
-            Box(
+            val suggestions = listOf(
+                "📊" to "Đánh giá tổng quan tình trạng máy của tôi hôm nay",
+                "🔋" to "Phân tích xem pin của tôi có đang tụt nhanh không và nguyên nhân có thể là gì",
+                "🔌" to "Phân tích các phiên sạc gần đây và thói quen sạc của tôi",
+                "📱" to "Hôm nay tôi dùng ứng dụng nào nhiều nhất?",
+                "🧊" to "Kiểm tra NOBG và Kệ Đóng Băng đang hoạt động thế nào",
+                "🌙" to "Bật giao diện tối cho NOBG"
+            )
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🤖", style = MaterialTheme.typography.displayMedium)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "Hỏi tôi bất cứ điều gì!",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                Text("🤖", style = MaterialTheme.typography.displayMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Trợ lý hiểu dữ liệu thật trên máy",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Chọn một tác vụ để bắt đầu hoặc nhập câu hỏi riêng.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(14.dp))
+                suggestions.forEach { (icon, prompt) ->
+                    OutlinedButton(
+                        onClick = { chatViewModel.sendSuggestedPrompt(prompt) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(icon)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            prompt,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Ví dụ: \"Pin tôi còn bao nhiêu?\", \"RAM trống bao nhiêu?\",\n\"Tôi dùng app nào nhiều nhất?\", \"Bật tóm tắt thông báo\",\n\"Tắt âm thanh báo pin đầy\"...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
                 }
             }
         } else {

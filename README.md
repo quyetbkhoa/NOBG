@@ -37,6 +37,8 @@
 * **Đa nhà cung cấp**: Hỗ trợ **Gemini (Google)**, **Groq (siêu nhanh, free không cần thẻ)**, **OpenRouter (nhiều model free)**.
 * **Xử lý quyền mềm dẻo**: Nếu thiết bị chưa cấp Usage Access / Shizuku, AI nói rõ và hướng dẫn cách bật trong Cài đặt — không bao giờ trả lời "không có quyền" cho những thứ đủ quyền.
 * **Trí nhớ dài**: Hội thoại dài tự được tóm tắt để giữ ngữ cảnh mà không tốn quota API.
+* **Use case thực tế**: đánh giá tình trạng máy; đối chiếu lịch sử pin với app dùng nhiều; phân tích thói quen sạc; kiểm tra CPU/NOBG; tra chi tiết app; bật/tắt cài đặt NOBG bằng câu lệnh tự nhiên.
+* **Gợi ý một chạm**: màn hình Chat có sẵn các tác vụ hữu ích để người dùng khai thác dữ liệu mà không cần nhớ câu lệnh.
 
 #### 2. 🎙️ Đọc Thông Báo Bằng Giọng Nói (Notification Reader)
 * **TTS Việt hóa**: Đọc to thông báo của từng app (Zalo, Messenger, Telegram...) bằng TTS hệ thống.
@@ -46,10 +48,10 @@
 * **Chế độ Fail-open**: AI lỗi/chậm cũng không làm bỏ lỡ tin — vẫn đọc text gốc.
 
 #### 3. 🧊 "Kệ Đóng Băng" — Widget màn hình chính
-* **App Widget tự do**: hiện danh sách app đang bị đóng băng trên Home Screen.
+* **Widget tối giản**: chỉ hiện danh sách ứng dụng, không có header hay thanh nút chiếm diện tích.
 * **Widget tùy biến cao**: nền Đen/Trắng, màu chữ (theo hệ thống/trắng/đen/xanh lam), độ mờ 0–100%, 2–4 cột, icon 36–56dp, bo góc 12–24dp.
 * **1 chạm Rã đông & Mở**: Bấm icon app → tự `pm enable` → mở app → khi bạn thoát, NOBG tự tái đóng băng.
-* **Bấm header/khoảng trống**: mở thẳng **Kệ Đóng Bằng** trong app.
+* **Cài đặt như một ứng dụng**: ô Cài đặt luôn nằm cuối lưới; thêm/xóa app và tùy chỉnh giao diện tập trung tại đây. Bấm khoảng trống để mở thẳng **Kệ Đóng Băng**.
 
 #### 4. ⚡ Ép Hạ Xung CPU (PowerHAL Underclocking)
 * **Giới hạn xung CPU ngầm**: `cmd power set-mode 1` & `settings put global low_power 1` để giới hạn tần số tối đa các nhân Big.
@@ -128,14 +130,15 @@
 * **Multi-provider**: **Gemini**, **Groq** (fast, free tier) and **OpenRouter**, all free-friendly.
 * **Graceful permission handling**: missing Usage Access/Shizuku → AI explains and guides instead of refusing.
 * **Long-term memory**: conversations > 36 messages are auto-summarized to keep context cheap.
+* **Practical workflows**: device health overview, battery-drain correlation, charging-habit analysis, CPU/NOBG checks, per-app inspection and confirmed settings changes; one-tap prompts make these easy to discover.
 
 #### 2. 🎙️ Notification Aloud (Vietnamese TTS)
 * Speak notifications from chosen apps via system TTS; toggle **Bluetooth-only mode** (e.g. in car), **audio ducking**.
 * Optional AI **summarization & spam filtering** (only important notifications are spoken); fail-open fallback to raw text.
 
 #### 3. 🧊 Freeze Shelf & Home Screen Widget
-* Widget showing your frozen apps; highly customizable (dark/light theme, text color (system/white/black/blue), opacity 0–100%, 2–4 columns, icon size 36–56dp, corner radius 12–24dp).
-* Tap an app icon → auto `enable` + launch + re-freeze on exit; tap blank space → open NOBG **Freezer Shelf**.
+* Minimal app-only grid with no header; highly customizable (theme, text color, opacity, 2–4 columns, icon size and corner radius).
+* Tap an app → auto `enable` + launch + re-freeze on exit. A Settings tile always appears last and centralizes app management and appearance; blank space opens the **Freezer Shelf**.
 
 #### 4. ⚡ PowerHAL CPU Underclocking
 * Caps max CPU frequency (`cmd power set-mode 1` + `settings put global low_power 1`) → **cooler phone, 20–40% less peak power**.

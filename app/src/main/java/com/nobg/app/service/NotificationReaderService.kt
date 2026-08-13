@@ -17,6 +17,8 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.text.isDigitsOnly
 import com.nobg.app.data.AiResult
+import com.nobg.app.data.AiClient
+import com.nobg.app.data.AiClientFactory
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationReadMode
@@ -44,7 +46,17 @@ class NotificationReaderService : NotificationListenerService() {
     // Theo dõi audio focus theo từng utterance để abandon đúng khi đọc xong
     private val focusByUtterance = java.util.concurrent.ConcurrentHashMap<String, Pair<AudioFocusRequest, Boolean>>()
 
-    private val aiClient by lazy { com.nobg.app.data.AiClientFactory.create(repo) }
+    private var activeAiProviderId: String? = null
+    private var activeAiClient: AiClient? = null
+
+    private fun currentAiClient(): AiClient {
+        val providerId = repo.getAiProvider()
+        if (activeAiClient == null || activeAiProviderId != providerId) {
+            activeAiClient = AiClientFactory.create(repo)
+            activeAiProviderId = providerId
+        }
+        return checkNotNull(activeAiClient)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -173,7 +185,7 @@ class NotificationReaderService : NotificationListenerService() {
                 BluetoothProfile.HEADSET
             )
             // LE Audio (tai nghe TWS hiện đại kết nối LE Audio là chính) - Android 12+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 profiles.add(BluetoothProfile.LE_AUDIO)
             }
 
@@ -226,7 +238,7 @@ class NotificationReaderService : NotificationListenerService() {
     }
 
     private suspend fun aiSummarize(text: String): String? = withTimeoutOrNull(3500L) {
-        val result = aiClient.generateContent(
+        val result = currentAiClient().generateContent(
             systemPrompt = "Bạn là trợ lý tóm tắt thông báo tiếng Việt. Tóm tắt ngắn gọn dưới 25 từ, " +
                 "giữ thông tin quan trọng nhất: người gửi, nội dung chính, mã OTP nếu có. " +
                 "Chỉ trả về nội dung tóm tắt, không thêm lời dẫn.",
@@ -248,10 +260,17 @@ class NotificationReaderService : NotificationListenerService() {
 
     private suspend fun aiIsImportant(sbn: StatusBarNotification, text: String): Boolean? = withTimeoutOrNull(3000L) {
         val appName = getAppLabel(sbn.packageName)
-        val result = aiClient.generateContent(
+        val strictness = repo.getAiFilterStrictness()
+        val strictnessRule = when {
+            strictness < 0.34f -> "Mức lọc nhẹ: chỉ loại quảng cáo/rác rất rõ ràng; nếu phân vân phải giữ lại."
+            strictness < 0.67f -> "Mức lọc cân bằng: loại quảng cáo, khuyến mãi và tương tác mạng xã hội không cần báo ngay."
+            else -> "Mức lọc mạnh: chỉ giữ nội dung cần hành động hoặc cần biết ngay; loại tin tức, khuyến mãi và cập nhật ít quan trọng."
+        }
+        val result = currentAiClient().generateContent(
             systemPrompt = "Bạn là bộ lọc thông báo tiếng Việt. Thông báo QUAN TRỌNG cần báo ngay: " +
                 "tin nhắn cá nhân, OTP/mã xác thực, cuộc gọi, lịch hẹn, nhắc việc, cảnh báo. " +
                 "KHÔNG quan trọng: quảng cáo, khuyến mãi, tin tức, trò chơi, mạng xã hội rác, điểm danh. " +
+                "$strictnessRule " +
                 "Trả về JSON thuần, chỉ đúng định dạng: {\"important\": true} hoặc {\"important\": false}",
             userPrompt = "App: $appName\nThông báo: $text",
             jsonMode = true,

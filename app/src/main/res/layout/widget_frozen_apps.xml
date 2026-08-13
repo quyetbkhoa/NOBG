@@ -1,86 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="12dp"
-    android:background="@drawable/bg_widget_white_translucent"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:padding="8dp">
 
-    <LinearLayout
-        android:id="@+id/widget_header"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingBottom="6dp">
-
-        <TextView
-            android:id="@+id/tv_widget_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="NOBG"
-            android:textColor="#0284C7"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/tv_widget_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0 app"
-            android:textColor="#64748B"
-            android:textStyle="bold"
-            android:textSize="11sp" />
-
-        <ImageView
-            android:id="@+id/iv_widget_add"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_marginStart="8dp"
-            android:padding="2dp"
-            android:contentDescription="Thêm ứng dụng vào Kệ"
-            android:src="@drawable/ic_add" />
-
-        <ImageView
-            android:id="@+id/iv_widget_minus"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_marginStart="8dp"
-            android:padding="2dp"
-            android:contentDescription="Xóa ứng dụng nhanh"
-            android:src="@drawable/ic_minus" />
-
-        <ImageView
-            android:id="@+id/iv_widget_settings"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_marginStart="8dp"
-            android:padding="2dp"
-            android:contentDescription="Tùy chỉnh Widget"
-            android:src="@drawable/ic_settings" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/tv_widget_empty"
+    <ImageView
+        android:id="@+id/widget_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="Chưa có app nào trên Kệ\nBấm để mở Kệ Đóng Bằng"
-        android:textColor="#64748B"
-        android:textSize="12sp"
-        android:visibility="gone" />
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/bg_widget_white_translucent" />
 
     <GridView
         android:id="@+id/widget_grid_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:horizontalSpacing="6dp"
         android:numColumns="2"
-        android:verticalSpacing="8dp"
-        android:horizontalSpacing="8dp"
-        android:gravity="center" />
+        android:stretchMode="columnWidth"
+        android:verticalSpacing="6dp" />
 
-</LinearLayout>
+</FrameLayout>

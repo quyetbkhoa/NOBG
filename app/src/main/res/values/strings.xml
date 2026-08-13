@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NOBG</string>
+    <string name="widget_shelf_icon_description">Biểu tượng trên Kệ Đóng Băng</string>
+    <string name="widget_shelf_item_placeholder">Ứng dụng</string>
 </resources>
