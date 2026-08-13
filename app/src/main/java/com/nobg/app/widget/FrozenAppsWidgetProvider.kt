@@ -55,7 +55,7 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                 }
                 views.setImageViewBitmap(
                     R.id.widget_background,
-                    createRoundedBackground(backgroundColor, config.theme == "DARK")
+                    createRoundedBackground(backgroundColor)
                 )
                 views.setInt(R.id.widget_grid_view, "setNumColumns", config.numColumns)
                 val horizontalPaddingDp = when (config.numColumns) {
@@ -115,24 +115,14 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun createRoundedBackground(color: Int, isDark: Boolean): Bitmap {
+        private fun createRoundedBackground(color: Int): Bitmap {
             val size = 128
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            val rect = RectF(1f, 1f, size - 1f, size - 1f)
+            val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
                 this.color = color
-            }
-            canvas.drawRoundRect(rect, 22f, 22f, paint)
-            paint.apply {
-                style = Paint.Style.STROKE
-                strokeWidth = 1.5f
-                this.color = if (isDark) {
-                    android.graphics.Color.argb(90, 148, 163, 184)
-                } else {
-                    android.graphics.Color.argb(100, 255, 255, 255)
-                }
             }
             canvas.drawRoundRect(rect, 22f, 22f, paint)
             return bitmap
