@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.content.Context
 import android.content.pm.PackageManager
@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -117,9 +118,10 @@ fun SystemListsScreen(onBack: () -> Unit) {
         )
     } else {
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
-                    title = { Text("📋 Danh sách hệ thống", fontWeight = FontWeight.Bold) },
+                    title = { Text("Danh sách hệ thống", fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -132,8 +134,9 @@ fun SystemListsScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .widthIn(max = PremiumDimens.ContentMaxWidth),
+                contentPadding = PaddingValues(horizontal = PremiumDimens.ScreenGutter, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
                     Text(
@@ -142,40 +145,24 @@ fun SystemListsScreen(onBack: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                items(SystemListType.entries.toList()) { type ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedType = type }
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(type.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    type.subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { infoType = type }) {
-                                Icon(
-                                    Icons.Filled.Info,
-                                    contentDescription = "Thông tin",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Icon(
-                                Icons.Filled.ChevronRight,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        SystemListType.entries.forEachIndexed { index, type ->
+                            PremiumNavigationRow(
+                                title = type.title.substringAfter(" "),
+                                subtitle = type.subtitle,
+                                icon = Icons.AutoMirrored.Filled.ListAlt,
+                                accent = listOf(
+                                    PremiumAccent.Blue,
+                                    PremiumAccent.Green,
+                                    PremiumAccent.Orange,
+                                    PremiumAccent.Purple,
+                                    PremiumAccent.Pink,
+                                    PremiumAccent.Teal
+                                )[index % 6],
+                                onClick = { selectedType = type }
                             )
+                            if (index < SystemListType.entries.lastIndex) PremiumInsetDivider()
                         }
                     }
                 }
@@ -215,9 +202,10 @@ private fun SystemListDetailScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(type.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(type.title.substringAfter(" "), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -323,7 +311,7 @@ private fun SystemListDetailScreen(
                                     Text(
                                         badge,
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = item.badgeColor ?: MaterialTheme.colorScheme.primary,
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
@@ -347,7 +335,7 @@ private fun InfoDialog(type: SystemListType, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Info, contentDescription = null) },
-        title = { Text(type.title, fontWeight = FontWeight.Bold) },
+        title = { Text(type.title, fontWeight = FontWeight.SemiBold) },
         text = {
             Text(type.purpose, style = MaterialTheme.typography.bodyMedium)
         },
@@ -407,7 +395,7 @@ private suspend fun loadUidToPackageMap(): Map<Int, String> {
 private suspend fun loadDozeWhitelist(context: Context): List<SystemListItem> {
     val out = execShell("dumpsys deviceidle whitelist")
     val items = mutableListOf<SystemListItem>()
-    out.lineSequence().forEach { line ->
+    out.lineSequence().forEach lineLoop@ { line ->
         val t = line.trim()
         val pkgPart = when {
             t.startsWith("system whitelist:") || t.startsWith("system idle whitelist:") -> {
@@ -450,9 +438,9 @@ private suspend fun loadNetworkWhitelist(context: Context): List<SystemListItem>
             t.isBlank() && section != null && !line.startsWith(" ") -> section = null
         }
         if (section != null && t.isNotEmpty() && !t.startsWith("restrictBackground")) {
-            Regex("\\d{4,6}").findAll(t).forEach { m ->
-                val uid = m.value.toIntOrNull() ?: return@forEach
-                val pkg = uidMap[uid] ?: return@forEach
+            Regex("\\d{4,6}").findAll(t).forEach matchLoop@ { m ->
+                val uid = m.value.toIntOrNull() ?: return@matchLoop
+                val pkg = uidMap[uid] ?: return@matchLoop
                 items.add(
                     SystemListItem(
                         title = labelOf(context, pkg),

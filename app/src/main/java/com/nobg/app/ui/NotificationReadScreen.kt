@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.Manifest
 import android.content.Intent
@@ -14,9 +14,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -128,9 +132,10 @@ fun NotificationReadScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("🔊 Đọc thông báo") },
+                title = { Text("Đọc thông báo", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -142,8 +147,11 @@ fun NotificationReadScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter),
+            verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             // ===== CARD 1: Banner cấp quyền =====
@@ -159,7 +167,7 @@ fun NotificationReadScreen(
                             Text(
                                 "⚠️ CẦN CẤP QUYỀN ĐỌC THÔNG BÁO",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Spacer(Modifier.height(4.dp))
@@ -211,7 +219,7 @@ fun NotificationReadScreen(
                             Text(
                                 "Lịch sử thông báo",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 "${notificationHistory.size} mục gần nhất · Chọn để tạo rule app + keyword",
@@ -224,7 +232,7 @@ fun NotificationReadScreen(
                                 color = MaterialTheme.colorScheme.tertiary
                             )
                         }
-                        Text("Xem ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("Xem ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -238,9 +246,9 @@ fun NotificationReadScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "🚫 Quy tắc chặn đọc (${notificationBlockRules.size})",
+                            "Quy tắc chặn đọc (${notificationBlockRules.size})",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "Chỉ bỏ qua khi đúng ứng dụng và nội dung chứa keyword",
@@ -265,7 +273,7 @@ fun NotificationReadScreen(
                                         Text(
                                             rule.appLabel,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
                                             "“${rule.keyword}”",
@@ -304,7 +312,7 @@ fun NotificationReadScreen(
                         Text(
                             "⚙️ Cấu hình chung & âm lượng",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Spacer(Modifier.height(12.dp))
 
@@ -315,7 +323,7 @@ fun NotificationReadScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Bật tính năng Đọc thông báo", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Bật tính năng Đọc thông báo", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Tự động đọc thông báo bằng giọng nói TTS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(
@@ -333,7 +341,7 @@ fun NotificationReadScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Chỉ đọc khi kết nối thiết bị BT được chọn", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Chỉ đọc khi kết nối thiết bị BT được chọn", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Chỉ phát giọng đọc khi đúng tai nghe/loa Bluetooth đã chọn đang kết nối", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(
@@ -351,7 +359,7 @@ fun NotificationReadScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Hiển thị app Hệ thống & Không gian thứ 2", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Hiển thị app Hệ thống & Không gian thứ 2", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Quét ứng dụng thuộc Dual Space, Work Profile và app hệ thống", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(
@@ -369,7 +377,7 @@ fun NotificationReadScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Tự động thu nhỏ nhạc nền khi đọc (Audio Ducking)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Tự động thu nhỏ nhạc nền khi đọc (Audio Ducking)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Tự giảm âm lượng ứng dụng khác khi đọc. Tắt đi để nhạc nền giữ nguyên 100% âm lượng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(
@@ -381,7 +389,7 @@ fun NotificationReadScreen(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         // Spatial Audio
-                        Text("Vị trí Không Gian giọng đọc (Spatial Audio)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("Vị trí Không Gian giọng đọc (Spatial Audio)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -409,7 +417,7 @@ fun NotificationReadScreen(
                         Spacer(Modifier.height(8.dp))
 
                         // Âm lượng phát giọng nói
-                        Text("🔊 Âm lượng giọng đọc: ${(ttsVolume * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("🔊 Âm lượng giọng đọc: ${(ttsVolume * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Slider(
                             value = ttsVolume,
                             onValueChange = { viewModel.setTtsVolume(it) },
@@ -421,7 +429,7 @@ fun NotificationReadScreen(
                         Spacer(Modifier.height(4.dp))
 
                         // Tốc độ đọc
-                        Text("⏩ Tốc độ đọc: ${"%.1f".format(speechRate)}x", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("⏩ Tốc độ đọc: ${"%.1f".format(speechRate)}x", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Slider(
                             value = speechRate,
                             onValueChange = { viewModel.setSpeechRate(it) },
@@ -433,7 +441,7 @@ fun NotificationReadScreen(
                         Spacer(Modifier.height(4.dp))
 
                         // Độ bổng
-                        Text("🎵 Độ bổng giọng đọc (Pitch): ${"%.1f".format(ttsPitch)}x", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("🎵 Độ bổng giọng đọc (Pitch): ${"%.1f".format(ttsPitch)}x", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Slider(
                             value = ttsPitch,
                             onValueChange = { viewModel.setTtsPitch(it) },
@@ -468,9 +476,9 @@ fun NotificationReadScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "🤖 AI (Gemini)",
+                                "Xử lý bằng AI",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                             Spacer(Modifier.height(4.dp))
                             if (!aiConfigured) {
@@ -490,7 +498,7 @@ fun NotificationReadScreen(
                                     Text(
                                         "📝 Tóm tắt thông báo trước khi đọc",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         "AI tóm gọn nội dung (< 25 từ) cho đọc nhanh, giữ OTP/người gửi",
@@ -514,7 +522,7 @@ fun NotificationReadScreen(
                                     Text(
                                         "🗑️ Lọc thông báo rác bằng AI",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         "Bỏ qua quảng cáo/khuyến mãi/tin rác, chỉ đọc tin quan trọng. AI lỗi thì vẫn đọc tất cả",
@@ -550,7 +558,7 @@ fun NotificationReadScreen(
                                 Text(
                                     "🎧 Thiết bị Bluetooth được phép đọc",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                                 IconButton(onClick = {
@@ -590,7 +598,7 @@ fun NotificationReadScreen(
                             Text(
                                 statusText,
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = statusColor
                             )
                             Spacer(Modifier.height(12.dp))
@@ -611,7 +619,7 @@ fun NotificationReadScreen(
                                     ) {
                                         Text("🎧", modifier = Modifier.padding(end = 8.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(device.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                            Text(device.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                             Row {
                                                 Text(device.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 if (device.isConnected) {
@@ -620,7 +628,7 @@ fun NotificationReadScreen(
                                                         "● Đang kết nối",
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = MaterialTheme.colorScheme.primary,
-                                                        fontWeight = FontWeight.Bold
+                                                        fontWeight = FontWeight.SemiBold
                                                     )
                                                 }
                                             }
@@ -652,9 +660,9 @@ fun NotificationReadScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "⚡ Thao tác nhanh hàng loạt",
+                            "Thao tác nhanh",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Spacer(Modifier.height(8.dp))
                         Row(
@@ -698,12 +706,20 @@ fun NotificationReadScreen(
 
             // ===== TextField Tìm kiếm =====
             item {
-                OutlinedTextField(
+                TextField(
                     value = searchQuery,
                     onValueChange = { viewModel.setSearchQuery(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("🔍 Tìm kiếm ứng dụng hoặc từ khóa...") },
-                    singleLine = true
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                    placeholder = { Text("Tìm ứng dụng hoặc từ khóa...") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
             }
 
@@ -736,12 +752,14 @@ fun NotificationReadScreen(
             }
 
             // ===== Danh sách App =====
-            items(displayedApps, key = { it.id }) { app ->
+            itemsIndexed(displayedApps, key = { _, app -> app.id }) { index, app ->
                 NotificationReadAppItem(
                     app = app,
                     onToggleEnabled = { viewModel.toggleAppEnabled(app.id, it) },
                     onSetReadMode = { viewModel.setAppReadMode(app.id, it) },
-                    onSetKeywordFilter = { viewModel.setAppKeywordFilter(app.id, it) }
+                    onSetKeywordFilter = { viewModel.setAppKeywordFilter(app.id, it) },
+                    isFirst = index == 0,
+                    isLast = index == displayedApps.lastIndex
                 )
             }
 
@@ -763,7 +781,7 @@ private fun NotificationHistoryDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Lịch sử thông báo", fontWeight = FontWeight.Bold)
+                Text("Lịch sử thông báo", fontWeight = FontWeight.SemiBold)
                 Text(
                     "Chạm một mục để chọn keyword cần chặn cho đúng ứng dụng",
                     style = MaterialTheme.typography.bodySmall,
@@ -798,7 +816,7 @@ private fun NotificationHistoryDialog(
                                         Text(
                                             entry.appLabel,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold,
+                                            fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier.weight(1f),
                                             maxLines = 1
                                         )
@@ -830,7 +848,7 @@ private fun NotificationHistoryDialog(
                                     "Chặn ›",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -859,13 +877,13 @@ private fun NotificationKeywordBlockDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Chặn theo ứng dụng + keyword", fontWeight = FontWeight.Bold) },
+        title = { Text("Chặn theo ứng dụng + keyword", fontWeight = FontWeight.SemiBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "Ứng dụng: ${entry.appLabel}",
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     "NOBG chỉ bỏ qua notification của ứng dụng này khi nội dung chứa keyword bên dưới. Không phân biệt chữ hoa/thường.",
@@ -906,18 +924,23 @@ private fun NotificationReadAppItem(
     app: NotifReadAppUiModel,
     onToggleEnabled: (Boolean) -> Unit,
     onSetReadMode: (NotificationReadMode) -> Unit,
-    onSetKeywordFilter: (String) -> Unit
+    onSetKeywordFilter: (String) -> Unit,
+    isFirst: Boolean,
+    isLast: Boolean
 ) {
     var keywordText by remember(app.keywordFilter) { mutableStateOf(app.keywordFilter) }
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (app.isEnabled)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else
-                MaterialTheme.colorScheme.surface
-        )
+        shape = RoundedCornerShape(
+            topStart = if (isFirst) PremiumDimens.GroupRadius else 0.dp,
+            topEnd = if (isFirst) PremiumDimens.GroupRadius else 0.dp,
+            bottomStart = if (isLast) PremiumDimens.GroupRadius else 0.dp,
+            bottomEnd = if (isLast) PremiumDimens.GroupRadius else 0.dp
+        ),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -941,7 +964,7 @@ private fun NotificationReadAppItem(
                         Text(
                             app.label,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1
                         )
                         if (app.isSecondarySpace) {
@@ -1019,6 +1042,13 @@ private fun NotificationReadAppItem(
                     placeholder = { Text("VD: gấp, OTP, quan trọng, ck") },
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (!isLast) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 58.dp, top = 12.dp),
+                    thickness = 0.75.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
                 )
             }
         }

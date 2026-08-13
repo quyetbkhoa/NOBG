@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -113,7 +113,8 @@ fun AppManagementDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier
-            .fillMaxWidth(0.94f)
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 720.dp)
             .padding(vertical = 12.dp),
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {},
@@ -125,8 +126,8 @@ fun AppManagementDialog(
             ) {
                 Text(
                     text = "Quản lý ứng dụng",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Filled.Close, contentDescription = "Đóng")
@@ -137,7 +138,7 @@ fun AppManagementDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp)
+                    .heightIn(max = 620.dp)
                     .drawVerticalScrollbar(scrollState, scrollbarColor)
                     .padding(end = 6.dp)
                     .verticalScroll(scrollState),
@@ -170,7 +171,7 @@ fun AppManagementDialog(
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(appModel.label.take(1), fontWeight = FontWeight.Bold)
+                                Text(appModel.label.take(1), fontWeight = FontWeight.SemiBold)
                             }
                         }
                         Spacer(Modifier.width(12.dp))
@@ -178,7 +179,7 @@ fun AppManagementDialog(
                             Text(
                                 text = appModel.label,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = appModel.packageName,
@@ -282,9 +283,9 @@ fun AppManagementDialog(
 
                 if (isShizukuAvailable && appDetailStats != null && (appDetailStats!!.totalCpuMs > 0 || appDetailStats!!.wakeupCount > 0 || appDetailStats!!.totalWakelockMs > 0)) {
                     Text(
-                        text = "📊 THỐNG KÊ CPU & ĐÁNH THỨC",
+                        text = "CPU và lượt đánh thức",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
 
@@ -304,7 +305,7 @@ fun AppManagementDialog(
                                 Text(
                                     formatDurationShort(appDetailStats!!.totalCpuMs),
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -316,7 +317,7 @@ fun AppManagementDialog(
                                 Text(
                                     "${appDetailStats!!.wakeupCount} lần",
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = if (appDetailStats!!.wakeupCount > 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -329,7 +330,7 @@ fun AppManagementDialog(
                                     Text(
                                         formatDurationShort(appDetailStats!!.totalWakelockMs),
                                         style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
@@ -369,9 +370,9 @@ fun AppManagementDialog(
 
                 // SECTION 1: BACKGROUND POWER MODE (NO DETAILED DESCRIPTIONS)
                 Text(
-                    text = "🔋 CHẾ ĐỘ TIẾT KIỆM PIN HỆ THỐNG",
+                    text = "Chế độ tiết kiệm pin hệ thống",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
@@ -411,7 +412,7 @@ fun AppManagementDialog(
                                 Text(
                                     text = "${state.emoji} ${state.label}",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                                 )
                             }
                             if (index < states.size - 1) {
@@ -423,9 +424,9 @@ fun AppManagementDialog(
 
                 // SECTION 2: NOBG CONFIGURATION (RENAMED TO "Cấu hình nobg")
                 Text(
-                    text = "🛡️ Cấu hình nobg",
+                    text = "Cấu hình NOBG",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
@@ -440,7 +441,7 @@ fun AppManagementDialog(
                         ) {
                             Text(
                                 text = if (isNobgEnabled) "Đã bật NOBG ngầm" else "Đang tắt NOBG ngầm",
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f)
                             )
@@ -541,7 +542,7 @@ fun AppManagementDialog(
                 Text(
                     text = "⚙️ THAO TÁC & KHÔI PHỤC",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
@@ -560,8 +561,8 @@ fun AppManagementDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "🧊 Thêm vào Kệ Đóng Băng",
-                                    fontWeight = FontWeight.Bold,
+                                    text = "Thêm vào Kệ Đóng Băng",
+                                    fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Text(
@@ -587,7 +588,7 @@ fun AppManagementDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                             ) {
-                                Text("🧊 Ép dừng & Đóng băng ngay lập tức", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text("Ép dừng và đóng băng ngay", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
                             }
                         }
 
@@ -601,7 +602,7 @@ fun AppManagementDialog(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "🙈 Ẩn khỏi danh sách",
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -726,7 +727,7 @@ fun PowerBadge(state: BackgroundPowerState) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = textColor,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -754,7 +755,7 @@ fun NobgBadge(enabled: Boolean, mode: NobgMode, delaySeconds: Int) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = textColor,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -770,7 +771,7 @@ fun DisabledBadge() {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

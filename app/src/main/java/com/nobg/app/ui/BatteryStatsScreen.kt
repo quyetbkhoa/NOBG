@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -48,7 +48,7 @@ fun BatteryStatsScreen(
     viewModel: BatteryStatsViewModel,
     onBack: () -> Unit
 ) {
-    val tabs = listOf("App tiêu thụ pin", "Chỉ số Pin chung", "⚡ Tốc độ sạc")
+    val tabs = listOf("Ứng dụng", "Tổng quan", "Tốc độ sạc")
     var selectedTab by remember { mutableStateOf(0) }
     var showResetAppUsageDialog by remember { mutableStateOf(false) }
     var showResetOverviewDialog by remember { mutableStateOf(false) }
@@ -57,9 +57,10 @@ fun BatteryStatsScreen(
     BackHandler(onBack = onBack)
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Thống kê Pin & Sử dụng") },
+                title = { Text("Thống kê pin", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -81,8 +82,18 @@ fun BatteryStatsScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = selectedTab) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+        ) {
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.background,
+                edgePadding = PremiumDimens.ScreenGutter
+            ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -272,7 +283,7 @@ private fun AppUsageRow(item: UsageItem, maxMah: Double, onClick: () -> Unit) {
                     "Pin: ${String.format("%.1f", item.batteryMah)} mAh (${String.format("%.1f", item.batteryPct)}%)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
                 if (item.wakeupCount > 0 || item.totalCpuMs > 0) {
@@ -309,8 +320,8 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = PremiumDimens.ScreenGutter, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
     ) {
         item {
             if (!overview.hasData) {
@@ -351,7 +362,7 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("⚡ Đang sạc — ${overview.currentChargeLevel}%", fontWeight = FontWeight.Bold)
+                                Text("⚡ Đang sạc — ${overview.currentChargeLevel}%", fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Đầy pin sau khoảng ${formatMinutes(overview.timeToFullMinutes)}",
                                     style = MaterialTheme.typography.bodyMedium
@@ -362,11 +373,19 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
                 }
             }
 
-            item { StatMetricCard("📅 Pin dùng/ngày TB", overview.avgDischargePctPerDay, "% / ngày", isNegative = true) }
-            item { StatMetricCard("🔌 Pin sạc/ngày TB", overview.avgChargePctPerDay, "% / ngày") }
-            item { StatMetricCard("☀️ Tốc độ hao (màn hình sáng)", overview.drainRateOnscreen, "% / giờ", isNegative = true) }
-            item { StatMetricCard("🌙 Tốc độ hao (màn hình tắt)", overview.drainRateOffscreen, "% / giờ", isNegative = true) }
-            item { StatMetricCard("⚡ Tốc độ sạc", overview.chargeRate, "% / giờ") }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    StatMetricCard("Pin dùng trung bình", overview.avgDischargePctPerDay, "% / ngày", isNegative = true)
+                    PremiumInsetDivider(iconSlotWidth = 0.dp)
+                    StatMetricCard("Pin sạc trung bình", overview.avgChargePctPerDay, "% / ngày")
+                    PremiumInsetDivider(iconSlotWidth = 0.dp)
+                    StatMetricCard("Hao pin khi màn hình sáng", overview.drainRateOnscreen, "% / giờ", isNegative = true)
+                    PremiumInsetDivider(iconSlotWidth = 0.dp)
+                    StatMetricCard("Hao pin khi màn hình tắt", overview.drainRateOffscreen, "% / giờ", isNegative = true)
+                    PremiumInsetDivider(iconSlotWidth = 0.dp)
+                    StatMetricCard("Tốc độ sạc", overview.chargeRate, "% / giờ")
+                }
+            }
 
             if (curve.isNotEmpty()) {
                 item {
@@ -375,7 +394,7 @@ private fun OverviewTab(viewModel: BatteryStatsViewModel) {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Biểu đồ tốc độ sạc", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Biểu đồ tốc độ sạc", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Trục X: % pin  |  Trục Y: giây/% (thấp hơn = sạc nhanh hơn)",
                                 style = MaterialTheme.typography.labelSmall,
@@ -403,36 +422,29 @@ private fun StatMetricCard(
     val convertedHours = if (value > 0) 100.0 / value else 0.0
     val convertedText = if (value > 0) "≈ ${String.format("%.1f", convertedHours)} giờ / 100% pin" else "—"
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { if (value > 0) showConverted = !showConverted },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .heightIn(min = PremiumDimens.RowMinHeight)
+            .clickable { if (value > 0) showConverted = !showConverted }
+            .padding(horizontal = PremiumDimens.RowHorizontalPadding, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Column(horizontalAlignment = Alignment.End) {
             Text(
-                title,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                if (showConverted) convertedText else "$primaryValue $unit",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
-            Column(horizontalAlignment = Alignment.End) {
+            if (value > 0) {
                 Text(
-                    if (showConverted) convertedText else "$primaryValue $unit",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    if (showConverted) "Chạm để xem %/giờ" else "Chạm để quy đổi",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (value > 0) {
-                    Text(
-                        if (showConverted) "Bấm để xem %/giờ" else "Bấm → đổi sang giờ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
@@ -543,10 +555,7 @@ private fun ChargingCurveChart(curve: List<ChargingCurvePoint>, modifier: Modifi
         path.lineTo(lastX, padTop + chartH)
         path.lineTo(padLeft, padTop + chartH)
         path.close()
-        drawPath(path, brush = Brush.verticalGradient(
-            listOf(primaryColor.copy(alpha = 0.4f), primaryColor.copy(alpha = 0.05f)),
-            startY = padTop, endY = padTop + chartH
-        ))
+        drawPath(path, color = primaryColor.copy(alpha = 0.10f))
 
         val linePath = Path()
         curve.forEachIndexed { idx, point ->

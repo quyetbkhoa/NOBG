@@ -17,6 +17,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -107,7 +108,10 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
             NobgTheme(darkTheme = darkTheme) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     var showOnboardingDialog by remember { mutableStateOf(shouldShowOnboardingInitially) }
 
                     // Back stack: root luôn là DASHBOARD, các màn hình khác push lên trên

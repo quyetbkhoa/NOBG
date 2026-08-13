@@ -29,9 +29,10 @@ fun AutoUpdateDialog(
         onDismissRequest = {
             if (!isDownloading) onDismiss()
         },
+        modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 620.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🚀 BẢN CẬP NHẬT MỚI", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text("Có bản cập nhật mới", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleLarge)
             }
         },
         text = {
@@ -42,23 +43,23 @@ fun AutoUpdateDialog(
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "Phiên bản mới nhất: ${updateInfo.tagName}",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "📝 NHẬT KÝ THAY ĐỔI (CHANGELOG):",
+                    text = "Nội dung thay đổi",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(6.dp))
 
@@ -121,7 +122,7 @@ fun AutoUpdateDialog(
                     Spacer(Modifier.width(6.dp))
                     Text("Đang tải...")
                 } else {
-                    Text("🚀 Tải & Cài đặt")
+                    Text("Tải và cài đặt")
                 }
             }
         },

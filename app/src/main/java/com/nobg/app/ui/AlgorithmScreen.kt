@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -46,14 +46,16 @@ fun AlgorithmScreen(
     var expandedLeafTitle by remember { mutableStateOf<String?>(treeData.firstOrNull()?.leaves?.firstOrNull()?.title) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("📚 Sơ Đồ Cây Thuật Toán & Lệnh System", fontWeight = FontWeight.Bold) },
+                title = { Text("Giải thuật", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Trở về")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { padding ->
@@ -61,19 +63,19 @@ fun AlgorithmScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
         ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        "🌲 NGUYÊN LÝ HOẠT ĐỘNG & FLOW HỆ THỐNG NOBG",
-                        fontWeight = FontWeight.Bold,
+                        "Nguyên lý hoạt động",
+                        fontWeight = FontWeight.Medium,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -91,10 +93,7 @@ fun AlgorithmScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isNodeExpanded) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isNodeExpanded) 3.dp else 1.dp)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column {
                         // NODE HEADER
@@ -114,7 +113,7 @@ fun AlgorithmScreen(
                                 Text(
                                     node.title,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = if (isNodeExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -132,7 +131,7 @@ fun AlgorithmScreen(
                                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 Spacer(Modifier.height(4.dp))
 
                                 node.leaves.forEach { leaf ->
@@ -158,7 +157,7 @@ fun AlgorithmScreen(
                                                 Text(
                                                     leaf.title,
                                                     style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Bold,
+                                                    fontWeight = FontWeight.SemiBold,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.weight(1f)
                                                 )
@@ -174,7 +173,7 @@ fun AlgorithmScreen(
                                                     Text(
                                                         "📌 Nguyên lý (Principle):",
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
+                                                        fontWeight = FontWeight.SemiBold,
                                                         color = MaterialTheme.colorScheme.secondary
                                                     )
                                                     Spacer(Modifier.height(2.dp))
@@ -185,7 +184,7 @@ fun AlgorithmScreen(
                                                         Text(
                                                             "⚙️ Lệnh Shell / Shizuku thực thi:",
                                                             style = MaterialTheme.typography.labelSmall,
-                                                            fontWeight = FontWeight.Bold,
+                                                            fontWeight = FontWeight.SemiBold,
                                                             color = MaterialTheme.colorScheme.primary
                                                         )
                                                         Spacer(Modifier.height(4.dp))
@@ -199,7 +198,7 @@ fun AlgorithmScreen(
                                                                     cmd,
                                                                     fontFamily = FontFamily.Monospace,
                                                                     fontSize = 11.sp,
-                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontWeight = FontWeight.SemiBold,
                                                                     color = MaterialTheme.colorScheme.tertiary,
                                                                     modifier = Modifier.padding(6.dp)
                                                                 )
@@ -212,7 +211,7 @@ fun AlgorithmScreen(
                                                         Text(
                                                             "💻 Code Logic (Kotlin):",
                                                             style = MaterialTheme.typography.labelSmall,
-                                                            fontWeight = FontWeight.Bold,
+                                                            fontWeight = FontWeight.SemiBold,
                                                             color = MaterialTheme.colorScheme.outline
                                                         )
                                                         Spacer(Modifier.height(4.dp))

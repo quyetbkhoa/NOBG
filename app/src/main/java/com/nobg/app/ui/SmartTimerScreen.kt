@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -76,16 +76,17 @@ fun SmartTimerScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Đếm giờ thông minh", fontWeight = FontWeight.Bold) },
+                title = { Text("Đếm giờ", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         }
@@ -94,16 +95,17 @@ fun SmartTimerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
         ) {
             TimerStatusCard(
                 isRunning = config.isRunning,
                 elapsedSeconds = elapsedSec,
                 durationMinutes = config.durationMinutes,
                 intervalMinutes = config.intervalMinutes,
-                mode = config.mode,
                 onStart = { runWithNotificationPermission(viewModel::startTimer) },
                 onStop = { viewModel.stopTimer() }
             )
@@ -152,7 +154,6 @@ private fun TimerStatusCard(
     elapsedSeconds: Long,
     durationMinutes: Int,
     intervalMinutes: Int,
-    mode: SmartTimerMode,
     onStart: () -> Unit,
     onStop: () -> Unit
 ) {
@@ -195,7 +196,7 @@ private fun TimerStatusCard(
             Text(
                 text = formattedTime,
                 fontSize = 42.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -229,7 +230,7 @@ private fun TimerStatusCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isRunning) "DỪNG LẠI" else "BẮT ĐẦU ĐẾM",
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp
                 )
             }
@@ -250,8 +251,8 @@ private fun QuickPresetsCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "⚡ Preset nhanh",
-                fontWeight = FontWeight.Bold,
+                text = "Mẫu nhanh",
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp
             )
 
@@ -271,7 +272,7 @@ private fun QuickPresetsCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Mặc định", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Mặc định", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Text("Giờ thực · 1h · báo mỗi 2p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -285,7 +286,7 @@ private fun QuickPresetsCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("15 phút", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("15 phút", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Text("Đã trôi qua · báo mỗi 1p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -299,7 +300,7 @@ private fun QuickPresetsCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("30 phút", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("30 phút", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Text("Đã trôi qua · báo mỗi 2p", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -326,7 +327,7 @@ private fun WidgetQuickConfigCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("▣ Chế độ nhanh của Widget", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("▣ Chế độ nhanh của Widget", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             Text(
                 "Bấm widget 1x1 để bắt đầu với các thiết lập dưới đây; bấm lại để dừng.",
                 fontSize = 12.sp,
@@ -417,7 +418,7 @@ private fun ReaderConfigCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("⚙️ Cấu hình giọng đọc", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("⚙️ Cấu hình giọng đọc", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Chế độ đọc", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -479,7 +480,7 @@ private fun AudioSettingsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("🔊 Âm thanh & Giảm tiếng nhạc nền", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Âm thanh và giảm tiếng nhạc", fontWeight = FontWeight.Medium, fontSize = 17.sp)
 
             Column {
                 Row(
@@ -487,7 +488,7 @@ private fun AudioSettingsCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Âm lượng giọng đọc", fontSize = 14.sp)
-                    Text("${(volume * 100).toInt()}%", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("${(volume * 100).toInt()}%", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
                 Slider(
                     value = volume,

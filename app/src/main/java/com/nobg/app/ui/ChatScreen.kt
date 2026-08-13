@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -12,11 +12,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,7 +41,7 @@ fun ChatScreen(
     pendingApproval?.let { approval ->
         AlertDialog(
             onDismissRequest = { chatViewModel.respondApproval(false) },
-            title = { Text("⚠️ AI yêu cầu thay đổi cài đặt", fontWeight = FontWeight.Bold) },
+            title = { Text("⚠️ AI yêu cầu thay đổi cài đặt", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column {
                     Text("AI Trợ lý muốn thực hiện:")
@@ -80,11 +82,12 @@ fun ChatScreen(
     BackHandler(onBack = onBack)
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("AI Trợ lý", fontWeight = FontWeight.Bold)
+                        Text("AI Trợ lý", fontWeight = FontWeight.SemiBold)
                         Text(
                             chatViewModel.providerDisplayName,
                             style = MaterialTheme.typography.labelSmall,
@@ -107,8 +110,14 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Surface(color = MaterialTheme.colorScheme.background, tonalElevation = 0.dp, shadowElevation = 0.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .widthIn(max = PremiumDimens.ContentMaxWidth)
+                        .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 8.dp)
+                ) {
                     configError?.let { error ->
                         Card(
                             colors = CardDefaults.cardColors(
@@ -140,7 +149,13 @@ fun ChatScreen(
                             modifier = Modifier.weight(1f),
                             placeholder = { Text("Hỏi bất cứ điều gì...") },
                             maxLines = 4,
-                            shape = RoundedCornerShape(24.dp)
+                            shape = RoundedCornerShape(28.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            )
                         )
                         Spacer(Modifier.width(8.dp))
                         FilledIconButton(
@@ -164,28 +179,35 @@ fun ChatScreen(
     ) { padding ->
         if (messages.isEmpty()) {
             val suggestions = listOf(
-                "📊" to "Đánh giá tổng quan tình trạng máy của tôi hôm nay",
-                "🔋" to "Phân tích xem pin của tôi có đang tụt nhanh không và nguyên nhân có thể là gì",
-                "🔌" to "Phân tích các phiên sạc gần đây và thói quen sạc của tôi",
-                "📱" to "Hôm nay tôi dùng ứng dụng nào nhiều nhất?",
-                "🧊" to "Kiểm tra NOBG và Kệ Đóng Băng đang hoạt động thế nào",
-                "🌙" to "Bật giao diện tối cho NOBG"
+                "Đánh giá tổng quan tình trạng máy của tôi hôm nay",
+                "Phân tích xem pin của tôi có đang tụt nhanh không",
+                "Phân tích các phiên sạc và thói quen sạc gần đây",
+                "Hôm nay tôi dùng ứng dụng nào nhiều nhất?",
+                "Kiểm tra NOBG và Kệ Đóng Băng đang hoạt động thế nào",
+                "Bật giao diện tối cho NOBG"
             )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = PremiumDimens.ContentMaxWidth)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text("🤖", style = MaterialTheme.typography.displayMedium)
+                Icon(
+                    Icons.Filled.SmartToy,
+                    contentDescription = null,
+                    tint = PremiumAccent.Purple,
+                    modifier = Modifier.size(44.dp)
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Trợ lý hiểu dữ liệu thật trên máy",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
                     "Chọn một tác vụ để bắt đầu hoặc nhập câu hỏi riêng.",
@@ -193,31 +215,27 @@ fun ChatScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(14.dp))
-                suggestions.forEach { (icon, prompt) ->
-                    OutlinedButton(
-                        onClick = { chatViewModel.sendSuggestedPrompt(prompt) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        Text(icon)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            prompt,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    suggestions.forEachIndexed { index, prompt ->
+                        PremiumNavigationRow(
+                            title = prompt,
+                            icon = Icons.Filled.SmartToy,
+                            accent = listOf(PremiumAccent.Blue, PremiumAccent.Green, PremiumAccent.Orange, PremiumAccent.Purple)[index % 4],
+                            onClick = { chatViewModel.sendSuggestedPrompt(prompt) }
                         )
+                        if (index < suggestions.lastIndex) PremiumInsetDivider()
                     }
-                    Spacer(Modifier.height(6.dp))
                 }
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = PremiumDimens.ContentMaxWidth),
                 state = listState,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
@@ -259,7 +277,7 @@ private fun ChatMessageBubble(message: AiChatMessage) {
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 320.dp)
+                .widthIn(max = 560.dp)
                 .background(bubbleColor, RoundedCornerShape(if (isUser) 16.dp else 16.dp))
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {

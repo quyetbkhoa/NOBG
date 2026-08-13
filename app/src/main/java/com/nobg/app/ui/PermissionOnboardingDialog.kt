@@ -86,23 +86,22 @@ fun PermissionOnboardingDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.95f),
+        modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 640.dp),
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Vào Ứng Dụng", fontWeight = FontWeight.Bold)
+                Text("Tiếp tục", fontWeight = FontWeight.Medium)
             }
         },
         title = {
             Column {
                 Text(
-                    text = "CHÀO MỪNG ĐẾN VỚI NOBG",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "Chào mừng đến NOBG",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = "Thiết lập quyền hệ thống để app hoạt động tối ưu",
@@ -116,7 +115,7 @@ fun PermissionOnboardingDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 // Item 1: Shizuku / ADB
                 PermissionStatusCard(
@@ -181,6 +180,7 @@ fun PermissionOnboardingDialog(
                     description = "Tránh bị hệ thống Android tự đóng dịch vụ giám sát pin ngầm của NOBG.",
                     isGranted = isBatteryOptOk,
                     buttonLabel = "Tắt tối ưu pin",
+                    showDivider = false,
                     onAction = {
                         try {
                             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -210,77 +210,19 @@ fun PermissionStatusCard(
     description: String,
     isGranted: Boolean,
     buttonLabel: String,
+    showDivider: Boolean = true,
     onAction: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isGranted) MaterialTheme.colorScheme.surfaceContainerHigh
-                             else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PremiumNavigationRow(
+            title = title,
+            subtitle = description,
+            icon = if (isGranted) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+            accent = if (isGranted) PremiumAccent.Green else PremiumAccent.Orange,
+            onClick = { if (!isGranted) onAction() },
+            trailing = if (isGranted) "Đã cấp" else buttonLabel,
+            showChevron = !isGranted
         )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                if (isGranted) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "Đã cấp",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "Chưa cấp",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (!isGranted) {
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onAction,
-                    modifier = Modifier.align(Alignment.End),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Text(buttonLabel, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
+        if (showDivider) PremiumInsetDivider()
     }
 }

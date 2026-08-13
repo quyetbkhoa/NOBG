@@ -1,10 +1,9 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -101,23 +100,28 @@ fun AiConfigScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("🤖 AI Trợ lý", fontWeight = FontWeight.Bold) },
+                title = { Text("AI Trợ lý", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,9 +137,9 @@ fun AiConfigScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "🤖 AI (Gemini, Groq, OpenRouter) - Miễn phí",
+                                "Dịch vụ AI",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 "Tóm tắt thông báo, lọc thông báo rác, chat AI",
@@ -158,9 +162,9 @@ fun AiConfigScreen(
 
                         // ── 0. NHÀ CUNG CẤP (PROVIDER) ───────────────────
                         Text(
-                            "🔄 0. Nhà cung cấp (Provider)",
+                            "Nhà cung cấp",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "Chọn dịch vụ AI. Mỗi provider dùng API key riêng.",
@@ -169,32 +173,23 @@ fun AiConfigScreen(
                         )
                         Spacer(Modifier.height(8.dp))
 
-                        AiProvider.entries.forEach { p ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                        AiProvider.entries.forEachIndexed { index, p ->
                             val selected = p == provider
-                            Card(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
-                                    .clickable { selectProvider(p) },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (selected) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
-                                    }
-                                ),
-                                border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                    .heightIn(min = PremiumDimens.RowMinHeight)
+                                    .clickable { selectProvider(p) }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
                                     RadioButton(selected = selected, onClick = { selectProvider(p) })
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             p.displayName,
                                             style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
                                             p.shortDesc,
@@ -202,17 +197,18 @@ fun AiConfigScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                }
                             }
+                            if (index < AiProvider.entries.lastIndex) PremiumInsetDivider(iconSlotWidth = 24.dp)
+                        }
                         }
 
                         Spacer(Modifier.height(12.dp))
 
                         // ── 1. API KEY ────────────────────────────────────
                         Text(
-                            "🔑 1. API Key (${provider.displayName})",
+                            "API Key · ${provider.displayName}",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "Lấy miễn phí tại: ${provider.keyUrl}",
@@ -253,7 +249,7 @@ fun AiConfigScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("🌐 Mở trang lấy API Key")
+                            Text("Mở trang lấy API Key")
                         }
 
                         Spacer(Modifier.height(12.dp))
@@ -262,7 +258,7 @@ fun AiConfigScreen(
                         Text(
                             "🧠 2. Model AI",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "Chọn model của ${provider.displayName} dùng cho tóm tắt, lọc và chat.",
@@ -331,7 +327,7 @@ fun AiConfigScreen(
                         Text(
                             "🧪 3. Kiểm tra & Sử dụng",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Spacer(Modifier.height(8.dp))
 
@@ -345,7 +341,7 @@ fun AiConfigScreen(
                                 Spacer(Modifier.width(8.dp))
                                 Text("Đang kiểm tra...")
                             } else {
-                                Text("🔌 Kiểm tra kết nối")
+                                Text("Kiểm tra kết nối")
                             }
                         }
 

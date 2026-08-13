@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.Manifest
 import android.content.Context
@@ -116,9 +116,10 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Cài đặt") },
+                title = { Text("Cài đặt", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -130,9 +131,12 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
         ) {
 
             // NOBG SELF RESOURCE CONSUMPTION CARD
@@ -164,7 +168,7 @@ fun SettingsScreen(
                             Text(
                                 "Tài nguyên NOBG đang sử dụng",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                         IconButton(onClick = { refreshSelfStats() }) {
@@ -196,7 +200,7 @@ fun SettingsScreen(
                                 Text(
                                     sessionTimeText,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -205,7 +209,7 @@ fun SettingsScreen(
                                 Text(
                                     "${String.format("%.1f", stats.ramMb)} MB",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -214,7 +218,7 @@ fun SettingsScreen(
                                 Text(
                                     "${String.format("%.2f", stats.cpuPct)}% (${String.format("%.1f", stats.cpuTimeMs / 1000.0)}s CPU)",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                             }
@@ -223,7 +227,7 @@ fun SettingsScreen(
                                 Text(
                                     "${String.format("%.1f", stats.batteryMah)} mAh (${String.format("%.2f", stats.batteryPct)}% pin)",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
                             }
@@ -242,9 +246,9 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        "🎨 Giao diện",
+                        "Giao diện",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         "Chọn chủ đề giao diện: Trắng - Xanh, Tối, hoặc tự động theo hệ thống.",
@@ -252,17 +256,18 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
-                    listOf(
-                        "SYSTEM" to "🌓 Theo hệ thống",
-                        "LIGHT" to "☀️ Trắng - Xanh",
-                        "DARK" to "🌙 Tối"
-                    ).forEach { (mode, label) ->
+                    val themeOptions = listOf(
+                        "SYSTEM" to "Theo hệ thống",
+                        "LIGHT" to "Sáng",
+                        "DARK" to "Tối"
+                    )
+                    themeOptions.forEachIndexed { index, (mode, label) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.small)
                                 .clickable { onThemeModeChanged(mode) }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                .heightIn(min = PremiumDimens.RowMinHeight)
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
@@ -272,9 +277,10 @@ fun SettingsScreen(
                             Text(
                                 label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (themeMode == mode) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (themeMode == mode) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
+                        if (index < themeOptions.lastIndex) PremiumInsetDivider(iconSlotWidth = 24.dp)
                     }
                 }
             }
@@ -321,9 +327,9 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "☁️ Sao lưu & đồng bộ cấu hình đa thiết bị",
+                        "Sao lưu và đồng bộ",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -360,9 +366,9 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "🎨 Giao diện Widget Kệ Đóng Băng",
+                        "Giao diện Widget Kệ Đóng Băng",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -380,7 +386,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🎨 Mở menu Tùy chỉnh Giao diện Widget", fontWeight = FontWeight.Bold)
+                        Text("Mở tùy chỉnh Widget", fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -392,9 +398,9 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "📋 Trung tâm quản lý quyền hệ thống",
+                        "Quyền hệ thống",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -419,8 +425,6 @@ fun SettingsScreen(
                             refreshAllPermissionStatus()
                         }
                     )
-
-                    Spacer(Modifier.height(8.dp))
 
                     // 2. Usage Stats
                     PermissionStatusCard(
@@ -450,7 +454,6 @@ fun SettingsScreen(
                     )
 
                     if (Build.VERSION.SDK_INT >= 33) {
-                        Spacer(Modifier.height(8.dp))
                         // 3. Notifications
                         PermissionStatusCard(
                             title = "3. Quyền Thông báo (Notifications)",
@@ -470,14 +473,13 @@ fun SettingsScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
-
                     // 4. Ignore Battery Saver
                     PermissionStatusCard(
                         title = "4. Tắt Hạn chế Pin cho NOBG",
                         description = "Giữ cho dịch vụ NOBG không bị Android tự động tắt.",
                         isGranted = isBatteryOptOk,
                         buttonLabel = "Tắt tối ưu pin",
+                        showDivider = false,
                         onAction = {
                             try {
                                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -505,7 +507,7 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Chế độ hoạt động", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Chế độ hoạt động", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
 
                     val isNone = activeBackend == PrivilegedShell.Backend.NONE
@@ -545,7 +547,7 @@ fun SettingsScreen(
                     }
 
                     Spacer(Modifier.height(16.dp))
-                    Text("Cấu hình ADB Daemon (Thay thế Shizuku)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Cấu hình ADB Daemon (Thay thế Shizuku)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     
                     var daemonExtracted by remember { mutableStateOf(false) }
@@ -567,9 +569,9 @@ fun SettingsScreen(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (isAdb) {
-                                    Text("🟢 Daemon đang chạy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    Text("🟢 Daemon đang chạy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                 } else {
-                                    Text("🔴 Daemon chưa khởi động", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                    Text("🔴 Daemon chưa khởi động", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                             Spacer(Modifier.height(8.dp))
@@ -635,7 +637,7 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("🚀 Cập nhật ứng dụng từ GitHub", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Cập nhật ứng dụng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(4.dp))
                     Text("Kiểm tra và tải trực tiếp bản Release APK mới nhất được tự động build từ GitHub Actions.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
@@ -691,7 +693,7 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text("✨ Đã tìm thấy bản Release APK mới!", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text("✨ Đã tìm thấy bản Release APK mới!", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(4.dp))
                                 Text("Phiên bản mới: ${info.tagName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(8.dp))
@@ -729,7 +731,7 @@ fun SettingsScreen(
                                 if (isDownloading && downloadProgressPct > 0) {
                                     Spacer(Modifier.height(8.dp))
                                     LinearProgressIndicator(
-                                        progress = downloadProgressPct / 100f,
+                                        progress = { downloadProgressPct / 100f },
                                         modifier = Modifier.fillMaxWidth().height(6.dp),
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -758,7 +760,7 @@ fun SettingsScreen(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("✅ Bạn đang sử dụng phiên bản mới nhất (v$ver)!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                                Text("✅ Bạn đang sử dụng phiên bản mới nhất (v$ver)!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     } else if (updateResultState is com.nobg.app.update.UpdateResult.Error) {
@@ -791,9 +793,9 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Thông tin ứng dụng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Thông tin ứng dụng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
-                    Text("Phiên bản: v$currentVersionName", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text("Phiên bản: v$currentVersionName", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(4.dp))
                     Text("Tác giả: quyetbkhoa", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))

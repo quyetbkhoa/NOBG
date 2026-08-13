@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -97,9 +98,10 @@ fun FreezerShelfScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("🧊 Kệ Đóng Bằng Ứng Dụng (Icebox)", fontWeight = FontWeight.Bold) },
+                title = { Text("Kệ Đóng Băng", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Trở về")
@@ -111,26 +113,18 @@ fun FreezerShelfScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddAppDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Thêm App Đóng Bằng") },
-                containerColor = MaterialTheme.colorScheme.primary
-            )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter)
         ) {
             // HEADER BANNER
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp)
@@ -143,8 +137,8 @@ fun FreezerShelfScreen(
                     ) {
                         Column {
                             Text(
-                                "🧊 TỔNG SỐ APP TRÊN KỆ: ${shelfUiApps.size}",
-                                fontWeight = FontWeight.Bold,
+                                "${shelfUiApps.size} ứng dụng trên kệ",
+                                fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -183,7 +177,7 @@ fun FreezerShelfScreen(
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("🧊 Đóng băng tất cả", fontSize = 12.sp, maxLines = 1)
+                            Text("Đóng băng tất cả", fontSize = 13.sp, maxLines = 1)
                         }
 
                         OutlinedButton(
@@ -198,7 +192,7 @@ fun FreezerShelfScreen(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("☀️ Xả băng tất cả", fontSize = 12.sp, maxLines = 1)
+                            Text("Rã đông tất cả", fontSize = 13.sp, maxLines = 1)
                         }
                     }
                 }
@@ -220,7 +214,7 @@ fun FreezerShelfScreen(
                         Spacer(Modifier.height(12.dp))
                         Text(
                             "Kệ Đóng Bằng Chưa Có Ứng Dụng Nào",
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(Modifier.height(6.dp))
@@ -239,7 +233,7 @@ fun FreezerShelfScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 112.dp),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = 80.dp),
@@ -370,7 +364,7 @@ fun ShelfAppGridItem(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(app.appName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                Text(app.appName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -396,7 +390,7 @@ fun ShelfAppGridItem(
                 Text(
                     app.appName,
                     style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
@@ -412,7 +406,7 @@ fun ShelfAppGridItem(
                         if (app.isFrozen) "🧊 Đóng băng" else "☀️ Đã mở",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = if (app.isFrozen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                     )
@@ -495,16 +489,25 @@ fun AddShelfAppDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("➕ Chọn App Vào Kệ Đóng Bằng", fontWeight = FontWeight.Bold) },
+        modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 720.dp),
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        title = { Text("Thêm vào Kệ Đóng Băng", fontWeight = FontWeight.SemiBold) },
         text = {
-            Column(modifier = Modifier.height(400.dp)) {
-                OutlinedTextField(
+            Column(modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp, max = 620.dp)) {
+                TextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Tìm tên app...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
 
                 Spacer(Modifier.height(10.dp))
@@ -514,8 +517,8 @@ fun AddShelfAppDialog(
                         CircularProgressIndicator()
                     }
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(filteredApps, key = { it.packageName }) { item ->
+                    LazyColumn {
+                        itemsIndexed(filteredApps, key = { _, item -> item.packageName }) { index, item ->
                             val isChecked = selectedPkgs.contains(item.packageName)
                             Row(
                                 modifier = Modifier
@@ -523,7 +526,8 @@ fun AddShelfAppDialog(
                                     .clickable {
                                         selectedPkgs = if (isChecked) selectedPkgs - item.packageName else selectedPkgs + item.packageName
                                     }
-                                    .padding(vertical = 6.dp),
+                                    .heightIn(min = 72.dp)
+                                    .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
@@ -541,9 +545,16 @@ fun AddShelfAppDialog(
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(item.appName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(item.appName, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     Text(item.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
+                            }
+                            if (index < filteredApps.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 96.dp),
+                                    thickness = 0.75.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
                             }
                         }
                     }

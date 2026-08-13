@@ -2,25 +2,44 @@ package com.nobg.app.ui
 
 import android.content.Context
 import android.os.BatteryManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -33,10 +52,10 @@ private data class FeatureEntry(
     val subtitle: String,
     val icon: ImageVector,
     val onClick: () -> Unit,
-    val accentColor: androidx.compose.ui.graphics.Color
+    val accentColor: Color
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: MainViewModel,
@@ -53,217 +72,92 @@ fun DashboardScreen(
     val apps by viewModel.appList.collectAsState()
     val shizukuReady by viewModel.shizukuReady.collectAsState()
     val context = LocalContext.current
-
-    val batteryPct = remember { getBatteryPercent(context) }
+    val batteryPct = remember(context) { getBatteryPercent(context) }
 
     val nobgCount = apps.count { it.config?.enabled == true }
     val shelfCount = apps.count { it.isFrozenShelf }
     val disabledCount = apps.count { it.isDisabled }
-    val topBlocked = apps
-        .filter { (it.config?.blockedCount ?: 0) > 0 }
+    val topBlocked = apps.filter { (it.config?.blockedCount ?: 0) > 0 }
         .maxByOrNull { it.config?.blockedCount ?: 0 }
 
-    val suggestions = remember(nobgCount, shelfCount, disabledCount, topBlocked, batteryPct) {
+    val suggestions = remember(nobgCount, shelfCount, disabledCount, topBlocked, batteryPct, shizukuReady) {
         buildList {
-            if (!shizukuReady) {
-                add("⚠️ Shizuku chưa sẵn sàng — hãy mở Cài đặt để cấp quyền trước khi dùng tính năng.")
-            }
-            if (nobgCount == 0) {
-                add("🛡️ Chưa app nào bật NOBG — bật quản lý để chặn chạy ngầm, tiết kiệm pin.")
-            } else {
-                add("🛡️ Có $nobgCount app đang được NOBG chặn chạy ngầm.")
-            }
-            if (shelfCount > 0) {
-                add("🧊 Có $shelfCount app đang nằm trong Kệ Đóng Bằng — bấm icon trên widget để mở lại nhanh.")
-            }
-            if (disabledCount > 0) {
-                add("❄️ $disabledCount app đang bị vô hiệu hóa hoàn toàn.")
-            }
-            topBlocked?.let { app ->
-                add("🚫 \"${app.label}\" bị chặn chạy ngầm ${app.config?.blockedCount} lần — đang hoạt động hiệu quả.")
-            }
-            val pct = batteryPct
-            if (pct != null && pct <= 20) {
-                add("🔋 Pin đang yếu ($pct%) — nên đóng băng các app nền để giữ pin.")
-            } else if (pct != null && pct >= 90) {
-                add("🔋 Pin đang rất khỏe ($pct%).")
-            }
-            if (isEmpty()) {
-                add("✅ Hệ thống đang ổn định — mọi thứ hoạt động tốt.")
-            }
+            if (!shizukuReady) add("Shizuku chưa sẵn sàng. Mở Cài đặt để hoàn tất quyền hệ thống.")
+            if (nobgCount == 0) add("Chưa có ứng dụng nào được NOBG quản lý.")
+            else add("$nobgCount ứng dụng đang được kiểm soát hoạt động nền.")
+            if (shelfCount > 0) add("$shelfCount ứng dụng đang ở Kệ Đóng Băng.")
+            topBlocked?.let { add("${it.label} đã được chặn chạy nền ${it.config?.blockedCount} lần.") }
+            if (batteryPct != null && batteryPct <= 20) add("Pin còn $batteryPct%. Hãy đóng băng các ứng dụng ít dùng.")
+            if (isEmpty()) add("Hệ thống đang ổn định và không cần xử lý thêm.")
         }
     }
 
+    val features = listOf(
+        FeatureEntry("Quản lý ứng dụng", "Kiểm soát và giới hạn chạy nền", Icons.Filled.PhoneAndroid, onOpenAppList, PremiumAccent.Blue),
+        FeatureEntry("Kệ Đóng Băng", "Đóng băng và mở lại nhanh", Icons.Filled.AcUnit, onOpenFreezerShelf, PremiumAccent.Teal),
+        FeatureEntry("Đếm giờ thông minh", "Nhắc giờ định kỳ bằng giọng nói", Icons.Filled.Timer, onOpenSmartTimer, PremiumAccent.Orange),
+        FeatureEntry("Thống kê Pin", "Mức dùng pin, CPU và tốc độ sạc", Icons.Filled.BarChart, onOpenBatteryStats, PremiumAccent.Green),
+        FeatureEntry("AI Trợ lý", "Gemini, Groq và OpenRouter", Icons.Filled.SmartToy, onOpenAiChat, PremiumAccent.Purple),
+        FeatureEntry("Đọc thông báo", "Đọc TTS và tóm tắt bằng AI", Icons.Filled.Notifications, onOpenNotificationRead, PremiumAccent.Pink),
+        FeatureEntry("Giải thuật", "Tìm hiểu cách NOBG hoạt động", Icons.Filled.Psychology, onOpenAlgorithm, PremiumAccent.Yellow),
+        FeatureEntry("Danh sách hệ thống", "Whitelist, standby và AppOps", Icons.AutoMirrored.Filled.ListAlt, onOpenSystemLists, PremiumAccent.Teal),
+        FeatureEntry("Cài đặt", "Quyền, giao diện và sao lưu", Icons.Filled.Settings, onOpenSettings, PremiumAccent.Blue)
+    )
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("NOBG", fontWeight = FontWeight.Bold)
-                        Text(
-                            "  ·  Trang chủ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
+                title = { Text("NOBG", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Cài đặt")
+                        Icon(Icons.Filled.Settings, contentDescription = "Cài đặt", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            // TỔNG QUAN & GỢI Ý
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                )
+            val wide = maxWidth >= 700.dp
+            val gutter = if (wide) PremiumDimens.WideScreenGutter else PremiumDimens.ScreenGutter
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = gutter)
+                    .padding(top = 12.dp, bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(PremiumDimens.GroupGap)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "📋 Tổng quan",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.weight(1f)
-                        )
-                        batteryPct?.let {
-                            Text(
-                                "🔋 $it%",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SummaryStat("🛡️", "$nobgCount", "Đang quản lý", Modifier.weight(1f))
-                        SummaryStat("🧊", "$shelfCount", "Kệ Đóng Bằng", Modifier.weight(1f))
-                        SummaryStat("❄️", "$disabledCount", "Đã vô hiệu hóa", Modifier.weight(1f))
-                    }
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                    )
-
+                Column(modifier = Modifier.premiumContentWidth()) {
                     Text(
-                        "💡 Gợi ý cho bạn",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        "Tổng quan",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
                     )
-                    suggestions.forEach { s ->
-                        Text(
-                            s,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
-                        )
-                    }
+                    OverviewCard(
+                        batteryPct = batteryPct,
+                        nobgCount = nobgCount,
+                        shelfCount = shelfCount,
+                        disabledCount = disabledCount,
+                        suggestions = suggestions
+                    )
                 }
-            }
 
-            // DANH SÁCH TÍNH NĂNG
-            Text(
-                "Tính năng",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            val features = listOf(
-                FeatureEntry(
-                    "Quản lý ứng dụng",
-                    "Bật/tắt NOBG, chế độ chặn",
-                    Icons.Filled.PhoneAndroid,
-                    onOpenAppList,
-                    MaterialTheme.colorScheme.primary
-                ),
-                FeatureEntry(
-                    "Kệ Đóng Bằng",
-                    "Đóng băng nhanh 1 chạm",
-                    Icons.Filled.AcUnit,
-                    onOpenFreezerShelf,
-                    MaterialTheme.colorScheme.tertiary
-                ),
-                FeatureEntry(
-                    "Đếm giờ thông minh",
-                    "Nhắc giờ định kỳ bằng giọng đọc",
-                    Icons.Filled.Timer,
-                    onOpenSmartTimer,
-                    MaterialTheme.colorScheme.secondary
-                ),
-                FeatureEntry(
-                    "Thống kê Pin",
-                    "Pin, tốc độ sạc, CPU",
-                    Icons.Filled.BarChart,
-                    onOpenBatteryStats,
-                    MaterialTheme.colorScheme.primary
-                ),
-                FeatureEntry(
-                    "AI Trợ lý",
-                    "Gemini, Groq, OpenRouter",
-                    Icons.Filled.SmartToy,
-                    onOpenAiChat,
-                    MaterialTheme.colorScheme.tertiary
-                ),
-                FeatureEntry(
-                    "Đọc thông báo",
-                    "TTS + tóm tắt AI",
-                    Icons.Filled.Notifications,
-                    onOpenNotificationRead,
-                    MaterialTheme.colorScheme.secondary
-                ),
-                FeatureEntry(
-                    "Giải thuật",
-                    "Cách NOBG hoạt động",
-                    Icons.Filled.Psychology,
-                    onOpenAlgorithm,
-                    MaterialTheme.colorScheme.primary
-                ),
-                FeatureEntry(
-                    "Danh sách hệ thống",
-                    "Whitelist, standby, appops",
-                    Icons.Filled.ListAlt,
-                    onOpenSystemLists,
-                    MaterialTheme.colorScheme.tertiary
-                ),
-                FeatureEntry(
-                    "Cài đặt",
-                    "Quyền, chủ đề, sao lưu",
-                    Icons.Filled.Settings,
-                    onOpenSettings,
-                    MaterialTheme.colorScheme.secondary
-                )
-            )
-
-            features.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    rowItems.forEach { feature ->
-                        FeatureCard(feature, Modifier.weight(1f))
-                    }
-                    if (rowItems.size == 1) {
-                        Spacer(Modifier.weight(1f))
+                Column(modifier = Modifier.premiumContentWidth()) {
+                    PremiumSectionLabel("Tính năng")
+                    if (wide) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                            FeatureGroup(features.take(5), Modifier.weight(1f))
+                            FeatureGroup(features.drop(5), Modifier.weight(1f))
+                        }
+                    } else {
+                        FeatureGroup(features)
                     }
                 }
             }
@@ -272,20 +166,58 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun SummaryStat(emoji: String, value: String, label: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(12.dp)
+private fun OverviewCard(
+    batteryPct: Int?,
+    nobgCount: Int,
+    shelfCount: Int,
+    disabledCount: Int,
+    suggestions: List<String>
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Thiết bị của bạn", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (batteryPct != null) "Pin hiện tại $batteryPct%" else "Đang đồng bộ trạng thái",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                Icon(Icons.Filled.BarChart, contentDescription = null, tint = PremiumAccent.Green)
+            }
+            Spacer(Modifier.height(20.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryStat(nobgCount.toString(), "Quản lý", Modifier.weight(1f))
+                SummaryStat(shelfCount.toString(), "Đóng băng", Modifier.weight(1f))
+                SummaryStat(disabledCount.toString(), "Vô hiệu hóa", Modifier.weight(1f))
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 20.dp),
+                thickness = 0.75.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
             )
-            .padding(vertical = 10.dp, horizontal = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("$emoji $value", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text("Gợi ý", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(8.dp))
+            suggestions.take(3).forEachIndexed { index, suggestion ->
+                Text(
+                    suggestion,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (index < suggestions.take(3).lastIndex) Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(value, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold)
         Text(
             label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -294,53 +226,24 @@ private fun SummaryStat(emoji: String, value: String, label: String, modifier: M
 }
 
 @Composable
-private fun FeatureCard(feature: FeatureEntry, modifier: Modifier = Modifier) {
-    Card(
-        onClick = feature.onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = feature.accentColor.copy(alpha = 0.15f)
-            ) {
-                Icon(
-                    feature.icon,
-                    contentDescription = null,
-                    tint = feature.accentColor,
-                    modifier = Modifier.padding(8.dp).size(22.dp)
-                )
-            }
-            Text(
-                feature.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+private fun FeatureGroup(features: List<FeatureEntry>, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        features.forEachIndexed { index, feature ->
+            PremiumNavigationRow(
+                title = feature.title,
+                subtitle = feature.subtitle,
+                icon = feature.icon,
+                accent = feature.accentColor,
+                onClick = feature.onClick
             )
-            Text(
-                feature.subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 11.sp
-            )
+            if (index < features.lastIndex) PremiumInsetDivider()
         }
     }
 }
 
-private fun getBatteryPercent(context: Context): Int? {
-    return try {
-        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
-        bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-    } catch (_: Exception) {
-        null
-    }
+private fun getBatteryPercent(context: Context): Int? = try {
+    (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)
+        ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+} catch (_: Exception) {
+    null
 }

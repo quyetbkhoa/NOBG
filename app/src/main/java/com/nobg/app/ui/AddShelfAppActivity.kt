@@ -8,6 +8,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +35,10 @@ class AddShelfAppActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
             NobgTheme(darkTheme = darkTheme) {
-                val scope = rememberCoroutineScope()
-                var currentShelfPkgs by remember { mutableStateOf<Set<String>>(emptySet()) }
-                var isRepoLoading by remember { mutableStateOf(true) }
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    val scope = rememberCoroutineScope()
+                    var currentShelfPkgs by remember { mutableStateOf<Set<String>>(emptySet()) }
+                    var isRepoLoading by remember { mutableStateOf(true) }
 
                 LaunchedEffect(Unit) {
                     withContext(Dispatchers.IO) {
@@ -47,12 +50,12 @@ class AddShelfAppActivity : ComponentActivity() {
                     }
                 }
 
-                if (isRepoLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    AddShelfAppDialog(
+                    if (isRepoLoading) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        AddShelfAppDialog(
                         context = this@AddShelfAppActivity,
                         currentShelfPkgs = currentShelfPkgs,
                         onlyUserApps = true,
@@ -76,7 +79,8 @@ class AddShelfAppActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    )
+                        )
+                    }
                 }
             }
         }

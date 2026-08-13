@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -7,11 +7,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -89,8 +92,8 @@ fun ChargingSessionsTab(viewModel: BatteryStatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "⚡ Dự đoán sạc đầy (Phi tuyến tính)",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        text = "Dự đoán thời gian sạc đầy",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
 
@@ -128,7 +131,7 @@ fun ChargingSessionsTab(viewModel: BatteryStatsViewModel) {
                             Column {
                                 Text(
                                     text = "Âm thanh khi đầy 100%",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
@@ -161,8 +164,8 @@ fun ChargingSessionsTab(viewModel: BatteryStatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "📈 Biểu đồ Tốc độ Sạc Tổng hợp (0% → 100%)",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        text = "Tốc độ sạc tổng hợp · 0% đến 100%",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                     )
                     Text(
                         text = "Trục Ox: % Pin  |  Trục Oy: Thời gian sạc tích lũy (phút)",
@@ -189,7 +192,7 @@ fun ChargingSessionsTab(viewModel: BatteryStatsViewModel) {
             ) {
                 Text(
                     text = "Lịch sử các phiên sạc (${sessions.size})",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 if (sessions.isNotEmpty()) {
                     IconButton(onClick = { showClearConfirm = true }) {
@@ -215,11 +218,16 @@ fun ChargingSessionsTab(viewModel: BatteryStatsViewModel) {
                 }
             }
         } else {
-            items(sessions, key = { it.id }) { session ->
-                SessionItemRow(
-                    session = session,
-                    onClick = { selectedSessionForDialog = session }
-                )
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    sessions.forEachIndexed { index, session ->
+                        SessionItemRow(
+                            session = session,
+                            onClick = { selectedSessionForDialog = session }
+                        )
+                        if (index < sessions.lastIndex) PremiumInsetDivider()
+                    }
+                }
             }
         }
     }
@@ -232,27 +240,26 @@ private fun SessionItemRow(
 ) {
     val sdf = remember { SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault()) }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
+            .heightIn(min = PremiumDimens.RowMinHeight)
+            .clickable(onClick = onClick)
+            .padding(horizontal = PremiumDimens.RowHorizontalPadding, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+            Icon(
+                Icons.Filled.BatteryChargingFull,
+                contentDescription = null,
+                modifier = Modifier.size(PremiumDimens.IconSize),
+                tint = PremiumAccent.Green
+            )
+            Spacer(Modifier.width(PremiumDimens.IconTextGap))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "${session.startLevel}% → ${session.endLevel}%",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium,
                         color = if (session.isCompletedToFull) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     if (session.isCompletedToFull) {
@@ -278,19 +285,24 @@ private fun SessionItemRow(
                 )
             }
 
-            Column(horizontalAlignment = Alignment.End) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 10.dp)) {
                 Text(
                     text = formatDurationShort(session.totalDurationSeconds * 1000L),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.secondary
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Bấm xem biểu đồ →",
+                    text = "Chi tiết",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 8.dp).size(18.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
     }
 }
 
@@ -312,7 +324,7 @@ fun ChargingSessionDetailDialog(
         },
         title = {
             Column {
-                Text("Biểu đồ phiên sạc", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text("Biểu đồ phiên sạc", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
                 Text(
                     sdf.format(Date(session.startTimeMs)),
                     style = MaterialTheme.typography.bodySmall,
@@ -330,7 +342,7 @@ fun ChargingSessionDetailDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Mức sạc: ${session.startLevel}% → ${session.endLevel}%", fontWeight = FontWeight.SemiBold)
-                    Text("Thời gian: ${formatDurationShort(session.totalDurationSeconds * 1000L)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Thời gian: ${formatDurationShort(session.totalDurationSeconds * 1000L)}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 }
 
                 val pctDiff = (session.endLevel - session.startLevel).coerceAtLeast(0)
@@ -349,8 +361,8 @@ fun ChargingSessionDetailDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("⚡ Tốc độ sạc thực tế:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Text("$speedPctPerHour ($avgMinPerPct)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("⚡ Tốc độ sạc thực tế:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        Text("$speedPctPerHour ($avgMinPerPct)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
@@ -409,8 +421,6 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
             detectTapGestures { tapOffset ->
                 if (points.isEmpty()) return@detectTapGestures
                 val padLeft = 55.dp.toPx()
-                val padBottom = 28.dp.toPx()
-                val padTop = 15.dp.toPx()
                 val padRight = 15.dp.toPx()
                 val chartW = size.width - padLeft - padRight
                 val maxMinutes = points.maxOfOrNull { it.cumulativeMinutes }?.coerceAtLeast(1f) ?: 60f
@@ -485,10 +495,7 @@ private fun SpeedCumulativeChart(points: List<SpeedStepPoint>, modifier: Modifie
 
         drawPath(
             path = path,
-            brush = Brush.verticalGradient(
-                colors = listOf(primaryColor.copy(alpha = 0.4f), primaryColor.copy(alpha = 0.05f)),
-                startY = padTop, endY = padTop + chartH
-            )
+            color = primaryColor.copy(alpha = 0.10f)
         )
 
         drawPath(
@@ -648,10 +655,7 @@ private fun IndividualSessionChart(points: List<com.nobg.app.data.ChargingPoint>
 
         drawPath(
             path = path,
-            brush = Brush.verticalGradient(
-                colors = listOf(primaryColor.copy(alpha = 0.35f), primaryColor.copy(alpha = 0.05f)),
-                startY = padTop, endY = padTop + chartH
-            )
+            color = primaryColor.copy(alpha = 0.10f)
         )
 
         drawPath(

@@ -1,4 +1,4 @@
-package com.nobg.app.widget
+﻿package com.nobg.app.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
@@ -135,9 +135,10 @@ fun WidgetConfigScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Cài đặt Widget Kệ Đóng Băng", fontWeight = FontWeight.Bold) },
+                title = { Text("Cài đặt Widget", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -147,8 +148,9 @@ fun WidgetConfigScreen(
         },
         bottomBar = {
             Surface(
-                tonalElevation = 8.dp,
-                shadowElevation = 8.dp
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
                 Box(
                     modifier = Modifier
@@ -171,11 +173,11 @@ fun WidgetConfigScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(26.dp)
                     ) {
                         Icon(Icons.Filled.Check, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Lưu & Cập nhật Widget", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Lưu và cập nhật Widget", fontWeight = FontWeight.Medium, fontSize = 16.sp)
                     }
                 }
             }
@@ -185,22 +187,25 @@ fun WidgetConfigScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = 840.dp)
+                .padding(horizontal = 22.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Spacer(Modifier.height(4.dp))
 
             Text(
                 text = "ỨNG DỤNG TRÊN KỆ",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                shape = RoundedCornerShape(26.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
@@ -214,7 +219,7 @@ fun WidgetConfigScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Quản lý nội dung Widget",
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Text(
@@ -263,7 +268,7 @@ fun WidgetConfigScreen(
                                         color = MaterialTheme.colorScheme.primaryContainer
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            Text(app.appName.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                                            Text(app.appName.take(1).uppercase(), fontWeight = FontWeight.SemiBold)
                                         }
                                     }
                                 }
@@ -312,7 +317,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "XEM TRƯỚC WIDGET",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
 
@@ -334,9 +339,9 @@ fun WidgetConfigScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = previewBgColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     val previewItems = shelfApps
@@ -378,7 +383,7 @@ fun WidgetConfigScreen(
                                         Text(
                                             text = name.take(1),
                                             color = Color.White,
-                                            fontWeight = FontWeight.Bold,
+                                            fontWeight = FontWeight.SemiBold,
                                             fontSize = (iconSizeDp * 0.35f).sp
                                         )
                                     }
@@ -389,7 +394,7 @@ fun WidgetConfigScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = appTextColor,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -406,7 +411,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "1. CHỦ ĐỀ NỀN (THEME)",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
@@ -423,7 +428,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                        Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
             }
@@ -432,7 +437,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "2. MÀU CHỮ WIDGET (TEXT COLOR)",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
@@ -455,7 +460,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp)
+                        Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, fontSize = 11.sp)
                     }
                 }
             }
@@ -468,13 +473,13 @@ fun WidgetConfigScreen(
                 Text(
                     text = "3. ĐỘ MỜ NỀN (OPACITY)",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "${opacityPct.toInt()}%",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -489,7 +494,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "4. SỐ CỘT HÀNG (COLUMNS)",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
@@ -506,7 +511,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                        Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
             }
@@ -515,7 +520,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "5. KÍCH THƯỚC ICON ỨNG DỤNG",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
@@ -532,7 +537,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp)
+                        Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, fontSize = 12.sp)
                     }
                 }
             }
@@ -541,7 +546,7 @@ fun WidgetConfigScreen(
             Text(
                 text = "6. BO GÓC AVATAR ỨNG DỤNG",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row(
@@ -559,7 +564,7 @@ fun WidgetConfigScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp)
+                        Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, fontSize = 11.sp)
                     }
                 }
             }

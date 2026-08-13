@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,7 +34,8 @@ fun FilterBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .widthIn(max = PremiumDimens.ContentMaxWidth)
+                .padding(horizontal = PremiumDimens.ScreenGutter)
                 .padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -45,9 +46,9 @@ fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "⚙️ TÙY CHỌN BỘ LỌC ĐA CHỌN",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "Bộ lọc",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Filled.Close, contentDescription = "Đóng")
@@ -55,7 +56,7 @@ fun FilterBottomSheet(
             }
 
             // SECTION 1: LOẠI ỨNG DỤNG (MULTI-CHOICE)
-            FilterSectionTitle("1. LOẠI ỨNG DỤNG")
+            FilterSectionTitle("Loại ứng dụng")
             MultiChoiceSegmentedRow(
                 options = UserSystemFilterOption.values().toList(),
                 selectedSet = userSystemFilters,
@@ -67,7 +68,7 @@ fun FilterBottomSheet(
             )
 
             // SECTION 2: TRẠNG THÁI VÔ HIỆU HÓA (MULTI-CHOICE)
-            FilterSectionTitle("2. TRẠNG THÁI VÔ HIỆU HÓA")
+            FilterSectionTitle("Trạng thái vô hiệu hóa")
             MultiChoiceSegmentedRow(
                 options = DisabledFilterOption.values().toList(),
                 selectedSet = disabledFilters,
@@ -79,7 +80,7 @@ fun FilterBottomSheet(
             )
 
             // SECTION 3: CHẾ ĐỘ PIN ANDROID (MULTI-CHOICE)
-            FilterSectionTitle("3. CHẾ ĐỘ PIN ANDROID")
+            FilterSectionTitle("Chế độ pin Android")
             MultiChoiceSegmentedRow(
                 options = PowerStateFilterOption.values().toList(),
                 selectedSet = powerStateFilters,
@@ -91,7 +92,7 @@ fun FilterBottomSheet(
             )
 
             // SECTION 4: TRẠNG THÁI NOBG (MULTI-CHOICE)
-            FilterSectionTitle("4. TRẠNG THÁI NOBG")
+            FilterSectionTitle("Trạng thái NOBG")
             MultiChoiceSegmentedRow(
                 options = NobgStateFilterOption.values().toList(),
                 selectedSet = nobgStateFilters,
@@ -103,7 +104,7 @@ fun FilterBottomSheet(
             )
 
             // SECTION 5: KỆ ĐÓNG BẰNG (MULTI-CHOICE)
-            FilterSectionTitle("5. KỆ ĐÓNG BẰNG")
+            FilterSectionTitle("Kệ Đóng Băng")
             MultiChoiceSegmentedRow(
                 options = FrozenShelfFilterOption.values().toList(),
                 selectedSet = frozenShelfFilters,
@@ -115,7 +116,7 @@ fun FilterBottomSheet(
             )
 
             // SECTION 6: APP ĐÃ ẨN (3-CHOICE)
-            FilterSectionTitle("6. ỨNG DỤNG ẨN")
+            FilterSectionTitle("Ứng dụng ẩn")
             SingleChoiceRow(
                 options = HiddenFilterOption.values().toList(),
                 selected = hiddenFilter,
@@ -144,7 +145,7 @@ fun FilterBottomSheet(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Áp dụng", fontWeight = FontWeight.Bold)
+                    Text("Áp dụng", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -156,8 +157,8 @@ private fun FilterSectionTitle(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 

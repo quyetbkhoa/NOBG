@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -85,17 +85,16 @@ fun AppDetailDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .widthIn(max = PremiumDimens.ContentMaxWidth)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     // Header Title
                     Text(
                         text = "Chi tiết",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 28.sp
-                        ),
+                        style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
@@ -112,7 +111,7 @@ fun AppDetailDialog(
                             Text(
                                 text = stats.label,
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 22.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -160,7 +159,7 @@ private fun EventTimelineCard(stats: AppDetailStats) {
         ) {
             Text(
                 text = "Dòng thời gian sự kiện",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
 
             Text(
@@ -323,7 +322,7 @@ private fun UsageStatsCard(stats: AppDetailStats) {
         ) {
             Text(
                 text = "Sử dụng",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -363,7 +362,7 @@ private fun NetworkStatsCard(stats: AppDetailStats) {
         ) {
             Text(
                 text = "Mạng",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
 
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -390,7 +389,7 @@ private fun MetricCell(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 17.sp
             ),
             color = MaterialTheme.colorScheme.onSurface

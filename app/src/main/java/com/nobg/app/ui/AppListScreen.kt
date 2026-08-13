@@ -1,4 +1,4 @@
-package com.nobg.app.ui
+﻿package com.nobg.app.ui
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,7 +18,8 @@ import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -26,10 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nobg.app.data.NobgMode
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,10 +96,11 @@ fun AppListScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Quản lý ứng dụng", fontWeight = FontWeight.Bold)
+                    Text("Ứng dụng", fontWeight = FontWeight.SemiBold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -110,12 +115,15 @@ fun AppListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            OutlinedTextField(
+            TextField(
                 value = searchQuery,
                 onValueChange = viewModel::setSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .widthIn(max = PremiumDimens.ContentMaxWidth)
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 10.dp)
+                    .heightIn(min = 54.dp),
                 placeholder = { Text("Tìm ứng dụng...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
@@ -126,14 +134,24 @@ fun AppListScreen(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(28.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent
+                )
             )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .widthIn(max = PremiumDimens.ContentMaxWidth)
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = PremiumDimens.ScreenGutter, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -154,7 +172,7 @@ fun AppListScreen(
                         onClick = { showSortMenu = true },
                         label = { Text("⇅ ${currentSort.label}") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     )
 
@@ -167,7 +185,7 @@ fun AppListScreen(
                                 text = {
                                     Text(
                                         option.label,
-                                        fontWeight = if (currentSort == option) FontWeight.Bold else FontWeight.Normal,
+                                        fontWeight = if (currentSort == option) FontWeight.SemiBold else FontWeight.Normal,
                                         color = if (currentSort == option) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 },
@@ -226,22 +244,21 @@ fun AppListScreen(
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(top = 2.dp))
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .nestedScroll(pullToRefreshState.nestedScrollConnection)
             ) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().widthIn(max = PremiumDimens.ContentMaxWidth).align(Alignment.TopCenter),
+                    contentPadding = PaddingValues(horizontal = PremiumDimens.ScreenGutter, vertical = 12.dp)
                 ) {
-                    items(apps, key = { it.packageName }) { app ->
+                    itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
                         AppRow(
                             app = app,
-                            onOpenDialog = { selectedAppForDialog = app }
+                            onOpenDialog = { selectedAppForDialog = app },
+                            isFirst = index == 0,
+                            isLast = index == apps.lastIndex
                         )
                     }
                 }
@@ -261,46 +278,52 @@ fun AppListScreen(
 @Composable
 private fun AppRow(
     app: AppUiModel,
-    onOpenDialog: () -> Unit
+    onOpenDialog: () -> Unit,
+    isFirst: Boolean,
+    isLast: Boolean
 ) {
     val config = app.config
     val enabled = config?.enabled == true
     val formattedSize = remember(app.appSizeBytes) { formatAppSize(app.appSizeBytes) }
     val formattedDate = remember(app.installTimeMs) { formatInstallDate(app.installTimeMs) }
 
-    Card(
+    val rowShape = RoundedCornerShape(
+        topStart = if (isFirst) PremiumDimens.GroupRadius else 0.dp,
+        topEnd = if (isFirst) PremiumDimens.GroupRadius else 0.dp,
+        bottomStart = if (isLast) PremiumDimens.GroupRadius else 0.dp,
+        bottomEnd = if (isLast) PremiumDimens.GroupRadius else 0.dp
+    )
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenDialog),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (enabled)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-            else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-        )
+        shape = rowShape,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 84.dp)
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DrawableIcon(app.icon, modifier = Modifier.size(46.dp))
+                Spacer(Modifier.width(18.dp))
+                Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(app.label, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text(app.label, fontWeight = FontWeight.Medium, fontSize = 17.sp, maxLines = 2, modifier = Modifier.weight(1f))
                     if (formattedSize.isNotEmpty()) {
                         Text(
                             formattedSize,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                            fontWeight = FontWeight.SemiBold
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -324,7 +347,7 @@ private fun AppRow(
                         )
                     }
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -350,6 +373,20 @@ private fun AppRow(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+                }
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 10.dp).size(18.dp),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+            }
+            if (!isLast) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 88.dp, end = 24.dp),
+                    thickness = 0.75.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
             }
         }
     }
