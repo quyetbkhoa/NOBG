@@ -130,6 +130,21 @@ interface NotificationReadDao {
 }
 
 @Dao
+interface NotificationHistoryDao {
+    @Query("SELECT * FROM notification_history ORDER BY postedAt DESC LIMIT 200")
+    fun observeRecent(): Flow<List<NotificationHistoryEntity>>
+
+    @Upsert
+    suspend fun upsert(entity: NotificationHistoryEntity)
+
+    @Query("DELETE FROM notification_history WHERE id NOT IN (SELECT id FROM notification_history ORDER BY postedAt DESC LIMIT :maxEntries)")
+    suspend fun trimToLatest(maxEntries: Int)
+
+    @Query("DELETE FROM notification_history")
+    suspend fun deleteAll()
+}
+
+@Dao
 interface BluetoothDeviceDao {
     @Query("SELECT * FROM selected_bluetooth_devices")
     fun observeAll(): Flow<List<SelectedBluetoothDeviceEntity>>

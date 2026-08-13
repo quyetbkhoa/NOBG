@@ -39,9 +39,10 @@ class Converters {
         ChargingSessionEntity::class,
         CpuLogEntity::class,
         NotificationReadConfigEntity::class,
+        NotificationHistoryEntity::class,
         SelectedBluetoothDeviceEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -52,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chargingSessionDao(): ChargingSessionDao
     abstract fun cpuLogDao(): CpuLogDao
     abstract fun notificationReadDao(): NotificationReadDao
+    abstract fun notificationHistoryDao(): NotificationHistoryDao
     abstract fun bluetoothDeviceDao(): BluetoothDeviceDao
 
     companion object {
@@ -107,6 +109,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS notification_history (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        packageName TEXT NOT NULL,
+                        userId INTEGER NOT NULL,
+                        appLabel TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        postedAt INTEGER NOT NULL,
+                        isSilent INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_notification_history_postedAt ON notification_history(postedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_notification_history_packageName_userId ON notification_history(packageName, userId)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -114,7 +135,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "nobg.db"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

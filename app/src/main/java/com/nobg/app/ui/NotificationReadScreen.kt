@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +32,14 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.nobg.app.data.NotificationReadMode
+import com.nobg.app.data.NotificationHistoryEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private enum class NotificationAppFilter {
+    ALL, READING, BLOCKED
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -54,6 +64,20 @@ fun NotificationReadScreen(
     val aiFilterEnabled by viewModel.aiFilterEnabled.collectAsState()
     val aiConfigured by viewModel.aiConfigured.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val notificationHistory by viewModel.notificationHistory.collectAsState()
+    var showHistoryDialog by rememberSaveable { mutableStateOf(false) }
+    var appFilter by rememberSaveable { mutableStateOf(NotificationAppFilter.ALL) }
+    val displayedApps = when (appFilter) {
+        NotificationAppFilter.ALL -> apps
+        NotificationAppFilter.READING -> apps.filter { it.isEnabled }
+        NotificationAppFilter.BLOCKED -> apps.filter { it.isConfigured && !it.isEnabled }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.toastEvent.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -79,6 +103,18 @@ fun NotificationReadScreen(
     }
 
     BackHandler(onBack = onBack)
+
+    if (showHistoryDialog) {
+        NotificationHistoryDialog(
+            history = notificationHistory,
+            onDismiss = { showHistoryDialog = false },
+            onBlockSelected = { selectedIds ->
+                viewModel.blockNotificationsFromHistory(selectedIds)
+                appFilter = NotificationAppFilter.BLOCKED
+                showHistoryDialog = false
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -140,6 +176,44 @@ fun NotificationReadScreen(
                                 Text("🔓 Mở cài đặt cấp quyền Đọc thông báo")
                             }
                         }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    onClick = { showHistoryDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🕘", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Lịch sử thông báo",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "${notificationHistory.size} mục gần nhất · Chọn để chặn NOBG đọc",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Thông báo im lặng chỉ được lưu lịch sử, không phát giọng đọc",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        Text("Xem ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -559,6 +633,29 @@ fun NotificationReadScreen(
                 )
             }
 
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = appFilter == NotificationAppFilter.ALL,
+                        onClick = { appFilter = NotificationAppFilter.ALL },
+                        label = { Text("Tất cả") }
+                    )
+                    FilterChip(
+                        selected = appFilter == NotificationAppFilter.READING,
+                        onClick = { appFilter = NotificationAppFilter.READING },
+                        label = { Text("Đang đọc") }
+                    )
+                    FilterChip(
+                        selected = appFilter == NotificationAppFilter.BLOCKED,
+                        onClick = { appFilter = NotificationAppFilter.BLOCKED },
+                        label = { Text("Đã chặn") }
+                    )
+                }
+            }
+
             // ===== Header thống kê =====
             item {
                 val enabledCount = apps.count { it.isEnabled }
@@ -570,7 +667,7 @@ fun NotificationReadScreen(
             }
 
             // ===== Danh sách App =====
-            items(apps, key = { it.id }) { app ->
+            items(displayedApps, key = { it.id }) { app ->
                 NotificationReadAppItem(
                     app = app,
                     onToggleEnabled = { viewModel.toggleAppEnabled(app.id, it) },
@@ -583,6 +680,125 @@ fun NotificationReadScreen(
             item { Spacer(Modifier.height(80.dp)) }
         }
     }
+}
+
+@Composable
+private fun NotificationHistoryDialog(
+    history: List<NotificationHistoryEntity>,
+    onDismiss: () -> Unit,
+    onBlockSelected: (Set<String>) -> Unit
+) {
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    val timeFormatter = remember { SimpleDateFormat("dd/MM · HH:mm", Locale.getDefault()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Lịch sử thông báo", fontWeight = FontWeight.Bold)
+                Text(
+                    "Chọn thông báo để chặn NOBG đọc ứng dụng đó",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            if (history.isEmpty()) {
+                Text("Chưa có thông báo nào. Lịch sử sẽ xuất hiện sau khi cấp quyền Đọc thông báo.")
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 480.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(history, key = { it.id }) { entry ->
+                        val isSelected = entry.id in selectedIds
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedIds = if (isSelected) {
+                                            selectedIds - entry.id
+                                        } else {
+                                            selectedIds + entry.id
+                                        }
+                                    }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = {
+                                        selectedIds = if (isSelected) {
+                                            selectedIds - entry.id
+                                        } else {
+                                            selectedIds + entry.id
+                                        }
+                                    }
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            entry.appLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1
+                                        )
+                                        if (entry.isSilent) {
+                                            Text(
+                                                "Im lặng",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        timeFormatter.format(Date(entry.postedAt)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (entry.title.isNotBlank()) {
+                                        Text(entry.title, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                    }
+                                    Text(
+                                        entry.content.ifBlank { "Không có nội dung văn bản" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onBlockSelected(selectedIds) },
+                enabled = selectedIds.isNotEmpty()
+            ) {
+                Text("Chặn đọc (${selectedIds.size})")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

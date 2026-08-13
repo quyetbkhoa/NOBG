@@ -17,6 +17,7 @@ class NobgRepository(private val context: Context) {
     private val chargingSessionDao = db.chargingSessionDao()
     private val cpuLogDao = db.cpuLogDao()
     private val notificationReadDao = db.notificationReadDao()
+    private val notificationHistoryDao = db.notificationHistoryDao()
     private val bluetoothDeviceDao = db.bluetoothDeviceDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("nobg_prefs", Context.MODE_PRIVATE)
 
@@ -611,6 +612,16 @@ class NobgRepository(private val context: Context) {
             .putLong("smart_timer_end_time", config.endTimeMillis)
             .apply()
     }
+
+    fun observeNotificationHistory(): Flow<List<NotificationHistoryEntity>> =
+        notificationHistoryDao.observeRecent()
+
+    suspend fun saveNotificationHistory(entry: NotificationHistoryEntity) {
+        notificationHistoryDao.upsert(entry)
+        notificationHistoryDao.trimToLatest(200)
+    }
+
+    suspend fun clearNotificationHistory() = notificationHistoryDao.deleteAll()
 
     fun getSmartTimerQuickConfig(): SmartTimerQuickConfig {
         val modeName = prefs.getString("smart_timer_widget_mode", SmartTimerMode.CLOCK_TIME.name)

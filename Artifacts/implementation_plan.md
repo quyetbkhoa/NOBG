@@ -1,26 +1,25 @@
-# Implementation Plan: Notification xuyên suốt cho Smart Timer
+# Implementation Plan: Lọc notification im lặng và lịch sử đọc thông báo
 
 ## 1. Mục tiêu
-- Smart Timer chỉ chạy khi ứng dụng có quyền hiển thị thông báo trên Android 13+.
-- Trong toàn bộ thời gian Timer hoạt động phải có foreground notification cố định, không tự biến mất.
-- Notification cung cấp đủ thông tin để người dùng kiểm tra Timer mà không cần mở ứng dụng.
-- Người dùng có thể dừng Timer trực tiếp bằng nút `Dừng` trên notification.
+- NOBG không phát TTS đối với notification thuộc kênh im lặng/độ ưu tiên thấp.
+- Lưu lịch sử notification đã nhận để người dùng kiểm tra nguồn và nội dung gần đây.
+- Cho phép chọn một hoặc nhiều mục lịch sử rồi chặn NOBG đọc ứng dụng tương ứng.
 
-## 2. Nội dung notification
-- Hiển thị thời gian đã chạy theo `HH:mm:ss`.
-- Nếu Timer có giới hạn, hiển thị thêm thời gian còn lại.
-- Hiển thị chu kỳ đọc thông báo và chế độ đọc (`Thời gian đã đếm` hoặc `Giờ hiện tại`).
-- Dùng giao diện mở rộng `BigTextStyle`, cập nhật định kỳ nhưng không phát âm/rung lại ở mỗi lần cập nhật.
-- Đặt notification ở chế độ ongoing, category stopwatch, public visibility và foreground-immediate.
+## 2. Xử lý tại NotificationListenerService
+- Xác định notification im lặng từ Ranking/NotificationChannel: importance thấp hoặc kênh không có âm thanh và rung.
+- Lưu lịch sử trước bước lọc TTS để notification im lặng vẫn xuất hiện cho người dùng kiểm tra.
+- Không đọc notification ongoing, notification của NOBG và notification im lặng.
+- Giới hạn lịch sử ở 200 mục gần nhất; nội dung được cắt độ dài để tránh tăng database không kiểm soát.
 
-## 3. Quyền và vòng đời
-- Kiểm tra `POST_NOTIFICATIONS` trong ViewModel trước khi khởi chạy service.
-- Tại màn Timer, yêu cầu quyền ngay khi người dùng bấm Bắt đầu hoặc chọn preset; chỉ tiếp tục khi được cấp.
-- Khi bấm Timer Widget mà chưa có quyền, mở màn Timer/onboarding để xin quyền thay vì chạy Timer ẩn.
-- Service tự từ chối phiên chạy mới nếu được gọi từ luồng cũ mà quyền thông báo không còn.
-- Khi hết giờ hoặc bấm Dừng, hủy foreground notification, lưu trạng thái đã dừng và cập nhật widget.
+## 3. Dữ liệu và UI
+- Thêm bảng Room `notification_history` và migration database 8 → 9.
+- Màn Đọc thông báo có thẻ `Lịch sử thông báo`; bấm vào mở danh sách gần nhất.
+- Mỗi mục hiển thị app, thời gian, tiêu đề/nội dung và nhãn `Im lặng` nếu có.
+- Hỗ trợ chọn nhiều mục và thao tác `Chặn NOBG đọc`; giữ nguyên mode/từ khóa đã cấu hình của app.
+- Danh sách ứng dụng có bộ lọc `Tất cả`, `Đang đọc`, `Đã chặn`.
 
 ## 4. Kiểm chứng
-- Kiểm tra start/stop từ màn Timer, preset và widget.
+- Kiểm tra migration Room, nhận/lưu lịch sử và lọc notification im lặng.
+- Kiểm tra chọn lịch sử → app chuyển sang trạng thái chặn đúng package/userId.
 - Chạy `assembleDebug`, unit test và `lintDebug`.
 - Commit, push `main` và theo dõi GitHub Actions đến `SUCCESS`.

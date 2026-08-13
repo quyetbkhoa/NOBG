@@ -21,6 +21,7 @@ import com.nobg.app.data.AiClient
 import com.nobg.app.data.AiClientFactory
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
+import com.nobg.app.data.NotificationHistoryEntity
 import com.nobg.app.data.NotificationReadMode
 import kotlinx.coroutines.*
 import java.util.Locale
@@ -107,8 +108,14 @@ class NotificationReaderService : NotificationListenerService() {
         // Skip our own notifications
         if (sbn.packageName == "com.nobg.app") return
 
+        val isSilent = isSilentNotification(sbn)
+
         scope.launch {
             try {
+                saveToHistory(sbn, isSilent)
+
+                // Notification thuộc kênh im lặng chỉ lưu lịch sử, tuyệt đối không phát TTS.
+                if (isSilent) return@launch
                 if (!shouldRead(sbn)) return@launch
 
                 // Lấy cấu hình theo không gian người dùng (Không gian 2 có userId riêng),
@@ -138,6 +145,52 @@ class NotificationReaderService : NotificationListenerService() {
                 Log.e(TAG, "Error processing notification from ${sbn.packageName}", e)
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun isSilentNotification(sbn: StatusBarNotification): Boolean {
+        return try {
+            val ranking = Ranking()
+            val hasRanking = currentRanking.getRanking(sbn.key, ranking)
+            if (!hasRanking) {
+                val notification = sbn.notification
+                val vibrationPattern = notification.vibrate
+                return notification.priority <= Notification.PRIORITY_LOW &&
+                    notification.sound == null &&
+                    (vibrationPattern == null || vibrationPattern.isEmpty())
+            }
+            if (ranking.importance != NotificationManager.IMPORTANCE_UNSPECIFIED &&
+                ranking.importance <= NotificationManager.IMPORTANCE_LOW
+            ) return true
+
+            val channel = ranking.channel ?: return false
+            channel.importance <= NotificationManager.IMPORTANCE_LOW ||
+                (channel.sound == null && !channel.shouldVibrate())
+        } catch (e: Exception) {
+            Log.w(TAG, "Cannot determine silent state for ${sbn.packageName}", e)
+            false
+        }
+    }
+
+    private suspend fun saveToHistory(sbn: StatusBarNotification, isSilent: Boolean) {
+        val extras = sbn.notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        val content = extractContent(extras).trim()
+        val userId = sbn.user.hashCode()
+        val historyId = "${sbn.key}#${sbn.postTime}"
+
+        repo.saveNotificationHistory(
+            NotificationHistoryEntity(
+                id = historyId,
+                packageName = sbn.packageName,
+                userId = userId,
+                appLabel = getAppLabel(sbn.packageName).take(120),
+                title = title.take(300),
+                content = content.take(1200),
+                postedAt = sbn.postTime.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                isSilent = isSilent
+            )
+        )
     }
 
     private suspend fun shouldRead(sbn: StatusBarNotification): Boolean {
