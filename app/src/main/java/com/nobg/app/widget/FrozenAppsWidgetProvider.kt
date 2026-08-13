@@ -6,10 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
 import android.net.Uri
 import android.widget.RemoteViews
 import com.nobg.app.MainActivity
@@ -48,15 +44,13 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                 val config = WidgetConfigManager.getConfig(context)
 
                 val alpha = ((config.opacityPct / 100f) * 255).toInt().coerceIn(0, 255)
-                val backgroundColor = if (config.theme == "DARK") {
-                    android.graphics.Color.argb(alpha, 15, 23, 42)
+                val backgroundResource = if (config.theme == "DARK") {
+                    R.drawable.bg_widget_dark
                 } else {
-                    android.graphics.Color.argb(alpha, 255, 255, 255)
+                    R.drawable.bg_widget_white_translucent
                 }
-                views.setImageViewBitmap(
-                    R.id.widget_background,
-                    createRoundedBackground(backgroundColor)
-                )
+                views.setImageViewResource(R.id.widget_background, backgroundResource)
+                views.setInt(R.id.widget_background, "setImageAlpha", alpha)
                 views.setInt(R.id.widget_grid_view, "setNumColumns", config.numColumns)
                 val horizontalPaddingDp = when (config.numColumns) {
                     2 -> 20
@@ -115,17 +109,5 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun createRoundedBackground(color: Int): Bitmap {
-            val size = 128
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-                this.color = color
-            }
-            canvas.drawRoundRect(rect, 22f, 22f, paint)
-            return bitmap
-        }
     }
 }
