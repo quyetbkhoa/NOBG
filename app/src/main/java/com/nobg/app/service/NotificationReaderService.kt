@@ -129,7 +129,11 @@ class NotificationReaderService : NotificationListenerService() {
                 if (config == null) return@launch
                 if (!config.isEnabled) return@launch
 
-                // Kiểm tra bộ lọc từ khóa
+                // Chỉ chặn khi đúng ứng dụng + không gian + keyword đã lưu.
+                val blockRules = repo.getNotificationBlockRules(sbn.packageName, userId)
+                if (matchesBlockedKeyword(sbn, blockRules.map { it.keyword })) return@launch
+
+                // Bộ lọc cho phép: nếu cấu hình thì chỉ đọc notification có keyword tương ứng.
                 if (!matchesKeywordFilter(sbn, config.keywordFilter)) return@launch
 
                 val text = buildSpeechText(sbn, config)
@@ -175,7 +179,12 @@ class NotificationReaderService : NotificationListenerService() {
     private suspend fun saveToHistory(sbn: StatusBarNotification, isSilent: Boolean) {
         val extras = sbn.notification.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        val content = extractContent(extras).trim()
+        val fallbackContent = listOf(
+            extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
+            extras?.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
+            extras?.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
+        ).filterNotNull().map { it.trim() }.filter { it.isNotBlank() }.distinct().joinToString(". ")
+        val content = extractContent(extras).trim().ifBlank { fallbackContent }
         val userId = sbn.user.hashCode()
         val historyId = "${sbn.key}#${sbn.postTime}"
 
@@ -356,17 +365,32 @@ class NotificationReaderService : NotificationListenerService() {
     private fun matchesKeywordFilter(sbn: StatusBarNotification, filter: String): Boolean {
         if (filter.isBlank()) return true // Không đặt từ khóa => Đọc tất cả
 
-        val extras = sbn.notification.extras
-        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-        val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
-        val textLines = extractTextLines(extras)
-        val combinedContent = "$title $text $bigText ${textLines.joinToString(" ")}".lowercase()
-
+        val combinedContent = notificationSearchableContent(sbn)
         val keywords = filter.split(",", ";").map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         if (keywords.isEmpty()) return true
 
         return keywords.any { combinedContent.contains(it) }
+    }
+
+    private fun matchesBlockedKeyword(sbn: StatusBarNotification, keywords: List<String>): Boolean {
+        if (keywords.isEmpty()) return false
+        val combinedContent = notificationSearchableContent(sbn)
+        return keywords.any { keyword ->
+            val normalized = keyword.trim().lowercase()
+            normalized.isNotEmpty() && combinedContent.contains(normalized)
+        }
+    }
+
+    private fun notificationSearchableContent(sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
+        val subText = extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        val summaryText = extras?.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString() ?: ""
+        val infoText = extras?.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
+        val textLines = extractTextLines(extras)
+        return "$title $text $bigText $subText $summaryText $infoText ${textLines.joinToString(" ")}".lowercase(Locale.ROOT)
     }
 
     /** Lấy toàn bộ các dòng văn bản (chat apps hay dùng EXTRA_TEXT_LINES) */

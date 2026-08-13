@@ -145,6 +145,21 @@ interface NotificationHistoryDao {
 }
 
 @Dao
+interface NotificationBlockRuleDao {
+    @Query("SELECT * FROM notification_block_rules ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<NotificationBlockRuleEntity>>
+
+    @Query("SELECT * FROM notification_block_rules WHERE packageName = :pkg AND userId = :userId")
+    suspend fun getForApp(pkg: String, userId: Int): List<NotificationBlockRuleEntity>
+
+    @Upsert
+    suspend fun upsert(rule: NotificationBlockRuleEntity)
+
+    @Delete
+    suspend fun delete(rule: NotificationBlockRuleEntity)
+}
+
+@Dao
 interface BluetoothDeviceDao {
     @Query("SELECT * FROM selected_bluetooth_devices")
     fun observeAll(): Flow<List<SelectedBluetoothDeviceEntity>>

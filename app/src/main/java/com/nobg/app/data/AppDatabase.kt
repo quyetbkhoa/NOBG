@@ -40,9 +40,10 @@ class Converters {
         CpuLogEntity::class,
         NotificationReadConfigEntity::class,
         NotificationHistoryEntity::class,
+        NotificationBlockRuleEntity::class,
         SelectedBluetoothDeviceEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -54,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cpuLogDao(): CpuLogDao
     abstract fun notificationReadDao(): NotificationReadDao
     abstract fun notificationHistoryDao(): NotificationHistoryDao
+    abstract fun notificationBlockRuleDao(): NotificationBlockRuleDao
     abstract fun bluetoothDeviceDao(): BluetoothDeviceDao
 
     companion object {
@@ -128,6 +130,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS notification_block_rules (
+                        packageName TEXT NOT NULL,
+                        userId INTEGER NOT NULL,
+                        keyword TEXT NOT NULL,
+                        appLabel TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        PRIMARY KEY(packageName, userId, keyword)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_notification_block_rules_createdAt ON notification_block_rules(createdAt)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -135,7 +153,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "nobg.db"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(
+                    MIGRATION_5_6,
+                    MIGRATION_6_7,
+                    MIGRATION_7_8,
+                    MIGRATION_8_9,
+                    MIGRATION_9_10
+                )
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

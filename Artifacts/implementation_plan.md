@@ -1,25 +1,27 @@
-# Implementation Plan: Lọc notification im lặng và lịch sử đọc thông báo
+# Implementation Plan: Chặn đọc theo ứng dụng + keyword
 
 ## 1. Mục tiêu
-- NOBG không phát TTS đối với notification thuộc kênh im lặng/độ ưu tiên thấp.
-- Lưu lịch sử notification đã nhận để người dùng kiểm tra nguồn và nội dung gần đây.
-- Cho phép chọn một hoặc nhiều mục lịch sử rồi chặn NOBG đọc ứng dụng tương ứng.
+- Không tắt đọc toàn bộ ứng dụng khi người dùng chọn một notification trong lịch sử.
+- Quy tắc chặn phải gồm đúng `packageName + userId + keyword`.
+- Ví dụ: Messenger + `đang kiểm tra tin nhắn mới` chỉ bỏ qua trạng thái này; tin nhắn Messenger khác vẫn đọc.
 
-## 2. Xử lý tại NotificationListenerService
-- Xác định notification im lặng từ Ranking/NotificationChannel: importance thấp hoặc kênh không có âm thanh và rung.
-- Lưu lịch sử trước bước lọc TTS để notification im lặng vẫn xuất hiện cho người dùng kiểm tra.
-- Không đọc notification ongoing, notification của NOBG và notification im lặng.
-- Giới hạn lịch sử ở 200 mục gần nhất; nội dung được cắt độ dài để tránh tăng database không kiểm soát.
+## 2. Dữ liệu và xử lý service
+- Thêm bảng Room `notification_block_rules` và migration database 9 → 10.
+- Mỗi rule lưu package, không gian người dùng, keyword, tên app và thời điểm tạo.
+- Service ghép tiêu đề/nội dung notification, so khớp keyword không phân biệt hoa thường.
+- Chỉ bỏ qua TTS khi notification đến từ đúng app/không gian và chứa keyword của rule.
+- Giữ nguyên cơ chế bỏ qua notification im lặng và lịch sử tối đa 200 mục.
 
-## 3. Dữ liệu và UI
-- Thêm bảng Room `notification_history` và migration database 8 → 9.
-- Màn Đọc thông báo có thẻ `Lịch sử thông báo`; bấm vào mở danh sách gần nhất.
-- Mỗi mục hiển thị app, thời gian, tiêu đề/nội dung và nhãn `Im lặng` nếu có.
-- Hỗ trợ chọn nhiều mục và thao tác `Chặn NOBG đọc`; giữ nguyên mode/từ khóa đã cấu hình của app.
-- Danh sách ứng dụng có bộ lọc `Tất cả`, `Đang đọc`, `Đã chặn`.
+## 3. UI/UX
+- Chạm một mục lịch sử để mở hộp thoại tạo rule.
+- Tự điền keyword từ nội dung notification nhưng cho phép người dùng sửa trước khi lưu.
+- Hiển thị rõ rule theo dạng `Tên ứng dụng + keyword` và có nút xóa từng rule.
+- Bỏ bộ lọc `Đã chặn` theo ứng dụng vì không còn đúng mô hình dữ liệu.
+- Đổi nhãn keyword trong cấu hình app thành `Chỉ đọc khi có từ khóa` để phân biệt với keyword chặn.
 
 ## 4. Kiểm chứng
-- Kiểm tra migration Room, nhận/lưu lịch sử và lọc notification im lặng.
-- Kiểm tra chọn lịch sử → app chuyển sang trạng thái chặn đúng package/userId.
+- Kiểm tra migration Room 9 → 10 và schema composite primary key.
+- Kiểm tra cùng keyword ở app khác không bị chặn; cùng app nhưng nội dung khác vẫn được đọc.
+- Kiểm tra thêm/xóa rule phản ánh tức thì trên UI.
 - Chạy `assembleDebug`, unit test và `lintDebug`.
 - Commit, push `main` và theo dõi GitHub Actions đến `SUCCESS`.

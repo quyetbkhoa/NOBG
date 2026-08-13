@@ -23,6 +23,7 @@ import androidx.lifecycle.viewModelScope
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationHistoryEntity
+import com.nobg.app.data.NotificationBlockRuleEntity
 import com.nobg.app.data.NotificationReadMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -38,7 +39,6 @@ data class NotifReadAppUiModel(
     val isEnabled: Boolean,
     val readMode: NotificationReadMode,
     val keywordFilter: String = "",
-    val isConfigured: Boolean = false,
     val isSecondarySpace: Boolean = false
 )
 
@@ -56,6 +56,9 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
     private val _apps = MutableStateFlow<List<NotifReadAppUiModel>>(emptyList())
     val notificationHistory: StateFlow<List<NotificationHistoryEntity>> =
         repo.observeNotificationHistory()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val notificationBlockRules: StateFlow<List<NotificationBlockRuleEntity>> =
+        repo.observeNotificationBlockRules()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -211,7 +214,6 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                     isEnabled = cfg?.isEnabled ?: false,
                     readMode = cfg?.readMode ?: NotificationReadMode.FULL_CONTENT,
                     keywordFilter = cfg?.keywordFilter ?: "",
-                    isConfigured = cfg != null,
                     isSecondarySpace = false
                 )
             }
@@ -251,7 +253,6 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                                 isEnabled = cfg?.isEnabled ?: false,
                                 readMode = cfg?.readMode ?: NotificationReadMode.FULL_CONTENT,
                                 keywordFilter = cfg?.keywordFilter ?: "",
-                                isConfigured = cfg != null,
                                 isSecondarySpace = true
                             )
                         }
@@ -358,39 +359,46 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(
                     isEnabled = cfg?.isEnabled ?: false,
                     readMode = cfg?.readMode ?: NotificationReadMode.FULL_CONTENT,
-                    keywordFilter = cfg?.keywordFilter ?: "",
-                    isConfigured = cfg != null
+                    keywordFilter = cfg?.keywordFilter ?: ""
                 )
             } else it
         }
     }
 
-    fun blockNotificationsFromHistory(historyIds: Set<String>) {
-        if (historyIds.isEmpty()) return
+    fun addNotificationBlockRule(entry: NotificationHistoryEntity, keyword: String) {
+        val cleanKeyword = keyword.trim().take(200)
+        if (cleanKeyword.isBlank()) {
+            _toastEvent.tryEmit("Keyword chặn không được để trống")
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
-            val selectedEntries = notificationHistory.value
-                .filter { it.id in historyIds }
-                .distinctBy { NotificationReadConfigEntity.makeId(it.packageName, it.userId) }
+            val duplicated = notificationBlockRules.value.any { rule ->
+                rule.packageName == entry.packageName &&
+                    rule.userId == entry.userId &&
+                    rule.keyword.equals(cleanKeyword, ignoreCase = true)
+            }
+            if (duplicated) {
+                _toastEvent.tryEmit("Quy tắc này đã tồn tại")
+                return@launch
+            }
 
-            selectedEntries.forEach { entry ->
-                val id = NotificationReadConfigEntity.makeId(entry.packageName, entry.userId)
-                val existing = repo.getNotifReadConfigById(id)
-                repo.setNotifReadConfig(
-                    pkg = entry.packageName,
-                    isEnabled = false,
-                    readMode = existing?.readMode ?: NotificationReadMode.FULL_CONTENT,
-                    keywordFilter = existing?.keywordFilter.orEmpty(),
-                    userId = entry.userId
+            repo.saveNotificationBlockRule(
+                NotificationBlockRuleEntity(
+                    packageName = entry.packageName,
+                    userId = entry.userId,
+                    keyword = cleanKeyword,
+                    appLabel = entry.appLabel,
+                    createdAt = System.currentTimeMillis()
                 )
-            }
+            )
+            _toastEvent.tryEmit("Đã chặn ${entry.appLabel} khi chứa: $cleanKeyword")
+        }
+    }
 
-            val blockedIds = selectedEntries
-                .map { NotificationReadConfigEntity.makeId(it.packageName, it.userId) }
-                .toSet()
-            _apps.value = _apps.value.map { app ->
-                if (app.id in blockedIds) app.copy(isEnabled = false, isConfigured = true) else app
-            }
-            _toastEvent.tryEmit("Đã chặn NOBG đọc ${selectedEntries.size} ứng dụng")
+    fun deleteNotificationBlockRule(rule: NotificationBlockRuleEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.deleteNotificationBlockRule(rule)
+            _toastEvent.tryEmit("Đã xóa quy tắc chặn của ${rule.appLabel}")
         }
     }
 
@@ -462,7 +470,7 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 val filter = existing?.keywordFilter ?: ""
                 repo.setNotifReadConfig(app.packageName, true, mode, filter, app.userId)
             }
-            _apps.value = _apps.value.map { it.copy(isEnabled = true, isConfigured = true) }
+            _apps.value = _apps.value.map { it.copy(isEnabled = true) }
         }
     }
 
@@ -474,7 +482,7 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 val filter = existing?.keywordFilter ?: ""
                 repo.setNotifReadConfig(app.packageName, false, mode, filter, app.userId)
             }
-            _apps.value = _apps.value.map { it.copy(isEnabled = false, isConfigured = true) }
+            _apps.value = _apps.value.map { it.copy(isEnabled = false) }
         }
     }
 

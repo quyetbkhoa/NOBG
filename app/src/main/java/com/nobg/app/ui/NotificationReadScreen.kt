@@ -38,7 +38,7 @@ import java.util.Date
 import java.util.Locale
 
 private enum class NotificationAppFilter {
-    ALL, READING, BLOCKED
+    ALL, READING
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -65,12 +65,13 @@ fun NotificationReadScreen(
     val aiConfigured by viewModel.aiConfigured.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val notificationHistory by viewModel.notificationHistory.collectAsState()
+    val notificationBlockRules by viewModel.notificationBlockRules.collectAsState()
     var showHistoryDialog by rememberSaveable { mutableStateOf(false) }
+    var historyEntryForRule by remember { mutableStateOf<NotificationHistoryEntity?>(null) }
     var appFilter by rememberSaveable { mutableStateOf(NotificationAppFilter.ALL) }
     val displayedApps = when (appFilter) {
         NotificationAppFilter.ALL -> apps
         NotificationAppFilter.READING -> apps.filter { it.isEnabled }
-        NotificationAppFilter.BLOCKED -> apps.filter { it.isConfigured && !it.isEnabled }
     }
 
     LaunchedEffect(Unit) {
@@ -108,10 +109,20 @@ fun NotificationReadScreen(
         NotificationHistoryDialog(
             history = notificationHistory,
             onDismiss = { showHistoryDialog = false },
-            onBlockSelected = { selectedIds ->
-                viewModel.blockNotificationsFromHistory(selectedIds)
-                appFilter = NotificationAppFilter.BLOCKED
+            onSelect = { entry ->
+                historyEntryForRule = entry
                 showHistoryDialog = false
+            }
+        )
+    }
+
+    historyEntryForRule?.let { entry ->
+        NotificationKeywordBlockDialog(
+            entry = entry,
+            onDismiss = { historyEntryForRule = null },
+            onConfirm = { keyword ->
+                viewModel.addNotificationBlockRule(entry, keyword)
+                historyEntryForRule = null
             }
         )
     }
@@ -203,7 +214,7 @@ fun NotificationReadScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "${notificationHistory.size} mục gần nhất · Chọn để chặn NOBG đọc",
+                                "${notificationHistory.size} mục gần nhất · Chọn để tạo rule app + keyword",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -214,6 +225,69 @@ fun NotificationReadScreen(
                             )
                         }
                         Text("Xem ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "🚫 Quy tắc chặn đọc (${notificationBlockRules.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Chỉ bỏ qua khi đúng ứng dụng và nội dung chứa keyword",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (notificationBlockRules.isEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Chưa có quy tắc. Mở Lịch sử thông báo và chọn một mục để tạo.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            notificationBlockRules.forEach { rule ->
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            rule.appLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            "“${rule.keyword}”",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                        if (rule.userId != 0) {
+                                            Text(
+                                                "Không gian 2",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.deleteNotificationBlockRule(rule) }
+                                    ) {
+                                        Text("Xóa")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -648,11 +722,6 @@ fun NotificationReadScreen(
                         onClick = { appFilter = NotificationAppFilter.READING },
                         label = { Text("Đang đọc") }
                     )
-                    FilterChip(
-                        selected = appFilter == NotificationAppFilter.BLOCKED,
-                        onClick = { appFilter = NotificationAppFilter.BLOCKED },
-                        label = { Text("Đã chặn") }
-                    )
                 }
             }
 
@@ -686,9 +755,8 @@ fun NotificationReadScreen(
 private fun NotificationHistoryDialog(
     history: List<NotificationHistoryEntity>,
     onDismiss: () -> Unit,
-    onBlockSelected: (Set<String>) -> Unit
+    onSelect: (NotificationHistoryEntity) -> Unit
 ) {
-    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     val timeFormatter = remember { SimpleDateFormat("dd/MM · HH:mm", Locale.getDefault()) }
 
     AlertDialog(
@@ -697,7 +765,7 @@ private fun NotificationHistoryDialog(
             Column {
                 Text("Lịch sử thông báo", fontWeight = FontWeight.Bold)
                 Text(
-                    "Chọn thông báo để chặn NOBG đọc ứng dụng đó",
+                    "Chạm một mục để chọn keyword cần chặn cho đúng ứng dụng",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -714,39 +782,17 @@ private fun NotificationHistoryDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(history, key = { it.id }) { entry ->
-                        val isSelected = entry.id in selectedIds
                         Surface(
                             shape = MaterialTheme.shapes.medium,
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerLow
-                            }
+                            color = MaterialTheme.colorScheme.surfaceContainerLow
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        selectedIds = if (isSelected) {
-                                            selectedIds - entry.id
-                                        } else {
-                                            selectedIds + entry.id
-                                        }
-                                    }
+                                    .clickable { onSelect(entry) }
                                     .padding(10.dp),
                                 verticalAlignment = Alignment.Top
                             ) {
-                                Checkbox(
-                                    checked = isSelected,
-                                    onCheckedChange = {
-                                        selectedIds = if (isSelected) {
-                                            selectedIds - entry.id
-                                        } else {
-                                            selectedIds + entry.id
-                                        }
-                                    }
-                                )
-                                Spacer(Modifier.width(6.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
@@ -779,6 +825,13 @@ private fun NotificationHistoryDialog(
                                         maxLines = 2
                                     )
                                 }
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Chặn ›",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -786,16 +839,62 @@ private fun NotificationHistoryDialog(
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+@Composable
+private fun NotificationKeywordBlockDialog(
+    entry: NotificationHistoryEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val suggestedKeyword = remember(entry.id) {
+        entry.content.ifBlank { entry.title }.trim().take(200)
+    }
+    var keyword by rememberSaveable(entry.id) { mutableStateOf(suggestedKeyword) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Chặn theo ứng dụng + keyword", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Ứng dụng: ${entry.appLabel}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "NOBG chỉ bỏ qua notification của ứng dụng này khi nội dung chứa keyword bên dưới. Không phân biệt chữ hoa/thường.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = keyword,
+                    onValueChange = { keyword = it.take(200) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Keyword cần chặn") },
+                    placeholder = { Text("VD: đang kiểm tra tin nhắn mới") },
+                    minLines = 2,
+                    maxLines = 4,
+                    supportingText = { Text("${keyword.length}/200 ký tự") }
+                )
+            }
+        },
+        confirmButton = {
             Button(
-                onClick = { onBlockSelected(selectedIds) },
-                enabled = selectedIds.isNotEmpty()
+                onClick = { onConfirm(keyword.trim()) },
+                enabled = keyword.isNotBlank()
             ) {
-                Text("Chặn đọc (${selectedIds.size})")
+                Text("Thêm quy tắc")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Đóng")
+                Text("Hủy")
             }
         }
     )
@@ -908,7 +1007,7 @@ private fun NotificationReadAppItem(
 
                 Spacer(Modifier.height(6.dp))
 
-                // TextField Lọc từ khóa
+                // Bộ lọc cho phép: chỉ đọc notification có một trong các từ khóa.
                 OutlinedTextField(
                     value = keywordText,
                     onValueChange = {
@@ -916,7 +1015,7 @@ private fun NotificationReadAppItem(
                         onSetKeywordFilter(it)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("🔍 Lọc từ khóa (để trống = đọc tất cả)", style = MaterialTheme.typography.labelSmall) },
+                    label = { Text("🔍 Chỉ đọc khi có từ khóa (để trống = đọc tất cả)", style = MaterialTheme.typography.labelSmall) },
                     placeholder = { Text("VD: gấp, OTP, quan trọng, ck") },
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodySmall
