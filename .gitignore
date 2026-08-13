@@ -42,4 +42,5 @@ keystore.properties
 
 # Captures
 /captures/
+.codex-remote-attachments/
 local.properties

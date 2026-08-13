@@ -64,7 +64,7 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(R.id.tv_timer_widget_status, statusText)
-                views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#38BDF8"))
+                views.setTextColor(R.id.tv_timer_widget_status, Color.WHITE)
             } else {
                 val durationText = when {
                     quickConfig.durationMinutes == 0 -> "∞"
@@ -75,7 +75,7 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
                     R.id.tv_timer_widget_status,
                     "$durationText · ${quickConfig.intervalMinutes}p"
                 )
-                views.setTextColor(R.id.tv_timer_widget_status, Color.parseColor("#94A3B8"))
+                views.setTextColor(R.id.tv_timer_widget_status, Color.WHITE)
             }
 
             // Click action: toggle the quick mode configured in the Timer screen.

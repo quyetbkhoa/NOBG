@@ -58,6 +58,21 @@ class FrozenAppsWidgetProvider : AppWidgetProvider() {
                     createRoundedBackground(backgroundColor, config.theme == "DARK")
                 )
                 views.setInt(R.id.widget_grid_view, "setNumColumns", config.numColumns)
+                val horizontalPaddingDp = when (config.numColumns) {
+                    2 -> 20
+                    3 -> 14
+                    else -> 10
+                }
+                val density = context.resources.displayMetrics.density
+                val horizontalPaddingPx = (horizontalPaddingDp * density).toInt()
+                val verticalPaddingPx = (16 * density).toInt()
+                views.setViewPadding(
+                    R.id.widget_grid_view,
+                    horizontalPaddingPx,
+                    verticalPaddingPx,
+                    horizontalPaddingPx,
+                    verticalPaddingPx
+                )
 
                 // Vùng trống của widget vẫn mở trực tiếp Kệ Đóng Băng.
                 val openShelfIntent = Intent(context, MainActivity::class.java).apply {

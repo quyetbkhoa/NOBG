@@ -3,4 +3,6 @@
     <string name="app_name">NOBG</string>
     <string name="widget_shelf_icon_description">Biểu tượng trên Kệ Đóng Băng</string>
     <string name="widget_shelf_item_placeholder">Ứng dụng</string>
+    <string name="widget_timer_icon_description">Bật hoặc dừng bộ đếm giờ NOBG</string>
+    <string name="widget_timer_status_placeholder">1h · 2p</string>
 </resources>

@@ -338,7 +338,7 @@ fun WidgetConfigScreen(
                 colors = CardDefaults.cardColors(containerColor = previewBgColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     val previewItems = shelfApps
                         .take((numColumns - 1).coerceAtLeast(0))
                         .map { it.appName to false } + ("Cài đặt" to true)

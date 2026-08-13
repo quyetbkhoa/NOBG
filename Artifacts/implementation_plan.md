@@ -1,32 +1,27 @@
-# Implementation Plan: Tối ưu Widget Kệ Đóng Băng và khả năng khám phá AI
+# Implementation Plan: Cân chỉnh kích thước Timer Widget và lề Kệ Đóng Băng
 
-## 1. Mục tiêu Widget
-- Widget chỉ hiển thị các ứng dụng trong Kệ Đóng Băng, không còn header, tiêu đề, số lượng hay nút `+/-` phía trên.
-- Ô Cài đặt có hình thức giống một ứng dụng và luôn nằm ở vị trí cuối cùng trong lưới.
-- Thêm/xóa ứng dụng khỏi Kệ được thực hiện trong màn hình Cài đặt Widget, không dùng trạng thái xóa nhanh lưu trong preferences.
+## 1. Mục tiêu
+- Timer Widget 1x1 có kích thước thị giác tương đương icon ứng dụng trên launcher, không còn icon nhỏ nằm trong một khung lớn.
+- Widget Kệ Đóng Băng có khoảng thở đều giữa nội dung và mép nền, không để icon dính sát lề.
+- Giữ nguyên toàn bộ hành vi bấm và cấu hình đã triển khai.
 
-## 2. Luồng Widget mới
-1. `widget_frozen_apps.xml` chỉ còn `GridView` phủ toàn bộ vùng nội dung.
-2. `FreezerWidgetFactory` trả về danh sách ứng dụng và thêm một item đặc biệt “Cài đặt” ở cuối.
-3. Bấm ứng dụng vẫn rã đông và mở ứng dụng như hiện tại.
-4. Bấm ô Cài đặt chuyển qua `UnfreezeAndLaunchActivity` để mở `WidgetConfigActivity` đúng widget ID.
-5. Bấm vùng trống ngoài item vẫn mở Kệ Đóng Băng theo quy tắc hiện tại.
-6. Xóa hoàn toàn `widget_delete_mode`, broadcast toggle và badge xóa nhanh.
+## 2. Timer Widget
+- Bỏ lớp nền vuông phụ và nhãn `NOBG` trùng với chữ đã có trong icon launcher.
+- Hiển thị trực tiếp icon NOBG kích thước 56dp, tương đương icon ứng dụng Android.
+- Đặt trạng thái ngắn bên dưới như nhãn launcher (`1h · 2p`, `Còn 15p`, `Đang đếm`).
+- Dùng chữ trắng có bóng tối để đọc được trên cả wallpaper sáng và tối.
+- Giữ khai báo 1x1 và thao tác bấm để bật/dừng chế độ nhanh.
 
-## 3. Quản lý ứng dụng trong Cài đặt Widget
-- Thêm thẻ “Ứng dụng trên Kệ” ở đầu màn hình cấu hình.
-- Nút “Thêm ứng dụng” mở bộ chọn ứng dụng hiện có.
-- Danh sách ứng dụng đang nằm trên Kệ có nút xóa trực tiếp từng app.
-- Mọi thao tác thêm/xóa cập nhật Room và widget ngay, không phụ thuộc nút lưu giao diện.
-- Preview được sửa theo thiết kế mới: chỉ app và ô Cài đặt cuối lưới.
+## 3. Widget Kệ Đóng Băng
+- Giữ khoảng cách ngoài hiện tại để nền không chạm biên cell.
+- Thêm padding nội dung động theo số cột:
+  - 2 cột: lề ngang 20dp.
+  - 3 cột: lề ngang 14dp.
+  - 4 cột: lề ngang 10dp.
+- Thêm lề trên/dưới 16dp, tăng spacing giữa các item và tắt scrollbar.
+- Giới hạn tên ứng dụng theo bề rộng cột để không tràn hoặc dạt layout.
 
-## 4. Rà soát AI và cải thiện UX
-- Giữ kiến trúc hiện có: Gemini/Groq/OpenRouter, function calling, đọc dữ liệu thật, thay đổi cài đặt có xác nhận.
-- Sửa tiêu đề Chat hiển thị đúng provider đang dùng thay vì cố định “Gemini”.
-- Biến các use case hữu ích thành nút hỏi nhanh: tổng quan máy, hao pin, phiên sạc, app dùng nhiều, trạng thái NOBG và đổi chủ đề.
-- Cập nhật tài liệu use case theo đúng năng lực tool thực tế.
-
-## 5. Kiểm chứng
-- Không còn tham chiếu đến title/header/nút `+/-`/delete mode của widget.
+## 4. Kiểm chứng
 - `assembleDebug`, unit test và `lintDebug` thành công.
+- Kiểm tra không đưa ảnh tham chiếu `.codex-remote-attachments` vào commit.
 - Commit, push `main` và theo dõi GitHub Actions đến `SUCCESS`.

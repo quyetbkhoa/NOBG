@@ -1,51 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_smart_timer_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:padding="2dp">
+    android:orientation="vertical"
+    android:padding="4dp">
 
-    <LinearLayout
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:layout_gravity="center"
-        android:background="@drawable/bg_widget_smart_timer"
+    <ImageView
+        android:id="@+id/iv_timer_widget_icon"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:contentDescription="@string/widget_timer_icon_description"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_launcher_nobg" />
+
+    <TextView
+        android:id="@+id/tv_timer_widget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
         android:gravity="center"
-        android:orientation="vertical"
-        android:padding="5dp">
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:shadowColor="#CC000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="2"
+        android:text="@string/widget_timer_status_placeholder"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 
-        <ImageView
-            android:id="@+id/iv_timer_widget_icon"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:contentDescription="Biểu tượng đếm giờ NOBG"
-            android:src="@drawable/ic_launcher_nobg" />
-
-        <TextView
-            android:id="@+id/tv_timer_widget_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:text="NOBG"
-            android:textColor="#FFFFFF"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_timer_widget_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:text="1h · 2p"
-            android:textColor="#94A3B8"
-            android:textSize="8sp" />
-
-    </LinearLayout>
-
-</FrameLayout>
+</LinearLayout>
