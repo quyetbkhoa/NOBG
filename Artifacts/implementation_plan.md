@@ -1,27 +1,23 @@
-# Implementation Plan: Chặn đọc theo ứng dụng + keyword
+# Implementation Plan: Sửa phát hiện thiết bị Bluetooth đang kết nối
 
-## 1. Mục tiêu
-- Không tắt đọc toàn bộ ứng dụng khi người dùng chọn một notification trong lịch sử.
-- Quy tắc chặn phải gồm đúng `packageName + userId + keyword`.
-- Ví dụ: Messenger + `đang kiểm tra tin nhắn mới` chỉ bỏ qua trạng thái này; tin nhắn Messenger khác vẫn đọc.
+## 1. Nguyên nhân
+- UI và `NotificationReaderService` đang gọi `BluetoothManager.getConnectedDevices()` với profile A2DP/HEADSET.
+- `BluetoothManager` chỉ hỗ trợ truy vấn trực tiếp một số profile GATT; trên nhiều thiết bị, A2DP/HEADSET ném lỗi và code hiện tại nuốt exception nên danh sách kết nối luôn rỗng.
+- Vì UI và service cùng dùng logic lỗi, thiết bị đã chọn vẫn bị báo `Chưa kết nối` và TTS bị tạm dừng.
 
-## 2. Dữ liệu và xử lý service
-- Thêm bảng Room `notification_block_rules` và migration database 9 → 10.
-- Mỗi rule lưu package, không gian người dùng, keyword, tên app và thời điểm tạo.
-- Service ghép tiêu đề/nội dung notification, so khớp keyword không phân biệt hoa thường.
-- Chỉ bỏ qua TTS khi notification đến từ đúng app/không gian và chứa keyword của rule.
-- Giữ nguyên cơ chế bỏ qua notification im lặng và lịch sử tối đa 200 mục.
+## 2. Bộ dò dùng chung
+- Tạo `BluetoothAudioDeviceDetector` dùng `AudioManager.getDevices(GET_DEVICES_OUTPUTS)` để lấy các audio output đang kết nối.
+- Hỗ trợ Bluetooth A2DP, SCO, BLE Headset, BLE Speaker và Hearing Aid theo phiên bản Android.
+- Ghép thiết bị theo địa chỉ MAC đã lưu; fallback theo tên khi Android/OEM không cung cấp địa chỉ audio route.
+- Chuẩn hóa địa chỉ và tên để không lỗi do hoa/thường hoặc định dạng dấu `:`.
 
-## 3. UI/UX
-- Chạm một mục lịch sử để mở hộp thoại tạo rule.
-- Tự điền keyword từ nội dung notification nhưng cho phép người dùng sửa trước khi lưu.
-- Hiển thị rõ rule theo dạng `Tên ứng dụng + keyword` và có nút xóa từng rule.
-- Bỏ bộ lọc `Đã chặn` theo ứng dụng vì không còn đúng mô hình dữ liệu.
-- Đổi nhãn keyword trong cấu hình app thành `Chỉ đọc khi có từ khóa` để phân biệt với keyword chặn.
+## 3. Tích hợp
+- `NotificationReadViewModel` dùng detector để đánh dấu từng thiết bị `Đang kết nối` và tính trạng thái tổng.
+- Đăng ký `AudioDeviceCallback` để UI cập nhật ngay khi audio route được thêm/bớt, bên cạnh broadcast Bluetooth hiện có.
+- `NotificationReaderService` dùng cùng detector trước mỗi lần đọc, đảm bảo điều kiện thực thi khớp trạng thái UI.
+- Khi thiếu quyền, Bluetooth tắt hoặc lỗi truy vấn, reset trạng thái kết nối rõ ràng thay vì giữ state cũ.
 
 ## 4. Kiểm chứng
-- Kiểm tra migration Room 9 → 10 và schema composite primary key.
-- Kiểm tra cùng keyword ở app khác không bị chặn; cùng app nhưng nội dung khác vẫn được đọc.
-- Kiểm tra thêm/xóa rule phản ánh tức thì trên UI.
+- Biên dịch trên minSdk 26 / compileSdk 34.
 - Chạy `assembleDebug`, unit test và `lintDebug`.
 - Commit, push `main` và theo dõi GitHub Actions đến `SUCCESS`.

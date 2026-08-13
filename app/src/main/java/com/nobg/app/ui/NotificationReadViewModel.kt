@@ -4,7 +4,6 @@ import android.app.Application
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,7 +11,12 @@ import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.UserHandle
 import android.os.UserManager
 import android.speech.tts.TextToSpeech
@@ -25,6 +29,7 @@ import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationHistoryEntity
 import com.nobg.app.data.NotificationBlockRuleEntity
 import com.nobg.app.data.NotificationReadMode
+import com.nobg.app.util.BluetoothAudioDeviceDetector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -123,6 +128,16 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            refreshBluetoothState()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            refreshBluetoothState()
+        }
+    }
+
     init {
         _isGlobalEnabled.value = repo.isNotifReadGlobalEnabled()
         _isOnlySelectedBt.value = repo.isNotifReadOnlySelectedBt()
@@ -138,13 +153,32 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
         loadUserApps()
         loadBluetoothDevices()
         registerBtStateReceiver()
+        registerAudioDeviceCallback()
     }
 
     override fun onCleared() {
         try {
             getApplication<Application>().unregisterReceiver(btStateReceiver)
         } catch (_: Exception) {}
+        try {
+            val audioManager = getApplication<Application>()
+                .getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager?.unregisterAudioDeviceCallback(audioDeviceCallback)
+        } catch (_: Exception) {}
         super.onCleared()
+    }
+
+    private fun registerAudioDeviceCallback() {
+        try {
+            val audioManager = getApplication<Application>()
+                .getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager?.registerAudioDeviceCallback(
+                audioDeviceCallback,
+                Handler(Looper.getMainLooper())
+            )
+        } catch (e: Exception) {
+            Log.w("NotifReadVM", "Cannot register audio device callback", e)
+        }
     }
 
     /** Lắng nghe kết nối/ngắt Bluetooth để cập nhật trạng thái theo thời gian thực */
@@ -276,6 +310,7 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
 
                 if (adapter == null || !adapter.isEnabled) {
                     _btDevices.value = emptyList()
+                    _hasSelectedDeviceConnected.value = false
                     return@launch
                 }
 
@@ -283,15 +318,8 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                 val savedDevices = repo.getAllBtDevices()
                 val savedMap = savedDevices.associateBy { it.address }
 
-                val connectedAddresses = mutableSetOf<String>()
-                try {
-                    val a2dp = btManager.getConnectedDevices(BluetoothProfile.A2DP)
-                    connectedAddresses.addAll(a2dp.map { it.address })
-                } catch (_: Exception) {}
-                try {
-                    val headset = btManager.getConnectedDevices(BluetoothProfile.HEADSET)
-                    connectedAddresses.addAll(headset.map { it.address })
-                } catch (_: Exception) {}
+                val connectedAudioDevices =
+                    BluetoothAudioDeviceDetector.getConnectedAudioDevices(ctx)
 
                 val models = bondedDevices.map { device ->
                     val saved = savedMap[device.address]
@@ -299,7 +327,11 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
                         address = device.address,
                         name = device.name ?: device.address,
                         isSelected = saved?.isSelected ?: false,
-                        isConnected = device.address in connectedAddresses
+                        isConnected = BluetoothAudioDeviceDetector.isConnected(
+                            savedAddress = device.address,
+                            savedName = device.name ?: device.address,
+                            connectedDevices = connectedAudioDevices
+                        )
                     )
                 }.sortedWith(compareByDescending<BluetoothDeviceUiModel> { it.isConnected }.thenBy { it.name })
 
@@ -308,6 +340,7 @@ class NotificationReadViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 Log.e("NotifReadVM", "Error loading BT devices", e)
                 _btDevices.value = emptyList()
+                _hasSelectedDeviceConnected.value = false
             }
         }
     }

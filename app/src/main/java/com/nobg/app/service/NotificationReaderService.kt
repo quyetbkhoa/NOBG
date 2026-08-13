@@ -2,8 +2,6 @@ package com.nobg.app.service
 
 import android.app.Notification
 import android.app.NotificationManager
-import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -23,6 +21,7 @@ import com.nobg.app.data.NobgRepository
 import com.nobg.app.data.NotificationReadConfigEntity
 import com.nobg.app.data.NotificationHistoryEntity
 import com.nobg.app.data.NotificationReadMode
+import com.nobg.app.util.BluetoothAudioDeviceDetector
 import kotlinx.coroutines.*
 import java.util.Locale
 
@@ -233,32 +232,14 @@ class NotificationReaderService : NotificationListenerService() {
                 return false
             }
 
-            val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                ?: return false
-            val adapter = btManager.adapter ?: return false
-            if (!adapter.isEnabled) return false
-
             val selectedDevices = repo.getSelectedBtDevices()
             if (selectedDevices.isEmpty()) return false
-            val selectedAddresses = selectedDevices.map { it.address }.toSet()
-
-            val profiles = mutableListOf(
-                BluetoothProfile.A2DP,
-                BluetoothProfile.HEADSET
+            val connectedDevices =
+                BluetoothAudioDeviceDetector.getConnectedAudioDevices(applicationContext)
+            return BluetoothAudioDeviceDetector.hasSelectedDeviceConnected(
+                selectedDevices = selectedDevices,
+                connectedDevices = connectedDevices
             )
-            // LE Audio (tai nghe TWS hiện đại kết nối LE Audio là chính) - Android 12+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                profiles.add(BluetoothProfile.LE_AUDIO)
-            }
-
-            val connectedAddresses = mutableSetOf<String>()
-            for (profile in profiles) {
-                try {
-                    btManager.getConnectedDevices(profile).forEach { connectedAddresses.add(it.address) }
-                } catch (_: Exception) {}
-            }
-
-            return connectedAddresses.any { it in selectedAddresses }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking Bluetooth connection", e)
             return false
