@@ -7,7 +7,10 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import com.nobg.app.MainActivity
-import com.nobg.app.shell.PrivilegedShell
+import com.nobg.app.service.MonitorService
+import com.nobg.app.shizuku.ShizukuManager
+import com.nobg.app.widget.FrozenAppsWidgetProvider
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,11 +47,21 @@ class UnfreezeAndLaunchActivity : Activity() {
             return
         }
 
+        ContextCompat.startForegroundService(this, Intent(this, MonitorService::class.java))
+
         // Unfreeze first, THEN launch target app so Android OS accepts the launch intent on 1st click
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Enable package via PrivilegedShell (Shizuku/ADB)
-                PrivilegedShell.exec("pm enable $pkg")
+                // 1. Enable package via a verified Shizuku/ADB backend.
+                val (enabled, error) = ShizukuManager.enablePackageResult(pkg)
+                if (!enabled) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "Không thể rã đông ứng dụng: $error", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                    return@launch
+                }
+                FrozenAppsWidgetProvider.updateAllWidgets(applicationContext)
 
                 // 2. Resolve launch intent
                 val launchIntent = withContext(Dispatchers.Main) {

@@ -426,16 +426,16 @@ class NobgRepository(private val context: Context) {
     val frozenShelfApps: kotlinx.coroutines.flow.Flow<List<AppEntity>> = appDao.observeFrozenShelf()
     suspend fun getFrozenShelfApps(): List<AppEntity> = appDao.getFrozenShelfApps()
 
-    suspend fun freezePackage(pkg: String) {
-        ShizukuManager.exec("pm disable-user --user 0 $pkg")
+    suspend fun freezePackage(pkg: String): Boolean {
+        return ShizukuManager.disablePackageResult(pkg).first
     }
 
-    suspend fun unfreezePackage(pkg: String) {
-        ShizukuManager.exec("pm enable $pkg")
+    suspend fun unfreezePackage(pkg: String): Boolean {
+        return ShizukuManager.enablePackageResult(pkg).first
     }
 
     suspend fun unfreezeAndLaunch(context: android.content.Context, pkg: String): Boolean {
-        unfreezePackage(pkg)
+        if (!unfreezePackage(pkg)) return false
         kotlinx.coroutines.delay(200)
         val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
         return if (launchIntent != null) {
@@ -447,19 +447,22 @@ class NobgRepository(private val context: Context) {
         }
     }
 
-    suspend fun toggleAppFrozenShelf(pkg: String, addToShelf: Boolean) {
+    suspend fun toggleAppFrozenShelf(pkg: String, addToShelf: Boolean): Boolean {
+        val packageStateChanged = if (addToShelf) {
+            freezePackage(pkg)
+        } else {
+            unfreezePackage(pkg)
+        }
+        if (!packageStateChanged) return false
+
         val existing = appDao.get(pkg)
         if (existing != null) {
             appDao.upsert(existing.copy(isFrozenShelf = addToShelf))
         } else {
             appDao.upsert(AppEntity(packageName = pkg, enabled = false, isFrozenShelf = addToShelf))
         }
-        if (addToShelf) {
-            freezePackage(pkg)
-        } else {
-            unfreezePackage(pkg)
-        }
         com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(context)
+        return true
     }
 
     suspend fun freezeAllShelfApps() {

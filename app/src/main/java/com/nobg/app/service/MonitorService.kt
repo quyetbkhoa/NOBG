@@ -15,6 +15,7 @@ import com.nobg.app.data.NobgMode
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.shizuku.ShizukuManager
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import com.nobg.app.shell.PrivilegedShell
 
 class MonitorService : Service() {
@@ -27,6 +28,7 @@ class MonitorService : Service() {
     private var lastEventTime: Long = System.currentTimeMillis() - 2000
     private val pendingKills = mutableMapOf<String, Job>()
     private var reconcileTickCounter = 0
+    private val pollingWakeSignal = Channel<Unit>(Channel.CONFLATED)
 
     // Charging prediction & session tracking state
     private var chargingStartLevel: Int = -1
@@ -44,14 +46,15 @@ class MonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "nobg_monitor"
         const val NOTIF_ID = 1001
-        const val POLL_INTERVAL_MS = 120_000L // Polling thưa tối đa 2 phút 1 lần (120s)
-        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes (15 ticks)
+        const val POLL_INTERVAL_MS = 1_500L
+        const val RECONCILE_EVERY_TICKS = (1800_000L / POLL_INTERVAL_MS).toInt() // ~30 minutes
     }
 
     override fun onCreate() {
         super.onCreate()
         repo = NobgRepository(applicationContext)
         usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        isScreenInteractive = getSystemService(android.os.PowerManager::class.java).isInteractive
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_POWER_CONNECTED)
@@ -86,6 +89,7 @@ class MonitorService : Service() {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenInteractive = true
+                    pollingWakeSignal.trySend(Unit)
                     logBatteryState(context, force = true)
                 }
                 Intent.ACTION_SCREEN_OFF -> {
@@ -345,11 +349,9 @@ class MonitorService : Service() {
 
     private fun loop() {
         scope.launch {
-            // Try to connect whatever backend is available
-            if (!PrivilegedShell.isReady()) {
-                ShizukuManager.bindUserService()
-                // Also try ADB daemon
-                PrivilegedShell.tryConnectAdb()
+            // A cold start from the widget must bind the backend before polling begins.
+            if (ShizukuManager.ensurePrivilegedBackend()) {
+                ShizukuManager.grantUsageStatsAccessToSelf(this@MonitorService)
             }
             while (isActive) {
                 try {
@@ -360,15 +362,21 @@ class MonitorService : Service() {
                             reconcileTickCounter = 0
                             reconcileAll()
                         }
-                        delay(POLL_INTERVAL_MS)
+                        waitForNextPoll(POLL_INTERVAL_MS)
                     } else {
                         // Screen is OFF: sleep for 5 minutes (300,000ms) to allow CPU Deep Sleep (Doze Mode)
-                        delay(300_000L)
+                        waitForNextPoll(300_000L)
                     }
                 } catch (_: Exception) {
-                    delay(POLL_INTERVAL_MS)
+                    waitForNextPoll(POLL_INTERVAL_MS)
                 }
             }
+        }
+    }
+
+    private suspend fun waitForNextPoll(timeoutMs: Long) {
+        withTimeoutOrNull(timeoutMs) {
+            pollingWakeSignal.receive()
         }
     }
 
@@ -414,9 +422,10 @@ class MonitorService : Service() {
         val shelfApps = repo.getFrozenShelfApps()
         if (shelfApps.any { it.packageName == pkg }) {
             ShizukuManager.forceStop(pkg)
-            ShizukuManager.disablePackage(pkg)
-            repo.recordBlockedAction(pkg)
-            com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
+            if (ShizukuManager.disablePackage(pkg)) {
+                repo.recordBlockedAction(pkg)
+                com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
+            }
             return
         }
 
@@ -437,9 +446,10 @@ class MonitorService : Service() {
             }
             NobgMode.DISABLE_ENABLE -> {
                 ShizukuManager.forceStop(pkg)
-                ShizukuManager.disablePackage(pkg)
-                repo.recordBlockedAction(pkg)
-                com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
+                if (ShizukuManager.disablePackage(pkg)) {
+                    repo.recordBlockedAction(pkg)
+                    com.nobg.app.widget.FrozenAppsWidgetProvider.updateAllWidgets(this@MonitorService)
+                }
             }
         }
     }
@@ -452,7 +462,7 @@ class MonitorService : Service() {
     /** Safety-net sweep: re-enforce state for all enabled apps and Freezer Shelf apps
      *  that are not currently the foreground app. */
     private suspend fun reconcileAll() {
-        if (!PrivilegedShell.isReady()) return
+        if (!ShizukuManager.ensurePrivilegedBackend()) return
 
         val disabledSet = ShizukuManager.getDisabledPackages()
 
@@ -481,8 +491,9 @@ class MonitorService : Service() {
             if (app.packageName == lastForegroundPkg) continue
             if (app.packageName !in disabledSet) {
                 ShizukuManager.forceStop(app.packageName)
-                ShizukuManager.disablePackage(app.packageName)
-                updatedWidget = true
+                if (ShizukuManager.disablePackage(app.packageName)) {
+                    updatedWidget = true
+                }
             }
         }
         if (updatedWidget) {

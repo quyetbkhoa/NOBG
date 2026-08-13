@@ -270,9 +270,13 @@ fun FreezerShelfScreen(
                             },
                             onRemoveFromShelf = {
                                 scope.launch(Dispatchers.IO) {
-                                    repo.toggleAppFrozenShelf(app.packageName, false)
+                                    val removed = repo.toggleAppFrozenShelf(app.packageName, false)
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Đã xóa khỏi Kệ đóng băng", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            if (removed) "Đã xóa khỏi Kệ đóng băng" else "Không thể rã đông app. Hãy kiểm tra Shizuku/ADB.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                         refreshShelfList()
                                     }
                                 }
@@ -292,11 +296,18 @@ fun FreezerShelfScreen(
             onConfirm = { selectedPkgs ->
                 showAddAppDialog = false
                 scope.launch(Dispatchers.IO) {
+                    var addedCount = 0
                     for (pkg in selectedPkgs) {
-                        repo.toggleAppFrozenShelf(pkg, true)
+                        if (repo.toggleAppFrozenShelf(pkg, true)) addedCount++
                     }
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Đã thêm ${selectedPkgs.size} app vào Kệ đóng băng!", Toast.LENGTH_SHORT).show()
+                        val message = when {
+                            selectedPkgs.isEmpty() -> "Không có ứng dụng mới được chọn"
+                            addedCount == selectedPkgs.size -> "Đã thêm $addedCount app vào Kệ đóng băng!"
+                            addedCount == 0 -> "Không thể đóng băng app. Hãy kiểm tra Shizuku/ADB."
+                            else -> "Đã thêm $addedCount/${selectedPkgs.size} app; một số app không thể đóng băng."
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         refreshShelfList()
                     }
                 }

@@ -60,9 +60,10 @@ class MainActivity : ComponentActivity() {
 
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         if (grantResult == PackageManager.PERMISSION_GRANTED) {
-            ShizukuManager.bindUserService()
             lifecycleScope.launch {
-                ShizukuManager.grantUsageStatsAccessToSelf(this@MainActivity)
+                if (ShizukuManager.ensurePrivilegedBackend()) {
+                    ShizukuManager.grantUsageStatsAccessToSelf(this@MainActivity)
+                }
                 startMonitorService()
                 viewModel.refreshShizukuStatus()
             }
@@ -84,18 +85,9 @@ class MainActivity : ComponentActivity() {
 
         // Always start service on launch
         lifecycleScope.launch {
-            if (ShizukuManager.isShizukuRunning() && ShizukuManager.hasPermission()) {
-                ShizukuManager.bindUserService()
+            if (ShizukuManager.ensurePrivilegedBackend()) {
                 ShizukuManager.grantUsageStatsAccessToSelf(this@MainActivity)
-
-                // Wait for the remote service to bind so we can update the UI correctly
-                for (i in 1..10) {
-                    kotlinx.coroutines.delay(100)
-                    if (ShizukuManager.isServiceBound()) {
-                        viewModel.refreshShizukuStatus()
-                        break
-                    }
-                }
+                viewModel.refreshShizukuStatus()
             }
             startMonitorService()
         }

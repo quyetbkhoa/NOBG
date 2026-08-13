@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import rikka.shizuku.Shizuku
 import java.util.concurrent.ConcurrentHashMap
@@ -105,35 +106,74 @@ object ShizukuManager {
 
     internal fun getService(): IUserService? = userService
 
+    /**
+     * Makes sure a privileged shell is actually usable before a package-management action.
+     * Binding a Shizuku user service is asynchronous, so callers must not fire-and-forget the
+     * bind and immediately execute a command.
+     */
+    suspend fun ensurePrivilegedBackend(timeoutMs: Long = 2_000L): Boolean {
+        val shizukuAvailable = isShizukuRunning() && hasPermission()
+        if (PrivilegedShell.isReady()) return true
+
+        if (shizukuAvailable) {
+            bindUserService()
+            val attempts = (timeoutMs / 50L).coerceAtLeast(1L).toInt()
+            repeat(attempts) {
+                if (PrivilegedShell.isReady()) return true
+                delay(50L)
+            }
+        }
+
+        if (!PrivilegedShell.isReady()) {
+            PrivilegedShell.tryConnectAdb()
+        }
+        return PrivilegedShell.isReady()
+    }
+
     suspend fun exec(cmd: String): String = PrivilegedShell.exec(cmd)
 
-    suspend fun forceStop(packageName: String) {
-        exec("am force-stop $packageName")
+    suspend fun forceStop(packageName: String): Boolean {
+        if (!ensurePrivilegedBackend()) return false
+        return !exec("am force-stop $packageName").isShellError()
     }
 
     suspend fun disablePackageResult(packageName: String): Pair<Boolean, String> {
+        if (!ensurePrivilegedBackend()) {
+            return false to "ERROR: no privileged backend connected"
+        }
         val out = exec("pm disable-user --user 0 $packageName")
-        val success = out.contains("new state: disabled-user") || out.contains("new state: disabled") || out.contains("new state: default")
+        val success = !out.isShellError() && isPackageDisabled(packageName)
         return Pair(success, out)
     }
 
-    suspend fun disablePackage(packageName: String) {
-        disablePackageResult(packageName)
+    suspend fun disablePackage(packageName: String): Boolean {
+        return disablePackageResult(packageName).first
     }
 
-    suspend fun enablePackage(packageName: String) {
-        exec("pm enable $packageName")
+    suspend fun enablePackageResult(packageName: String): Pair<Boolean, String> {
+        if (!ensurePrivilegedBackend()) {
+            return false to "ERROR: no privileged backend connected"
+        }
+        val out = exec("pm enable $packageName")
+        val success = !out.isShellError() && !isPackageDisabled(packageName)
+        return success to out
     }
+
+    suspend fun enablePackage(packageName: String): Boolean {
+        return enablePackageResult(packageName).first
+    }
+
+    private fun String.isShellError(): Boolean = trimStart().startsWith("ERROR:", ignoreCase = true)
 
     suspend fun getApplicationEnabledState(packageName: String): Int {
         // 0 = COMPONENT_ENABLED_STATE_DEFAULT, 1 = ENABLED, 2 = DISABLED, 3 = DISABLED_USER
         val out = exec("pm list packages -d")
-        return if (out.contains("package:$packageName")) 3 else 0
+        return if (out.lineSequence().any { it.trim() == "package:$packageName" }) 3 else 0
     }
 
     suspend fun isPackageDisabled(packageName: String): Boolean {
         val out = exec("pm list packages -d")
-        return out.contains("package:$packageName")
+        return out.lineSequence().any { it.trim() == "package:$packageName" }
     }
 
     suspend fun getDisabledPackages(): Set<String> {
@@ -172,6 +212,8 @@ object ShizukuManager {
     }
 
     suspend fun grantUsageStatsAccessToSelf(context: Context): Boolean {
+        if (hasUsageStatsAccess(context)) return true
+        if (!ensurePrivilegedBackend()) return false
         exec("appops set ${context.packageName} GET_USAGE_STATS allow")
         exec("appops set ${context.packageName} android:get_usage_stats allow")
         exec("pm grant ${context.packageName} android.permission.PACKAGE_USAGE_STATS")

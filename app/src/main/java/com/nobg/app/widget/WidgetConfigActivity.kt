@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -33,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.nobg.app.data.NobgRepository
+import com.nobg.app.service.MonitorService
 import com.nobg.app.ui.AddShelfAppDialog
 import com.nobg.app.ui.theme.NobgTheme
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +55,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ContextCompat.startForegroundService(this, Intent(this, MonitorService::class.java))
 
         // Set result to CANCELED first in case user backs out without saving
         setResult(Activity.RESULT_CANCELED)
@@ -291,8 +295,11 @@ fun WidgetConfigScreen(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            withContext(Dispatchers.IO) {
+                                            val removed = withContext(Dispatchers.IO) {
                                                 repo.toggleAppFrozenShelf(app.packageName, false)
+                                            }
+                                            if (!removed) {
+                                                Toast.makeText(context, "Không thể rã đông app. Hãy kiểm tra Shizuku/ADB.", Toast.LENGTH_SHORT).show()
                                             }
                                             FrozenAppsWidgetProvider.updateAllWidgets(context)
                                             shelfRevision++
@@ -582,8 +589,16 @@ fun WidgetConfigScreen(
             onConfirm = { addedPackages ->
                 showAddApps = false
                 scope.launch {
-                    withContext(Dispatchers.IO) {
-                        addedPackages.forEach { repo.toggleAppFrozenShelf(it, true) }
+                    val addedCount = withContext(Dispatchers.IO) {
+                        addedPackages.count { repo.toggleAppFrozenShelf(it, true) }
+                    }
+                    if (addedPackages.isNotEmpty() && addedCount < addedPackages.size) {
+                        Toast.makeText(
+                            context,
+                            if (addedCount == 0) "Không thể đóng băng app. Hãy kiểm tra Shizuku/ADB."
+                            else "Đã thêm $addedCount/${addedPackages.size} app.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                     FrozenAppsWidgetProvider.updateAllWidgets(context)
                     shelfRevision++

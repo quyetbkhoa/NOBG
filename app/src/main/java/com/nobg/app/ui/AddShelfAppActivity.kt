@@ -13,7 +13,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import com.nobg.app.data.NobgRepository
+import com.nobg.app.service.MonitorService
 import com.nobg.app.ui.theme.NobgTheme
 import com.nobg.app.widget.FrozenAppsWidgetProvider
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +28,7 @@ class AddShelfAppActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val repo = NobgRepository(applicationContext)
+        ContextCompat.startForegroundService(this, android.content.Intent(this, MonitorService::class.java))
 
         setContent {
             val themeMode = repo.getThemeMode()
@@ -62,19 +65,19 @@ class AddShelfAppActivity : ComponentActivity() {
                         onDismiss = { finish() },
                         onConfirm = { addedPkgs ->
                             scope.launch(Dispatchers.IO) {
-                                val addedCount = addedPkgs.size
+                                var addedCount = 0
                                 for (pkg in addedPkgs) {
-                                    repo.toggleAppFrozenShelf(pkg, true)
+                                    if (repo.toggleAppFrozenShelf(pkg, true)) addedCount++
                                 }
                                 FrozenAppsWidgetProvider.updateAllWidgets(applicationContext)
                                 withContext(Dispatchers.Main) {
-                                    if (addedCount > 0) {
-                                        Toast.makeText(
-                                            this@AddShelfAppActivity,
-                                            "🧊 Đã thêm $addedCount ứng dụng vào Kệ đóng bằng!",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    val message = when {
+                                        addedPkgs.isEmpty() -> "Không có ứng dụng mới được chọn"
+                                        addedCount == addedPkgs.size -> "🧊 Đã thêm $addedCount ứng dụng vào Kệ đóng băng!"
+                                        addedCount == 0 -> "Không thể đóng băng app. Hãy kiểm tra Shizuku/ADB."
+                                        else -> "Đã thêm $addedCount/${addedPkgs.size} app; một số app không thể đóng băng."
                                     }
+                                    Toast.makeText(this@AddShelfAppActivity, message, Toast.LENGTH_SHORT).show()
                                     finish()
                                 }
                             }
