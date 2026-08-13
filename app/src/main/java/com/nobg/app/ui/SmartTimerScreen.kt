@@ -1,6 +1,11 @@
 package com.nobg.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import android.widget.Toast
 import com.nobg.app.data.SmartTimerMode
 import java.util.Locale
@@ -34,6 +40,34 @@ fun SmartTimerScreen(
     val config by viewModel.configState.collectAsState()
     val quickConfig by viewModel.quickConfigState.collectAsState()
     val elapsedSec by viewModel.elapsedSeconds.collectAsState()
+    var pendingStartAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val action = pendingStartAction
+        pendingStartAction = null
+        if (granted) {
+            action?.invoke()
+        } else {
+            Toast.makeText(
+                context,
+                "Không thể chạy Timer xuyên suốt nếu chưa cho phép thông báo",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun runWithNotificationPermission(action: () -> Unit) {
+        val hasPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            action()
+        } else {
+            pendingStartAction = action
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.toastEvent.collect { msg ->
@@ -70,13 +104,15 @@ fun SmartTimerScreen(
                 durationMinutes = config.durationMinutes,
                 intervalMinutes = config.intervalMinutes,
                 mode = config.mode,
-                onStart = { viewModel.startTimer() },
+                onStart = { runWithNotificationPermission(viewModel::startTimer) },
                 onStop = { viewModel.stopTimer() }
             )
 
             QuickPresetsCard(
                 onPresetSelect = { mode, duration, interval ->
-                    viewModel.applyPreset(mode, duration, interval)
+                    runWithNotificationPermission {
+                        viewModel.applyPreset(mode, duration, interval)
+                    }
                 }
             )
 

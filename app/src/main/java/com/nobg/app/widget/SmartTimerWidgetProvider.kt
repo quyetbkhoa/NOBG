@@ -1,13 +1,18 @@
 package com.nobg.app.widget
 
+import android.Manifest
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
+import com.nobg.app.MainActivity
 import com.nobg.app.R
 import com.nobg.app.data.NobgRepository
 import com.nobg.app.service.SmartTimerService
@@ -79,15 +84,31 @@ class SmartTimerWidgetProvider : AppWidgetProvider() {
             }
 
             // Click action: toggle the quick mode configured in the Timer screen.
-            val toggleIntent = Intent(context, SmartTimerService::class.java).apply {
-                action = SmartTimerService.ACTION_TOGGLE_WIDGET_QUICK
+            val canPostNotifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            val pendingToggle = if (isRunning || canPostNotifications) {
+                val toggleIntent = Intent(context, SmartTimerService::class.java).apply {
+                    action = SmartTimerService.ACTION_TOGGLE_WIDGET_QUICK
+                }
+                PendingIntent.getService(
+                    context,
+                    101,
+                    toggleIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            } else {
+                val permissionIntent = Intent(context, MainActivity::class.java).apply {
+                    putExtra("open_screen", "SMART_TIMER")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                PendingIntent.getActivity(
+                    context,
+                    102,
+                    permissionIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
             }
-            val pendingToggle = PendingIntent.getService(
-                context,
-                101,
-                toggleIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
 
             views.setOnClickPendingIntent(R.id.widget_smart_timer_root, pendingToggle)
 

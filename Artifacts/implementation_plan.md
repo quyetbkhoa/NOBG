@@ -1,27 +1,26 @@
-# Implementation Plan: Cân chỉnh kích thước Timer Widget và lề Kệ Đóng Băng
+# Implementation Plan: Notification xuyên suốt cho Smart Timer
 
 ## 1. Mục tiêu
-- Timer Widget 1x1 có kích thước thị giác tương đương icon ứng dụng trên launcher, không còn icon nhỏ nằm trong một khung lớn.
-- Widget Kệ Đóng Băng có khoảng thở đều giữa nội dung và mép nền, không để icon dính sát lề.
-- Giữ nguyên toàn bộ hành vi bấm và cấu hình đã triển khai.
+- Smart Timer chỉ chạy khi ứng dụng có quyền hiển thị thông báo trên Android 13+.
+- Trong toàn bộ thời gian Timer hoạt động phải có foreground notification cố định, không tự biến mất.
+- Notification cung cấp đủ thông tin để người dùng kiểm tra Timer mà không cần mở ứng dụng.
+- Người dùng có thể dừng Timer trực tiếp bằng nút `Dừng` trên notification.
 
-## 2. Timer Widget
-- Bỏ lớp nền vuông phụ và nhãn `NOBG` trùng với chữ đã có trong icon launcher.
-- Hiển thị trực tiếp icon NOBG kích thước 56dp, tương đương icon ứng dụng Android.
-- Đặt trạng thái ngắn bên dưới như nhãn launcher (`1h · 2p`, `Còn 15p`, `Đang đếm`).
-- Dùng chữ trắng có bóng tối để đọc được trên cả wallpaper sáng và tối.
-- Giữ khai báo 1x1 và thao tác bấm để bật/dừng chế độ nhanh.
+## 2. Nội dung notification
+- Hiển thị thời gian đã chạy theo `HH:mm:ss`.
+- Nếu Timer có giới hạn, hiển thị thêm thời gian còn lại.
+- Hiển thị chu kỳ đọc thông báo và chế độ đọc (`Thời gian đã đếm` hoặc `Giờ hiện tại`).
+- Dùng giao diện mở rộng `BigTextStyle`, cập nhật định kỳ nhưng không phát âm/rung lại ở mỗi lần cập nhật.
+- Đặt notification ở chế độ ongoing, category stopwatch, public visibility và foreground-immediate.
 
-## 3. Widget Kệ Đóng Băng
-- Giữ khoảng cách ngoài hiện tại để nền không chạm biên cell.
-- Thêm padding nội dung động theo số cột:
-  - 2 cột: lề ngang 20dp.
-  - 3 cột: lề ngang 14dp.
-  - 4 cột: lề ngang 10dp.
-- Thêm lề trên/dưới 16dp, tăng spacing giữa các item và tắt scrollbar.
-- Giới hạn tên ứng dụng theo bề rộng cột để không tràn hoặc dạt layout.
+## 3. Quyền và vòng đời
+- Kiểm tra `POST_NOTIFICATIONS` trong ViewModel trước khi khởi chạy service.
+- Tại màn Timer, yêu cầu quyền ngay khi người dùng bấm Bắt đầu hoặc chọn preset; chỉ tiếp tục khi được cấp.
+- Khi bấm Timer Widget mà chưa có quyền, mở màn Timer/onboarding để xin quyền thay vì chạy Timer ẩn.
+- Service tự từ chối phiên chạy mới nếu được gọi từ luồng cũ mà quyền thông báo không còn.
+- Khi hết giờ hoặc bấm Dừng, hủy foreground notification, lưu trạng thái đã dừng và cập nhật widget.
 
 ## 4. Kiểm chứng
-- `assembleDebug`, unit test và `lintDebug` thành công.
-- Kiểm tra không đưa ảnh tham chiếu `.codex-remote-attachments` vào commit.
+- Kiểm tra start/stop từ màn Timer, preset và widget.
+- Chạy `assembleDebug`, unit test và `lintDebug`.
 - Commit, push `main` và theo dõi GitHub Actions đến `SUCCESS`.

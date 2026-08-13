@@ -1,8 +1,11 @@
 package com.nobg.app.ui
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.nobg.app.data.NobgRepository
@@ -92,6 +95,15 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startTimer() {
         val app = getApplication<Application>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            saveAndEmit(_configState.value.copy(isRunning = false, startTimeMillis = 0L))
+            _toastEvent.tryEmit("Cần cho phép thông báo để Timer có thể hiển thị xuyên suốt")
+            return
+        }
+
         val updated = _configState.value.copy(
             isRunning = true,
             startTimeMillis = System.currentTimeMillis()
@@ -135,8 +147,8 @@ class SmartTimerViewModel(application: Application) : AndroidViewModel(applicati
             mode = mode,
             durationMinutes = durationMins,
             intervalMinutes = intervalMins,
-            isRunning = true,
-            startTimeMillis = System.currentTimeMillis()
+            isRunning = false,
+            startTimeMillis = 0L
         )
         saveAndEmit(updated)
         startTimer()

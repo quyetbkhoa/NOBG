@@ -1,8 +1,10 @@
 package com.nobg.app.service
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -14,6 +16,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.nobg.app.MainActivity
 import com.nobg.app.R
 import com.nobg.app.data.NobgRepository
@@ -117,6 +120,16 @@ class SmartTimerService : Service() {
     }
 
     private fun startSmartTimer(config: SmartTimerConfig) {
+        if (!canPostNotifications()) {
+            Log.w(TAG, "Timer start rejected because notification permission is missing")
+            currentConfig = config.copy(isRunning = false, startTimeMillis = 0L)
+            repo.saveSmartTimerConfig(currentConfig)
+            isServiceRunning = false
+            SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
+            stopSelf()
+            return
+        }
+
         currentConfig = config.copy(
             isRunning = true,
             startTimeMillis = if (config.startTimeMillis > 0) config.startTimeMillis else System.currentTimeMillis()
@@ -126,7 +139,8 @@ class SmartTimerService : Service() {
 
         wakeLock?.acquire(12 * 60 * 60 * 1000L) // Safe max 12 hours timeout
 
-        startForeground(NOTIF_ID, buildNotification("Đếm giờ thông minh đang hoạt động..."))
+        val initialElapsedMs = (System.currentTimeMillis() - startTimestamp).coerceAtLeast(0L)
+        startForeground(NOTIF_ID, buildNotification(elapsedMs = initialElapsedMs))
         SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
 
         timerJob?.cancel()
@@ -170,9 +184,8 @@ class SmartTimerService : Service() {
                     speakAnnouncement(speechText)
                 }
 
-                // Update notification and widget every 5 seconds
-                val notifText = buildNotificationText(elapsedMinutes, totalDurationMinutes)
-                updateNotification(notifText)
+                // Update notification and widget every 2 seconds.
+                updateNotification(elapsedMs)
                 SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
 
                 delay(2000L)
@@ -261,13 +274,18 @@ class SmartTimerService : Service() {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
-    private fun buildNotificationText(elapsedMins: Int, totalDurationMins: Int): String {
-        return if (totalDurationMins > 0) {
-            val remainingMins = (totalDurationMins - elapsedMins).coerceAtLeast(0)
-            "Đã đếm $elapsedMins phút (Còn $remainingMins phút)"
-        } else {
-            "Đã đếm $elapsedMins phút"
-        }
+    private fun canPostNotifications(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun formatTimerTime(totalSeconds: Long): String {
+        val safeSeconds = totalSeconds.coerceAtLeast(0L)
+        val hours = safeSeconds / 3600L
+        val minutes = (safeSeconds % 3600L) / 60L
+        val seconds = safeSeconds % 60L
+        return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
     private fun createNotificationChannel() {
@@ -277,14 +295,16 @@ class SmartTimerService : Service() {
                 "Đếm giờ thông minh",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Thông báo đếm giờ ngầm định kỳ"
+                description = "Hiển thị trạng thái và điều khiển Smart Timer đang chạy"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val nm = getSystemService(NotificationManager::class.java)
             nm?.createNotificationChannel(channel)
         }
     }
 
-    private fun buildNotification(text: String): Notification {
+    private fun buildNotification(elapsedMs: Long): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("open_screen", "SMART_TIMER")
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -302,19 +322,45 @@ class SmartTimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val elapsedSeconds = (elapsedMs / 1000L).coerceAtLeast(0L)
+        val durationSeconds = currentConfig.durationMinutes.coerceAtLeast(0) * 60L
+        val remainingSeconds = (durationSeconds - elapsedSeconds).coerceAtLeast(0L)
+        val elapsedText = formatTimerTime(elapsedSeconds)
+        val remainingText = if (durationSeconds > 0L) formatTimerTime(remainingSeconds) else null
+        val modeText = when (currentConfig.mode) {
+            SmartTimerMode.ELAPSED_TIME -> "Thời gian đã đếm"
+            SmartTimerMode.CLOCK_TIME -> "Giờ hiện tại"
+        }
+        val title = remainingText?.let { "Timer · Còn $it" } ?: "Timer đang chạy · $elapsedText"
+        val summary = "Đã chạy $elapsedText · Báo mỗi ${currentConfig.intervalMinutes} phút"
+        val details = buildString {
+            append("Đã chạy: $elapsedText")
+            remainingText?.let { append("\nCòn lại: $it") }
+            append("\nBáo sau mỗi: ${currentConfig.intervalMinutes} phút")
+            append("\nKiểu đọc: $modeText")
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("⏱️ Đếm giờ thông minh")
-            .setContentText(text)
+            .setContentTitle(title)
+            .setContentText(summary)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(details))
+            .setSubText("NOBG Smart Timer")
             .setSmallIcon(R.drawable.ic_launcher_nobg)
             .setContentIntent(pIntent)
             .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Dừng", pStopIntent)
             .build()
     }
 
-    private fun updateNotification(text: String) {
+    private fun updateNotification(elapsedMs: Long) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID, buildNotification(text))
+        nm.notify(NOTIF_ID, buildNotification(elapsedMs))
     }
 
     private fun stopSmartTimer() {
@@ -326,6 +372,13 @@ class SmartTimerService : Service() {
 
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
         }
 
         SmartTimerWidgetProvider.updateAllWidgets(applicationContext)
