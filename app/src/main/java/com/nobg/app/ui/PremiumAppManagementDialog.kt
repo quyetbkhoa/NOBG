@@ -330,7 +330,7 @@ fun AppManagementDialog(
                                 }
                                 if (!isShizukuAvailable) {
                                     PremiumInsetDivider()
-                                    ManagementInfoRow("Cấp quyền Shizuku để dùng chế độ Mạnh và đóng băng tức thì.")
+                                    ManagementInfoRow("Cấp quyền Shizuku để dùng chế độ Mạnh.")
                                 }
                                 if (currentNobgMode == NobgMode.AGGRESSIVE) {
                                     PremiumInsetDivider()
@@ -363,32 +363,19 @@ fun AppManagementDialog(
                                 checked = appModel.isHidden,
                                 onCheckedChange = { viewModel.toggleHideApp(appModel.packageName, it) }
                             )
-                            if (appModel.isFrozenShelf || !appModel.isDisabled) {
-                                PremiumInsetDivider()
-                                PremiumNavigationRow(
-                                    title = "Đóng băng ngay",
-                                    subtitle = "Ép dừng và vô hiệu hóa ứng dụng",
-                                    icon = Icons.Filled.AcUnit,
-                                    accent = PremiumAccent.Blue,
-                                    onClick = {
-                                        viewModel.freezeAppImmediately(appModel.packageName)
-                                        onDismiss()
-                                    }
-                                )
-                            }
                             PremiumInsetDivider()
-                            PremiumNavigationRow(
-                                title = if (appModel.isDisabled) "Mở lại ứng dụng" else "Vô hiệu hóa ứng dụng",
-                                subtitle = if (appModel.isDisabled) "Bật lại và khởi chạy ứng dụng" else "Ẩn ứng dụng khỏi launcher và ngăn hoạt động",
+                            ManagementToggleRow(
+                                title = "Vô hiệu hóa ứng dụng",
+                                subtitle = if (appModel.isDisabled) {
+                                    "Ứng dụng đang bị ẩn khỏi launcher và ngừng hoạt động"
+                                } else {
+                                    "Ẩn ứng dụng khỏi launcher và ngăn hoạt động"
+                                },
                                 icon = Icons.Filled.PowerSettingsNew,
-                                accent = if (appModel.isDisabled) PremiumAccent.Green else PremiumAccent.Pink,
-                                onClick = {
-                                    if (appModel.isDisabled) {
-                                        viewModel.enableAndLaunchApp(appModel.packageName)
-                                        onDismiss()
-                                    } else {
-                                        viewModel.disableApp(appModel.packageName)
-                                    }
+                                accent = PremiumAccent.Pink,
+                                checked = appModel.isDisabled,
+                                onCheckedChange = { disabled ->
+                                    viewModel.setAppDisabled(appModel.packageName, disabled)
                                 }
                             )
                         }

@@ -276,33 +276,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun disableApp(packageName: String) {
+    fun setAppDisabled(packageName: String, disabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (PrivilegedShell.isReady()) {
+                val backendReady = when (PrivilegedShell.activeBackend.value) {
+                    PrivilegedShell.Backend.SHIZUKU ->
+                        ShizukuManager.isShizukuRunning() &&
+                            ShizukuManager.hasPermission() &&
+                            PrivilegedShell.isReady()
+                    PrivilegedShell.Backend.ADB -> PrivilegedShell.isReady()
+                    PrivilegedShell.Backend.NONE -> false
+                }
+                if (backendReady && disabled) {
                     val (success, _) = ShizukuManager.disablePackageResult(packageName)
                     if (!success) {
                         val label = _installedApps.value.find { it.packageName == packageName }?.label ?: packageName
                         _toastEvent.emit("Không thể vô hiệu hóa $label: Ứng dụng này bị hệ thống Android bảo vệ.")
                     }
-                    refreshDisabledPackages()
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("MainVM", "Error disabling $packageName", e)
-            }
-        }
-    }
-
-    fun enableAndLaunchApp(packageName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                if (PrivilegedShell.isReady()) {
+                } else if (backendReady) {
                     ShizukuManager.enablePackage(packageName)
-                    ShizukuManager.launchPackage(packageName)
-                    refreshDisabledPackages()
+                } else {
+                    _toastEvent.emit("Cần kết nối Shizuku hoặc ADB để thay đổi trạng thái ứng dụng.")
                 }
+                refreshDisabledPackages()
             } catch (e: Exception) {
-                android.util.Log.e("MainVM", "Error enabling/launching $packageName", e)
+                android.util.Log.e("MainVM", "Error changing disabled state for $packageName", e)
+                _toastEvent.emit("Không thể thay đổi trạng thái ứng dụng: ${e.message ?: "lỗi hệ thống"}")
             }
         }
     }
@@ -429,10 +428,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.resetAll() }
     }
 
-    fun launchDisabledApp(pkg: String) {
-        enableAndLaunchApp(pkg)
-    }
-
     fun refreshShizukuStatus() {
         refreshShellStatus()
     }
@@ -456,20 +451,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             repo.toggleAppFrozenShelf(packageName, addToShelf)
             refreshDisabledPackages()
-        }
-    }
-
-    fun freezeAppImmediately(packageName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                repo.toggleAppFrozenShelf(packageName, true)
-                ShizukuManager.forceStop(packageName)
-                ShizukuManager.disablePackage(packageName)
-                refreshDisabledPackages()
-            } catch (e: Exception) {
-                android.util.Log.e("MainVM", "Error freezing $packageName", e)
-                _toastEvent.emit("Không thể đóng băng $packageName: ${e.message ?: "lỗi hệ thống"}")
-            }
         }
     }
 
