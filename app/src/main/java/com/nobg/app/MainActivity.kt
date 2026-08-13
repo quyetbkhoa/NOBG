@@ -14,12 +14,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.nobg.app.service.MonitorService
@@ -128,13 +137,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     val currentScreen by remember { derivedStateOf { backStack.last() } }
+                    var navigationDirection by remember { mutableIntStateOf(1) }
 
                     fun navigate(screen: String) {
-                        if (backStack.last() != screen) backStack.add(screen)
+                        if (backStack.last() != screen) {
+                            navigationDirection = 1
+                            backStack.add(screen)
+                        }
                     }
 
                     fun goBack() {
-                        if (backStack.size > 1) backStack.removeAt(backStack.size - 1)
+                        if (backStack.size > 1) {
+                            navigationDirection = -1
+                            backStack.removeAt(backStack.size - 1)
+                        }
                     }
 
                     val newScreenRequested by screenFlow.collectAsState()
@@ -167,7 +183,33 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    when (currentScreen) {
+                    AnimatedContent(
+                        targetState = currentScreen,
+                        modifier = Modifier.fillMaxSize(),
+                        transitionSpec = {
+                            val enterSpec = tween<IntOffset>(
+                                durationMillis = 260,
+                                easing = FastOutSlowInEasing
+                            )
+                            val exitSpec = tween<IntOffset>(
+                                durationMillis = 220,
+                                easing = FastOutSlowInEasing
+                            )
+                            if (navigationDirection > 0) {
+                                (slideInHorizontally(enterSpec) { width -> width / 12 } +
+                                    fadeIn(tween(durationMillis = 180, delayMillis = 30))) togetherWith
+                                    (slideOutHorizontally(exitSpec) { width -> -width / 24 } +
+                                        fadeOut(tween(durationMillis = 150)))
+                            } else {
+                                (slideInHorizontally(enterSpec) { width -> -width / 24 } +
+                                    fadeIn(tween(durationMillis = 180, delayMillis = 20))) togetherWith
+                                    (slideOutHorizontally(exitSpec) { width -> width / 12 } +
+                                        fadeOut(tween(durationMillis = 150)))
+                            }
+                        },
+                        label = "NobgScreenTransition"
+                    ) { screen ->
+                    when (screen) {
                         "DASHBOARD" -> DashboardScreen(
                             viewModel = viewModel,
                             onOpenAppList = { navigate("APP_LIST") },
@@ -223,6 +265,7 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onBack = { goBack() }
                         )
+                    }
                     }
                 }
             }
